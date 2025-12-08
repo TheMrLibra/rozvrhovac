@@ -1,0 +1,53 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: rozvrhovac-backend
+  labels:
+    app: rozvrhovac-backend
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: rozvrhovac-backend
+  template:
+    metadata:
+      labels:
+        app: rozvrhovac-backend
+    spec:
+      containers:
+      - name: backend
+        image: rozvrhovac-backend:latest
+        ports:
+        - containerPort: 8000
+        env:
+        - name: DATABASE_URL
+          valueFrom:
+            secretKeyRef:
+              name: rozvrhovac-secrets
+              key: database-url
+        - name: SECRET_KEY
+          valueFrom:
+            secretKeyRef:
+              name: rozvrhovac-secrets
+              key: secret-key
+        resources:
+          requests:
+            memory: "256Mi"
+            cpu: "250m"
+          limits:
+            memory: "512Mi"
+            cpu: "500m"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: rozvrhovac-backend
+spec:
+  selector:
+    app: rozvrhovac-backend
+  ports:
+  - protocol: TCP
+    port: 8000
+    targetPort: 8000
+  type: ClusterIP
+
