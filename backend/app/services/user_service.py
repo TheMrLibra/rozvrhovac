@@ -41,10 +41,10 @@ class UserService:
     
     def create_tokens(self, user: User) -> dict:
         access_token = create_access_token(
-            data={"sub": user.id, "role": user.role.value, "school_id": user.school_id}
+            data={"sub": str(user.id), "role": user.role.value, "school_id": user.school_id}
         )
         refresh_token = create_refresh_token(
-            data={"sub": user.id}
+            data={"sub": str(user.id)}
         )
         return {
             "access_token": access_token,

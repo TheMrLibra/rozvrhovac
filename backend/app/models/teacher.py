@@ -1,6 +1,14 @@
-from sqlalchemy import Column, Integer, String, ForeignKey, JSON
+from sqlalchemy import Column, Integer, String, ForeignKey, JSON, Table
 from sqlalchemy.orm import relationship
 from app.core.database import Base
+
+# Association table for many-to-many relationship between teachers and classrooms
+teacher_classroom_association = Table(
+    'teacher_classroom_association',
+    Base.metadata,
+    Column('teacher_id', Integer, ForeignKey('teachers.id'), primary_key=True),
+    Column('classroom_id', Integer, ForeignKey('classrooms.id'), primary_key=True)
+)
 
 class Teacher(Base):
     __tablename__ = "teachers"
@@ -13,8 +21,9 @@ class Teacher(Base):
     user_id = Column(Integer, ForeignKey("users.id"), nullable=True, unique=True)
     
     school = relationship("School", back_populates="teachers")
-    user = relationship("User", back_populates="teacher", uselist=False)
+    user = relationship("User", back_populates="teacher", uselist=False, foreign_keys="User.teacher_id")
     capabilities = relationship("TeacherSubjectCapability", back_populates="teacher", cascade="all, delete-orphan")
+    classrooms = relationship("Classroom", secondary=teacher_classroom_association, back_populates="teachers")
     timetable_entries = relationship("TimetableEntry", back_populates="teacher")
     absences = relationship("TeacherAbsence", back_populates="teacher", cascade="all, delete-orphan")
     original_substitutions = relationship("Substitution", foreign_keys="Substitution.original_teacher_id", back_populates="original_teacher")

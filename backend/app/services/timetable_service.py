@@ -247,7 +247,8 @@ class TimetableService:
         if subject.requires_specialized_classroom or subject.is_laboratory:
             for classroom in classrooms:
                 if classroom.specializations:
-                    if subject.is_laboratory and "laboratory" in classroom.specializations:
+                    # Check if this classroom specializes in this subject (subject ID in specializations list)
+                    if subject.id in classroom.specializations:
                         # Check if available
                         if not any(e.classroom_id == classroom.id and e.day_of_week == day 
                                  and e.lesson_index == lesson_index for e in placed_entries):

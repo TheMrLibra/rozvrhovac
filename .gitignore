@@ -25,6 +25,8 @@ yarn-error.log*
 dist/
 .nuxt/
 .output/
+# Keep package-lock.json for reproducible builds
+# package-lock.json
 
 # IDEs
 .vscode/
@@ -46,6 +48,9 @@ Thumbs.db
 *.db
 *.sqlite
 *.sqlite3
+
+# Docker
+.docker/
 
 # Logs
 *.log

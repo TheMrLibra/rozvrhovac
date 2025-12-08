@@ -7,6 +7,8 @@ interface User {
   email: string
   role: string
   school_id: number
+  teacher_id?: number | null
+  class_group_id?: number | null
 }
 
 export const useAuthStore = defineStore('auth', () => {

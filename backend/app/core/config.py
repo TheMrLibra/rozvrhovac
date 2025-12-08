@@ -1,5 +1,6 @@
 from pydantic_settings import BaseSettings
 from typing import List
+import os
 
 class Settings(BaseSettings):
     PROJECT_NAME: str = "Rozvrhovac"
@@ -14,8 +15,16 @@ class Settings(BaseSettings):
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 30
     REFRESH_TOKEN_EXPIRE_DAYS: int = 7
     
-    # CORS
-    CORS_ORIGINS: List[str] = ["http://localhost:5173", "http://localhost:3000"]
+    # CORS - accept comma-separated string from env, convert to list
+    CORS_ORIGINS: str = "http://localhost:5173,http://localhost:3000"
+    
+    @property
+    def cors_origins_list(self) -> List[str]:
+        """Convert CORS_ORIGINS to a list"""
+        origins = os.getenv("CORS_ORIGINS", self.CORS_ORIGINS)
+        if isinstance(origins, str):
+            return [origin.strip() for origin in origins.split(",") if origin.strip()]
+        return origins if isinstance(origins, list) else []
     
     class Config:
         env_file = ".env"

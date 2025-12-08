@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, ForeignKey, JSON
+from sqlalchemy import Column, Integer, String, ForeignKey, JSON, Table
 from sqlalchemy.orm import relationship
 from app.core.database import Base
 
@@ -13,5 +13,6 @@ class Classroom(Base):
     restrictions = Column(JSON, nullable=True)  # e.g., ["no_physical_education"]
     
     school = relationship("School", back_populates="classrooms")
+    teachers = relationship("Teacher", secondary="teacher_classroom_association", back_populates="classrooms")
     timetable_entries = relationship("TimetableEntry", back_populates="classroom")
 

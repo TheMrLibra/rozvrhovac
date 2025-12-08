@@ -21,6 +21,6 @@ class User(Base):
     class_group_id = Column(Integer, ForeignKey("class_groups.id"), nullable=True)  # for scholars
     
     school = relationship("School", back_populates="users")
-    teacher = relationship("Teacher", back_populates="user", uselist=False)
+    teacher = relationship("Teacher", back_populates="user", uselist=False, foreign_keys="User.teacher_id")
     class_group = relationship("ClassGroup")
 

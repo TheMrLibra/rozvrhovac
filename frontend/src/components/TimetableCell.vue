@@ -46,5 +46,6 @@ defineProps<Props>()
     font-size: 0.75rem;
     color: #999;
   }
+}
 </style>
 

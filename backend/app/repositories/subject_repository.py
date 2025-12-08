@@ -21,4 +21,10 @@ class ClassSubjectAllocationRepository(BaseRepository[ClassSubjectAllocation]):
             select(ClassSubjectAllocation).where(ClassSubjectAllocation.class_group_id == class_group_id)
         )
         return list(result.scalars().all())
+    
+    async def get_by_subject_id(self, subject_id: int) -> List[ClassSubjectAllocation]:
+        result = await self.db.execute(
+            select(ClassSubjectAllocation).where(ClassSubjectAllocation.subject_id == subject_id)
+        )
+        return list(result.scalars().all())
 

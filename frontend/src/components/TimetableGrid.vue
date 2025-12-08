@@ -34,7 +34,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed } from 'vue'
+// computed not used
 import TimetableCell from './TimetableCell.vue'
 
 interface Props {

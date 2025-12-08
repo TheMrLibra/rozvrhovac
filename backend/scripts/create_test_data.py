@@ -1,0 +1,277 @@
+"""
+Script to create comprehensive test data for development
+Run with: python -m scripts.create_test_data
+"""
+import asyncio
+from sqlalchemy.ext.asyncio import AsyncSession
+from app.core.database import AsyncSessionLocal
+from app.models.school import School, SchoolSettings
+from app.models.grade_level import GradeLevel
+from app.models.class_group import ClassGroup
+from app.models.subject import Subject, ClassSubjectAllocation
+from app.models.teacher import Teacher, TeacherSubjectCapability
+from app.models.classroom import Classroom
+from datetime import time
+from sqlalchemy import text, select
+
+async def create_test_data():
+    async with AsyncSessionLocal() as db:
+        # Get or create school
+        result = await db.execute(text("SELECT id FROM schools WHERE code = 'DEMO001'"))
+        school_id_result = result.scalar_one_or_none()
+        
+        if not school_id_result:
+            print("❌ School not found. Please run seed_data.py first to create the school.")
+            return
+        
+        school_id = school_id_result
+        
+        # Check if test data already exists
+        result = await db.execute(text("SELECT COUNT(*) FROM subjects WHERE school_id = :school_id"), {"school_id": school_id})
+        subject_count = result.scalar_one()
+        
+        if subject_count > 0:
+            print("⚠️  Test data already exists.")
+            print("   Deleting existing test data...")
+            
+            # Delete in reverse order of dependencies
+            # First delete timetable entries and timetables
+            await db.execute(text("DELETE FROM timetable_entries WHERE timetable_id IN (SELECT id FROM timetables WHERE school_id = :school_id)"), {"school_id": school_id})
+            await db.execute(text("DELETE FROM timetables WHERE school_id = :school_id"), {"school_id": school_id})
+            # Delete allocations and capabilities
+            await db.execute(text("DELETE FROM class_subject_allocations WHERE class_group_id IN (SELECT id FROM class_groups WHERE school_id = :school_id)"), {"school_id": school_id})
+            await db.execute(text("DELETE FROM teacher_subject_capabilities WHERE teacher_id IN (SELECT id FROM teachers WHERE school_id = :school_id)"), {"school_id": school_id})
+            await db.execute(text("DELETE FROM class_subject_allocations WHERE subject_id IN (SELECT id FROM subjects WHERE school_id = :school_id)"), {"school_id": school_id})
+            # Delete main entities
+            await db.execute(text("DELETE FROM subjects WHERE school_id = :school_id"), {"school_id": school_id})
+            await db.execute(text("DELETE FROM teachers WHERE school_id = :school_id"), {"school_id": school_id})
+            await db.execute(text("DELETE FROM classrooms WHERE school_id = :school_id"), {"school_id": school_id})
+            await db.execute(text("DELETE FROM class_groups WHERE school_id = :school_id"), {"school_id": school_id})
+            await db.execute(text("DELETE FROM grade_levels WHERE school_id = :school_id"), {"school_id": school_id})
+            await db.commit()
+            print("   ✓ Deleted existing test data")
+        
+        print(f"Creating test data for school ID: {school_id}")
+        print("=" * 60)
+        
+        # Create Grade Levels
+        print("\n📚 Creating Grade Levels...")
+        grade_levels_data = [
+            {"name": "1st Grade", "level": 1},
+            {"name": "2nd Grade", "level": 2},
+            {"name": "3rd Grade", "level": 3},
+        ]
+        grade_levels = {}
+        for gl_data in grade_levels_data:
+            grade_level = GradeLevel(
+                school_id=school_id,
+                name=gl_data["name"],
+                level=gl_data["level"]
+            )
+            db.add(grade_level)
+            await db.flush()
+            grade_levels[gl_data["level"]] = grade_level
+            print(f"  ✓ Created {gl_data['name']} (ID: {grade_level.id})")
+        
+        await db.commit()
+        
+        # Create Class Groups
+        print("\n👥 Creating Class Groups...")
+        class_groups_data = [
+            {"name": "1.A", "grade_level": 1},
+            {"name": "1.B", "grade_level": 1},
+            {"name": "2.A", "grade_level": 2},
+            {"name": "2.B", "grade_level": 2},
+            {"name": "3.A", "grade_level": 3},
+        ]
+        class_groups = {}
+        for cg_data in class_groups_data:
+            class_group = ClassGroup(
+                school_id=school_id,
+                grade_level_id=grade_levels[cg_data["grade_level"]].id,
+                name=cg_data["name"]
+            )
+            db.add(class_group)
+            await db.flush()
+            class_groups[cg_data["name"]] = class_group
+            print(f"  ✓ Created {cg_data['name']} (ID: {class_group.id})")
+        
+        await db.commit()
+        
+        # Create Subjects
+        print("\n📖 Creating Subjects...")
+        subjects_data = [
+            {"name": "Mathematics", "is_lab": False, "requires_specialized": False},
+            {"name": "Physics", "is_lab": True, "requires_specialized": True},
+            {"name": "Chemistry", "is_lab": True, "requires_specialized": True},
+            {"name": "Biology", "is_lab": True, "requires_specialized": True},
+            {"name": "Computer Science", "is_lab": True, "requires_specialized": True},
+            {"name": "English", "is_lab": False, "requires_specialized": False},
+            {"name": "History", "is_lab": False, "requires_specialized": False},
+            {"name": "Geography", "is_lab": False, "requires_specialized": False},
+            {"name": "Physical Education", "is_lab": False, "requires_specialized": False},
+            {"name": "Art", "is_lab": False, "requires_specialized": False},
+        ]
+        subjects = {}
+        for subj_data in subjects_data:
+            subject = Subject(
+                school_id=school_id,
+                name=subj_data["name"],
+                allow_consecutive_hours=True,
+                max_consecutive_hours=2 if subj_data["is_lab"] else None,
+                allow_multiple_in_one_day=True,
+                required_block_length=2 if subj_data["is_lab"] else None,
+                is_laboratory=subj_data["is_lab"],
+                requires_specialized_classroom=subj_data["requires_specialized"]
+            )
+            db.add(subject)
+            await db.flush()
+            subjects[subj_data["name"]] = subject
+            print(f"  ✓ Created {subj_data['name']} (ID: {subject.id})")
+        
+        await db.commit()
+        
+        # Create Teachers
+        print("\n👨‍🏫 Creating Teachers...")
+        teachers_data = [
+            {"name": "John Smith", "hours": 20, "subjects": ["Mathematics", "Physics"]},
+            {"name": "Jane Doe", "hours": 18, "subjects": ["Chemistry", "Biology"]},
+            {"name": "Bob Johnson", "hours": 22, "subjects": ["Computer Science", "Mathematics"]},
+            {"name": "Alice Williams", "hours": 20, "subjects": ["English", "History"]},
+            {"name": "Charlie Brown", "hours": 16, "subjects": ["Geography", "History"]},
+            {"name": "Diana Prince", "hours": 18, "subjects": ["Physical Education"]},
+            {"name": "Edward Norton", "hours": 20, "subjects": ["Art", "English"]},
+        ]
+        teachers = {}
+        for teacher_data in teachers_data:
+            teacher = Teacher(
+                school_id=school_id,
+                full_name=teacher_data["name"],
+                max_weekly_hours=teacher_data["hours"],
+                availability=None
+            )
+            db.add(teacher)
+            await db.flush()
+            teachers[teacher_data["name"]] = teacher
+            print(f"  ✓ Created {teacher_data['name']} (ID: {teacher.id})")
+        
+        await db.commit()
+        
+        # Create Teacher Capabilities
+        print("\n🎯 Creating Teacher Capabilities...")
+        for teacher_name, teacher in teachers.items():
+            teacher_data = next(t for t in teachers_data if t["name"] == teacher_name)
+            for subject_name in teacher_data["subjects"]:
+                subject = subjects[subject_name]
+                capability = TeacherSubjectCapability(
+                    teacher_id=teacher.id,
+                    subject_id=subject.id,
+                    grade_level_id=None,
+                    class_group_id=None
+                )
+                db.add(capability)
+            print(f"  ✓ Added capabilities for {teacher_name}")
+        
+        await db.commit()
+        
+        # Create Classrooms
+        print("\n🏫 Creating Classrooms...")
+        classrooms_data = [
+            {"name": "Room 101", "capacity": 30, "specializations": []},
+            {"name": "Room 102", "capacity": 30, "specializations": []},
+            {"name": "Physics Lab", "capacity": 20, "specializations": ["Physics"]},
+            {"name": "Chemistry Lab", "capacity": 20, "specializations": ["Chemistry"]},
+            {"name": "Biology Lab", "capacity": 20, "specializations": ["Biology"]},
+            {"name": "Computer Lab", "capacity": 25, "specializations": ["Computer Science"]},
+            {"name": "Gym", "capacity": 40, "specializations": []},
+            {"name": "Art Room", "capacity": 25, "specializations": []},
+        ]
+        classrooms = {}
+        for room_data in classrooms_data:
+            # Convert subject names to IDs
+            spec_ids = [subjects[s].id for s in room_data["specializations"]] if room_data["specializations"] else []
+            classroom = Classroom(
+                school_id=school_id,
+                name=room_data["name"],
+                capacity=room_data["capacity"],
+                specializations=spec_ids if spec_ids else None,
+                restrictions=None
+            )
+            db.add(classroom)
+            await db.flush()
+            classrooms[room_data["name"]] = classroom
+            spec_str = f" (specializations: {room_data['specializations']})" if room_data["specializations"] else ""
+            print(f"  ✓ Created {room_data['name']} (ID: {classroom.id}){spec_str}")
+        
+        await db.commit()
+        
+        # Create Class Subject Allocations
+        print("\n📋 Creating Class Subject Allocations...")
+        allocations_data = [
+            # 1st Grade classes
+            {"class": "1.A", "subject": "Mathematics", "hours": 4},
+            {"class": "1.A", "subject": "English", "hours": 4},
+            {"class": "1.A", "subject": "History", "hours": 2},
+            {"class": "1.A", "subject": "Geography", "hours": 2},
+            {"class": "1.A", "subject": "Physical Education", "hours": 2},
+            {"class": "1.A", "subject": "Art", "hours": 2},
+            {"class": "1.B", "subject": "Mathematics", "hours": 4},
+            {"class": "1.B", "subject": "English", "hours": 4},
+            {"class": "1.B", "subject": "History", "hours": 2},
+            {"class": "1.B", "subject": "Geography", "hours": 2},
+            {"class": "1.B", "subject": "Physical Education", "hours": 2},
+            {"class": "1.B", "subject": "Art", "hours": 2},
+            # 2nd Grade classes
+            {"class": "2.A", "subject": "Mathematics", "hours": 5},
+            {"class": "2.A", "subject": "Physics", "hours": 3},
+            {"class": "2.A", "subject": "Chemistry", "hours": 2},
+            {"class": "2.A", "subject": "English", "hours": 4},
+            {"class": "2.A", "subject": "History", "hours": 2},
+            {"class": "2.A", "subject": "Geography", "hours": 2},
+            {"class": "2.A", "subject": "Physical Education", "hours": 2},
+            {"class": "2.B", "subject": "Mathematics", "hours": 5},
+            {"class": "2.B", "subject": "Physics", "hours": 3},
+            {"class": "2.B", "subject": "Chemistry", "hours": 2},
+            {"class": "2.B", "subject": "English", "hours": 4},
+            {"class": "2.B", "subject": "History", "hours": 2},
+            {"class": "2.B", "subject": "Geography", "hours": 2},
+            {"class": "2.B", "subject": "Physical Education", "hours": 2},
+            # 3rd Grade classes
+            {"class": "3.A", "subject": "Mathematics", "hours": 5},
+            {"class": "3.A", "subject": "Physics", "hours": 4},
+            {"class": "3.A", "subject": "Chemistry", "hours": 3},
+            {"class": "3.A", "subject": "Biology", "hours": 3},
+            {"class": "3.A", "subject": "Computer Science", "hours": 3},
+            {"class": "3.A", "subject": "English", "hours": 4},
+            {"class": "3.A", "subject": "History", "hours": 2},
+            {"class": "3.A", "subject": "Geography", "hours": 2},
+            {"class": "3.A", "subject": "Physical Education", "hours": 2},
+        ]
+        
+        for alloc_data in allocations_data:
+            class_group = class_groups[alloc_data["class"]]
+            subject = subjects[alloc_data["subject"]]
+            allocation = ClassSubjectAllocation(
+                class_group_id=class_group.id,
+                subject_id=subject.id,
+                weekly_hours=alloc_data["hours"]
+            )
+            db.add(allocation)
+        
+        await db.commit()
+        print(f"  ✓ Created {len(allocations_data)} subject allocations")
+        
+        print("\n" + "=" * 60)
+        print("✅ Test data created successfully!")
+        print("\nSummary:")
+        print(f"  • {len(grade_levels)} Grade Levels")
+        print(f"  • {len(class_groups)} Class Groups")
+        print(f"  • {len(subjects)} Subjects")
+        print(f"  • {len(teachers)} Teachers")
+        print(f"  • {len(classrooms)} Classrooms")
+        print(f"  • {len(allocations_data)} Class Subject Allocations")
+        print("\nYou can now use the admin panel to manage this data!")
+
+if __name__ == "__main__":
+    asyncio.run(create_test_data())
+

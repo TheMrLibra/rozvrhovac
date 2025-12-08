@@ -8,9 +8,9 @@ class School(Base):
     id = Column(Integer, primary_key=True, index=True)
     name = Column(String, nullable=False)
     code = Column(String, unique=True, nullable=False, index=True)
-    settings_id = Column(Integer, ForeignKey("school_settings.id"), nullable=True)
+    # settings_id removed - circular dependency. Use SchoolSettings.school_id instead
     
-    settings = relationship("SchoolSettings", back_populates="school", uselist=False)
+    settings = relationship("SchoolSettings", back_populates="school", uselist=False, foreign_keys="SchoolSettings.school_id")
     grade_levels = relationship("GradeLevel", back_populates="school", cascade="all, delete-orphan")
     classes = relationship("ClassGroup", back_populates="school", cascade="all, delete-orphan")
     teachers = relationship("Teacher", back_populates="school", cascade="all, delete-orphan")
@@ -31,5 +31,5 @@ class SchoolSettings(Base):
     possible_lunch_hours = Column(JSON, nullable=True)  # e.g., [3, 4, 5]
     lunch_duration_minutes = Column(Integer, nullable=False, default=30)
     
-    school = relationship("School", back_populates="settings")
+    school = relationship("School", back_populates="settings", foreign_keys="SchoolSettings.school_id")
 
