@@ -412,32 +412,48 @@ onMounted(() => {
 </script>
 
 <style lang="scss" scoped>
+@import '../styles/glass.scss';
+
 .subjects-view {
   min-height: 100vh;
-  background-color: #f5f5f5;
+  position: relative;
+  z-index: 1;
 
   &__header {
-    background: white;
-    padding: 1rem 2rem;
+    @extend %glass-header;
+    padding: 1.5rem 2rem;
     display: flex;
     justify-content: space-between;
     align-items: center;
-    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    position: sticky;
+    top: 0;
+    z-index: 100;
   }
 
   &__title {
-    color: #333;
+    color: rgba(255, 255, 255, 0.95);
+    font-size: 1.75rem;
+    font-weight: 700;
+    text-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
   }
 
   &__back {
-    padding: 0.5rem 1rem;
-    background-color: #6c757d;
-    color: white;
+    padding: 0.75rem 1.5rem;
+    background: rgba(108, 117, 125, 0.3);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    color: rgba(255, 255, 255, 0.95);
     text-decoration: none;
-    border-radius: 4px;
+    border-radius: 12px;
+    font-weight: 500;
+    transition: all 0.3s ease;
 
     &:hover {
-      background-color: #5a6268;
+      background: rgba(108, 117, 125, 0.4);
+      border-color: rgba(255, 255, 255, 0.3);
+      transform: translateY(-2px);
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
     }
   }
 
@@ -445,18 +461,20 @@ onMounted(() => {
     padding: 2rem;
     max-width: 1200px;
     margin: 0 auto;
+    position: relative;
+    z-index: 1;
   }
 
   &__section {
-    background: white;
+    @extend %glass-card;
     padding: 2rem;
-    border-radius: 8px;
     margin-bottom: 2rem;
-    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
 
     h2 {
       margin-bottom: 1rem;
-      color: #333;
+      color: rgba(255, 255, 255, 0.95);
+      font-weight: 700;
+      text-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
     }
   }
 
@@ -467,15 +485,10 @@ onMounted(() => {
   }
 
   &__input {
+    @extend %glass-input;
     padding: 0.75rem;
-    border: 1px solid #ddd;
-    border-radius: 4px;
+    border-radius: 12px;
     font-size: 1rem;
-
-    &:focus {
-      outline: none;
-      border-color: #4a90e2;
-    }
   }
 
   &__field-group {
@@ -495,13 +508,14 @@ onMounted(() => {
     align-items: center;
     gap: 0.5rem;
     font-weight: 600;
-    color: #333;
+    color: rgba(255, 255, 255, 0.95);
     cursor: pointer;
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
   }
 
   &__hint {
     display: block;
-    color: #666;
+    color: rgba(255, 255, 255, 0.7);
     font-size: 0.875rem;
     margin-top: -0.25rem;
   }
@@ -518,32 +532,30 @@ onMounted(() => {
     align-items: center;
     gap: 0.5rem;
     cursor: pointer;
+    color: rgba(255, 255, 255, 0.9);
   }
 
   &__button {
+    @extend %glass-button;
     padding: 0.75rem 2rem;
-    background-color: #4a90e2;
-    color: white;
-    border: none;
-    border-radius: 4px;
+    border-radius: 12px;
     cursor: pointer;
     font-size: 1rem;
     align-self: flex-start;
-
-    &:hover:not(:disabled) {
-      background-color: #357abd;
-    }
+    font-weight: 600;
 
     &:disabled {
-      opacity: 0.6;
+      opacity: 0.5;
       cursor: not-allowed;
     }
 
     &--secondary {
-      background-color: #6c757d;
+      background: rgba(108, 117, 125, 0.3);
+      border-color: rgba(255, 255, 255, 0.2);
 
-      &:hover {
-        background-color: #5a6268;
+      &:hover:not(:disabled) {
+        background: rgba(108, 117, 125, 0.4);
+        border-color: rgba(255, 255, 255, 0.3);
       }
     }
   }
@@ -555,13 +567,21 @@ onMounted(() => {
   }
 
   &__item {
+    @include glass-effect(0.1, 12px);
     display: flex;
     justify-content: space-between;
     align-items: center;
     padding: 1rem;
-    background-color: #f8f9fa;
-    border-radius: 4px;
-    border: 1px solid #dee2e6;
+    border-radius: 16px;
+    margin-bottom: 0.5rem;
+    transition: all 0.3s ease;
+
+    &:hover {
+      background: rgba(255, 255, 255, 0.15);
+      border-color: rgba(255, 255, 255, 0.25);
+      transform: translateY(-2px);
+      box-shadow: 0 8px 16px rgba(0, 0, 0, 0.15);
+    }
 
     &-info {
       display: flex;
@@ -571,23 +591,27 @@ onMounted(() => {
 
     &-name {
       font-weight: 600;
-      color: #333;
+      color: rgba(255, 255, 255, 0.95);
+      text-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
     }
 
     &-details {
       display: flex;
       gap: 1rem;
       align-items: center;
-      color: #666;
+      color: rgba(255, 255, 255, 0.8);
       font-size: 0.875rem;
     }
   }
 
   &__badge {
     padding: 0.25rem 0.5rem;
-    background-color: #ffc107;
-    color: #333;
-    border-radius: 4px;
+    background: rgba(255, 193, 7, 0.3);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    border: 1px solid rgba(255, 193, 7, 0.4);
+    color: rgba(255, 255, 255, 0.95);
+    border-radius: 8px;
     font-size: 0.75rem;
     font-weight: 600;
   }
@@ -597,48 +621,46 @@ onMounted(() => {
     gap: 0.5rem;
   }
 
-  &__edit {
+  &__edit,
+  &__delete {
+    @extend %glass-button;
     padding: 0.5rem 1rem;
-    background-color: #ffc107;
-    color: #333;
-    border: none;
-    border-radius: 4px;
+    border-radius: 10px;
     cursor: pointer;
     font-size: 0.875rem;
-
-    &:hover:not(:disabled) {
-      background-color: #e0a800;
-    }
+    font-weight: 600;
 
     &:disabled {
-      opacity: 0.6;
+      opacity: 0.5;
       cursor: not-allowed;
     }
   }
 
-  &__delete {
-    padding: 0.5rem 1rem;
-    background-color: #dc3545;
-    color: white;
-    border: none;
-    border-radius: 4px;
-    cursor: pointer;
-    font-size: 0.875rem;
+  &__edit {
+    background: rgba(255, 193, 7, 0.3);
+    border-color: rgba(255, 193, 7, 0.4);
+    color: rgba(255, 255, 255, 0.95);
 
     &:hover:not(:disabled) {
-      background-color: #c82333;
+      background: rgba(255, 193, 7, 0.4);
+      border-color: rgba(255, 193, 7, 0.5);
     }
+  }
 
-    &:disabled {
-      opacity: 0.6;
-      cursor: not-allowed;
+  &__delete {
+    background: rgba(220, 53, 69, 0.3);
+    border-color: rgba(220, 53, 69, 0.4);
+
+    &:hover:not(:disabled) {
+      background: rgba(220, 53, 69, 0.4);
+      border-color: rgba(220, 53, 69, 0.5);
     }
   }
 
   &__empty {
     padding: 2rem;
     text-align: center;
-    color: #666;
+    color: rgba(255, 255, 255, 0.7);
     font-style: italic;
   }
 
@@ -648,7 +670,9 @@ onMounted(() => {
     left: 0;
     right: 0;
     bottom: 0;
-    background-color: rgba(0, 0, 0, 0.5);
+    background: rgba(0, 0, 0, 0.4);
+    backdrop-filter: blur(4px);
+    -webkit-backdrop-filter: blur(4px);
     display: flex;
     align-items: center;
     justify-content: center;
@@ -656,13 +680,17 @@ onMounted(() => {
   }
 
   &__modal-content {
-    background: white;
+    @extend %glass-modal;
     padding: 2rem;
-    border-radius: 8px;
     max-width: 500px;
     width: 90%;
     max-height: 90vh;
     overflow-y: auto;
+
+    h3 {
+      color: rgba(255, 255, 255, 0.95);
+      text-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    }
   }
 
   &__modal-actions {
@@ -672,18 +700,24 @@ onMounted(() => {
   }
 
   &__error {
-    color: #dc3545;
+    color: rgba(255, 200, 200, 0.95);
     padding: 1rem;
-    background-color: #f8d7da;
-    border-radius: 4px;
+    background: rgba(220, 53, 69, 0.2);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    border: 1px solid rgba(220, 53, 69, 0.3);
+    border-radius: 12px;
     margin-top: 1rem;
   }
 
   &__success {
-    color: #28a745;
+    color: rgba(200, 255, 200, 0.95);
     padding: 1rem;
-    background-color: #d4edda;
-    border-radius: 4px;
+    background: rgba(40, 167, 69, 0.2);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    border: 1px solid rgba(40, 167, 69, 0.3);
+    border-radius: 12px;
     margin-top: 1rem;
   }
 }

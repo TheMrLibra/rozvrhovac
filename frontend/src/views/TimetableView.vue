@@ -161,21 +161,29 @@ onMounted(async () => {
 </script>
 
 <style lang="scss" scoped>
+@import '../styles/glass.scss';
+
 .timetable-view {
   min-height: 100vh;
-  background-color: #f5f5f5;
+  position: relative;
+  z-index: 1;
 
   &__header {
-    background: white;
-    padding: 1rem 2rem;
+    @extend %glass-header;
+    padding: 1.5rem 2rem;
     display: flex;
     justify-content: space-between;
     align-items: center;
-    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    position: sticky;
+    top: 0;
+    z-index: 100;
   }
 
   &__title {
-    color: #333;
+    color: rgba(255, 255, 255, 0.95);
+    font-size: 1.75rem;
+    font-weight: 700;
+    text-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
   }
 
   &__controls {
@@ -185,53 +193,51 @@ onMounted(async () => {
   }
 
   &__class-select {
+    @extend %glass-input;
     padding: 0.5rem 1rem;
-    border: 1px solid #ddd;
-    border-radius: 4px;
+    border-radius: 12px;
     font-size: 1rem;
-    background-color: white;
     cursor: pointer;
-
-    &:hover {
-      border-color: #4a90e2;
-    }
-
-    &:focus {
-      outline: none;
-      border-color: #4a90e2;
-      box-shadow: 0 0 0 2px rgba(74, 144, 226, 0.2);
-    }
   }
 
   &__back {
-    padding: 0.5rem 1rem;
-    background-color: #6c757d;
-    color: white;
+    padding: 0.75rem 1.5rem;
+    background: rgba(108, 117, 125, 0.3);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    color: rgba(255, 255, 255, 0.95);
     text-decoration: none;
-    border-radius: 4px;
+    border-radius: 12px;
+    font-weight: 500;
+    transition: all 0.3s ease;
 
     &:hover {
-      background-color: #5a6268;
+      background: rgba(108, 117, 125, 0.4);
+      border-color: rgba(255, 255, 255, 0.3);
+      transform: translateY(-2px);
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
     }
   }
 
   &__content {
     padding: 2rem;
+    position: relative;
+    z-index: 1;
   }
 
   &__loading {
     text-align: center;
     padding: 2rem;
-    color: #666;
+    color: rgba(255, 255, 255, 0.8);
   }
 
   &__empty {
+    @extend %glass-card;
     text-align: center;
     padding: 3rem;
-    color: #666;
-    background: white;
-    border-radius: 8px;
-    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    color: rgba(255, 255, 255, 0.7);
+    font-style: italic;
   }
 }
 </style>

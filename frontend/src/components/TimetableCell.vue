@@ -30,6 +30,8 @@ const isLunchBreak = computed(() => {
 </script>
 
 <style lang="scss" scoped>
+@import '../styles/glass.scss';
+
 .timetable-cell {
   min-height: 80px;
   display: flex;
@@ -43,42 +45,46 @@ const isLunchBreak = computed(() => {
 
   &__subject {
     font-weight: 600;
-    color: #333;
+    color: rgba(255, 255, 255, 0.95);
     margin-bottom: 0.25rem;
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
   }
 
   &__teacher {
     font-size: 0.875rem;
-    color: #666;
+    color: rgba(255, 255, 255, 0.85);
     margin-bottom: 0.25rem;
   }
 
   &__class {
     font-size: 0.875rem;
-    color: #555;
+    color: rgba(255, 255, 255, 0.9);
     margin-bottom: 0.25rem;
     font-weight: 500;
   }
 
   &__classroom {
     font-size: 0.75rem;
-    color: #999;
+    color: rgba(255, 255, 255, 0.7);
   }
 
   &__lunch {
+    @include glass-effect(0.15, 12px);
     min-height: 80px;
     display: flex;
     align-items: center;
     justify-content: center;
-    background: linear-gradient(135deg, #ffd89b 0%, #19547b 100%);
-    color: white;
+    background: rgba(255, 152, 0, 0.2);
+    border: 1px solid rgba(255, 152, 0, 0.3);
+    color: rgba(255, 255, 255, 0.95);
     font-weight: 600;
-    border-radius: 4px;
+    border-radius: 12px;
   }
 
   &__lunch-text {
     text-align: center;
     padding: 0.5rem;
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
   }
 }
 </style>

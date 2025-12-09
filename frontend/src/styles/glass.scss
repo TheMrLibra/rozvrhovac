@@ -1,0 +1,92 @@
+// Glassmorphism utility mixins and classes
+
+// Glass effect mixin
+@mixin glass-effect($opacity: 0.15, $blur: 18px) {
+  background: rgba(255, 255, 255, $opacity);
+  backdrop-filter: blur($blur);
+  -webkit-backdrop-filter: blur($blur);
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  box-shadow: 
+    0 8px 32px 0 rgba(31, 38, 135, 0.15),
+    inset 0 1px 0 0 rgba(255, 255, 255, 0.2);
+}
+
+// Dark glass effect (for dark backgrounds)
+@mixin glass-effect-dark($opacity: 0.1, $blur: 18px) {
+  background: rgba(0, 0, 0, $opacity);
+  backdrop-filter: blur($blur);
+  -webkit-backdrop-filter: blur($blur);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  box-shadow: 
+    0 8px 32px 0 rgba(0, 0, 0, 0.2),
+    inset 0 1px 0 0 rgba(255, 255, 255, 0.1);
+}
+
+// Glass card modifier
+%glass-card {
+  @include glass-effect(0.15, 18px);
+  border-radius: 20px;
+}
+
+// Glass panel modifier
+%glass-panel {
+  @include glass-effect(0.12, 20px);
+  border-radius: 24px;
+}
+
+// Glass modal modifier
+%glass-modal {
+  @include glass-effect(0.2, 20px);
+  border-radius: 24px;
+}
+
+// Glass header modifier
+%glass-header {
+  @include glass-effect(0.1, 16px);
+  border-radius: 0 0 20px 20px;
+  border-top: none;
+  border-left: none;
+  border-right: none;
+}
+
+// Glass input modifier
+%glass-input {
+  background: rgba(255, 255, 255, 0.1);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  color: rgba(255, 255, 255, 0.9);
+  
+  &::placeholder {
+    color: rgba(255, 255, 255, 0.5);
+  }
+  
+  &:focus {
+    background: rgba(255, 255, 255, 0.15);
+    border-color: rgba(255, 255, 255, 0.3);
+    outline: none;
+    box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.1);
+  }
+}
+
+// Glass button modifier
+%glass-button {
+  background: rgba(255, 255, 255, 0.2);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  color: rgba(255, 255, 255, 0.95);
+  transition: all 0.3s ease;
+  
+  &:hover {
+    background: rgba(255, 255, 255, 0.3);
+    border-color: rgba(255, 255, 255, 0.4);
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  }
+  
+  &:active {
+    transform: translateY(0);
+  }
+}
+

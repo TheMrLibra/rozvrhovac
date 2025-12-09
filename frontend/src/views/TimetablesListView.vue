@@ -438,21 +438,29 @@ onMounted(async () => {
 </script>
 
 <style lang="scss" scoped>
+@import '../styles/glass.scss';
+
 .timetables-list-view {
   min-height: 100vh;
-  background-color: #f5f5f5;
+  position: relative;
+  z-index: 1;
 
   &__header {
-    background: white;
-    padding: 1rem 2rem;
+    @extend %glass-header;
+    padding: 1.5rem 2rem;
     display: flex;
     justify-content: space-between;
     align-items: center;
-    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    position: sticky;
+    top: 0;
+    z-index: 100;
   }
 
   &__title {
-    color: #333;
+    color: rgba(255, 255, 255, 0.95);
+    font-size: 1.75rem;
+    font-weight: 700;
+    text-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
   }
 
   &__controls {
@@ -462,14 +470,22 @@ onMounted(async () => {
   }
 
   &__back {
-    padding: 0.5rem 1rem;
-    background-color: #6c757d;
-    color: white;
+    padding: 0.75rem 1.5rem;
+    background: rgba(108, 117, 125, 0.3);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    color: rgba(255, 255, 255, 0.95);
     text-decoration: none;
-    border-radius: 4px;
+    border-radius: 12px;
+    font-weight: 500;
+    transition: all 0.3s ease;
 
     &:hover {
-      background-color: #5a6268;
+      background: rgba(108, 117, 125, 0.4);
+      border-color: rgba(255, 255, 255, 0.3);
+      transform: translateY(-2px);
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
     }
   }
 
@@ -477,18 +493,20 @@ onMounted(async () => {
     padding: 2rem;
     max-width: 1200px;
     margin: 0 auto;
+    position: relative;
+    z-index: 1;
   }
 
   &__section {
-    background: white;
+    @extend %glass-card;
     padding: 2rem;
-    border-radius: 8px;
     margin-bottom: 2rem;
-    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
 
     h2 {
       margin-bottom: 1rem;
-      color: #333;
+      color: rgba(255, 255, 255, 0.95);
+      font-weight: 700;
+      text-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
     }
   }
 
@@ -518,28 +536,23 @@ onMounted(async () => {
   }
 
   &__input {
+    @extend %glass-input;
     flex: 1;
     padding: 0.75rem;
-    border: 1px solid #ddd;
-    border-radius: 4px;
+    border-radius: 12px;
     font-size: 1rem;
   }
 
   &__button {
+    @extend %glass-button;
     padding: 0.75rem 2rem;
-    background-color: #4a90e2;
-    color: white;
-    border: none;
-    border-radius: 4px;
+    border-radius: 12px;
     cursor: pointer;
     font-size: 1rem;
-
-    &:hover:not(:disabled) {
-      background-color: #357abd;
-    }
+    font-weight: 600;
 
     &:disabled {
-      opacity: 0.6;
+      opacity: 0.5;
       cursor: not-allowed;
     }
   }
@@ -551,17 +564,20 @@ onMounted(async () => {
   }
 
   &__item {
+    @include glass-effect(0.1, 12px);
     display: flex;
     justify-content: space-between;
     align-items: center;
     padding: 1.5rem;
-    border: 1px solid #ddd;
-    border-radius: 8px;
-    background-color: #fafafa;
-    transition: box-shadow 0.2s;
+    border-radius: 16px;
+    margin-bottom: 1rem;
+    transition: all 0.3s ease;
 
     &:hover {
-      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+      background: rgba(255, 255, 255, 0.15);
+      border-color: rgba(255, 255, 255, 0.25);
+      transform: translateY(-2px);
+      box-shadow: 0 8px 16px rgba(0, 0, 0, 0.15);
     }
   }
 
@@ -571,18 +587,20 @@ onMounted(async () => {
 
   &__item-name {
     margin: 0 0 0.5rem 0;
-    color: #333;
+    color: rgba(255, 255, 255, 0.95);
     font-size: 1.25rem;
+    font-weight: 700;
+    text-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
   }
 
   &__item-details {
-    color: #666;
+    color: rgba(255, 255, 255, 0.8);
     font-size: 0.875rem;
     margin-bottom: 0.5rem;
   }
 
   &__item-stats {
-    color: #999;
+    color: rgba(255, 255, 255, 0.7);
     font-size: 0.875rem;
   }
 
@@ -591,97 +609,96 @@ onMounted(async () => {
     gap: 0.5rem;
   }
 
-  &__view {
+  &__view,
+  &__validate,
+  &__delete {
+    @extend %glass-button;
     padding: 0.5rem 1rem;
-    background-color: #4a90e2;
-    color: white;
-    border: none;
-    border-radius: 4px;
+    border-radius: 10px;
     cursor: pointer;
     font-size: 0.875rem;
-
-    &:hover:not(:disabled) {
-      background-color: #357abd;
-    }
+    font-weight: 600;
 
     &:disabled {
-      opacity: 0.6;
+      opacity: 0.5;
       cursor: not-allowed;
+    }
+  }
+
+  &__view {
+    background: rgba(74, 144, 226, 0.3);
+    border-color: rgba(74, 144, 226, 0.4);
+
+    &:hover:not(:disabled) {
+      background: rgba(74, 144, 226, 0.4);
+      border-color: rgba(74, 144, 226, 0.5);
     }
   }
 
   &__validate {
-    padding: 0.5rem 1rem;
-    background-color: #28a745;
-    color: white;
-    border: none;
-    border-radius: 4px;
-    cursor: pointer;
-    font-size: 0.875rem;
+    background: rgba(40, 167, 69, 0.3);
+    border-color: rgba(40, 167, 69, 0.4);
 
     &:hover:not(:disabled) {
-      background-color: #218838;
-    }
-
-    &:disabled {
-      opacity: 0.6;
-      cursor: not-allowed;
+      background: rgba(40, 167, 69, 0.4);
+      border-color: rgba(40, 167, 69, 0.5);
     }
   }
 
   &__delete {
-    padding: 0.5rem 1rem;
-    background-color: #dc3545;
-    color: white;
-    border: none;
-    border-radius: 4px;
-    cursor: pointer;
-    font-size: 0.875rem;
+    background: rgba(220, 53, 69, 0.3);
+    border-color: rgba(220, 53, 69, 0.4);
 
     &:hover:not(:disabled) {
-      background-color: #c82333;
-    }
-
-    &:disabled {
-      opacity: 0.6;
-      cursor: not-allowed;
+      background: rgba(220, 53, 69, 0.4);
+      border-color: rgba(220, 53, 69, 0.5);
     }
   }
 
   &__loading {
     text-align: center;
     padding: 2rem;
-    color: #666;
+    color: rgba(255, 255, 255, 0.8);
   }
 
   &__empty {
     text-align: center;
     padding: 3rem;
-    color: #666;
+    color: rgba(255, 255, 255, 0.7);
+    font-style: italic;
   }
 
   &__error {
-    color: #dc3545;
+    color: rgba(255, 200, 200, 0.95);
     margin-top: 1rem;
     padding: 0.75rem;
-    background-color: #f8d7da;
-    border-radius: 4px;
+    background: rgba(220, 53, 69, 0.2);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    border: 1px solid rgba(220, 53, 69, 0.3);
+    border-radius: 12px;
   }
 
   &__success {
-    color: #28a745;
+    color: rgba(200, 255, 200, 0.95);
     margin-top: 1rem;
     padding: 0.75rem;
-    background-color: #d4edda;
-    border-radius: 4px;
+    background: rgba(40, 167, 69, 0.2);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    border: 1px solid rgba(40, 167, 69, 0.3);
+    border-radius: 12px;
   }
 
   &__valid {
-    color: #28a745;
+    color: rgba(200, 255, 200, 0.95);
     font-weight: 600;
     padding: 1rem;
-    background-color: #d4edda;
-    border-radius: 4px;
+    background: rgba(40, 167, 69, 0.2);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    border: 1px solid rgba(40, 167, 69, 0.3);
+    border-radius: 12px;
   }
 
   &__errors {
@@ -690,9 +707,12 @@ onMounted(async () => {
 
   &__error-item {
     padding: 0.75rem;
-    background-color: #f8d7da;
-    color: #721c24;
-    border-radius: 4px;
+    background: rgba(220, 53, 69, 0.2);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    color: rgba(255, 200, 200, 0.95);
+    border: 1px solid rgba(220, 53, 69, 0.3);
+    border-radius: 12px;
     margin-bottom: 0.5rem;
   }
 }

@@ -56,40 +56,58 @@ function getEntry(dayOfWeek: number, lessonIndex: number) {
 </script>
 
 <style lang="scss" scoped>
+@import '../styles/glass.scss';
+
 .timetable-grid {
-  background: white;
-  border-radius: 8px;
+  @extend %glass-panel;
   overflow: hidden;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  position: relative;
+  z-index: 1;
 
   &__table {
     width: 100%;
-    border-collapse: collapse;
+    border-collapse: separate;
+    border-spacing: 0;
   }
 
   &__header {
-    background-color: #4a90e2;
-    color: white;
+    background: rgba(74, 144, 226, 0.3);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.2);
   }
 
   &__cell {
     padding: 1rem;
-    border: 1px solid #ddd;
+    border: 1px solid rgba(255, 255, 255, 0.1);
     text-align: center;
+    background: rgba(255, 255, 255, 0.05);
+    transition: all 0.2s ease;
 
     &--header {
       font-weight: 600;
+      color: rgba(255, 255, 255, 0.95);
+      text-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
     }
 
     &--hour {
-      background-color: #f8f9fa;
+      background: rgba(255, 255, 255, 0.08);
+      backdrop-filter: blur(8px);
+      -webkit-backdrop-filter: blur(8px);
       font-weight: 500;
       width: 80px;
+      color: rgba(255, 255, 255, 0.9);
+      text-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
     }
 
     &--lesson {
       min-width: 150px;
       min-height: 80px;
+      background: rgba(255, 255, 255, 0.05);
+
+      &:hover {
+        background: rgba(255, 255, 255, 0.1);
+      }
     }
   }
 }
