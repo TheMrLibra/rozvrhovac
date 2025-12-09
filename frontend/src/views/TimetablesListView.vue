@@ -25,12 +25,41 @@
             class="timetables-list-view__input"
             required
           />
+          <div class="timetables-list-view__form-row">
+            <div class="timetables-list-view__form-group">
+              <label class="timetables-list-view__label">Valid From</label>
+              <input
+                v-model="timetableValidFrom"
+                type="date"
+                class="timetables-list-view__input"
+                required
+              />
+            </div>
+            <div class="timetables-list-view__form-group">
+              <label class="timetables-list-view__label">Valid To</label>
+              <input
+                v-model="timetableValidTo"
+                type="date"
+                class="timetables-list-view__input"
+                required
+              />
+            </div>
+          </div>
           <button type="submit" class="timetables-list-view__button" :disabled="loading">
             {{ loading ? 'Generating...' : 'Generate' }}
           </button>
         </form>
         <div v-if="error" class="timetables-list-view__error">{{ error }}</div>
         <div v-if="success" class="timetables-list-view__success">{{ success }}</div>
+      </div>
+
+      <!-- Calendar View -->
+      <div class="timetables-list-view__section">
+        <h2>Class Timetable Calendar</h2>
+        <TimetableCalendar
+          :timetables="timetables"
+          @date-selected="onDateSelected"
+        />
       </div>
 
       <!-- Fixed (Primary) Timetables -->
@@ -189,6 +218,7 @@ import { ref, onMounted, computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import api from '@/services/api'
+import TimetableCalendar from '@/components/TimetableCalendar.vue'
 
 interface Timetable {
   id: number
@@ -209,6 +239,8 @@ const error = ref('')
 const success = ref('')
 const showGenerateForm = ref(false)
 const timetableName = ref('')
+const timetableValidFrom = ref('')
+const timetableValidTo = ref('')
 const validationResult = ref<any>(null)
 const substituteForm = ref({
   base_timetable_id: null as number | null,
@@ -257,12 +289,28 @@ async function generateTimetable() {
       throw new Error('School ID not found')
     }
     
+    if (!timetableValidFrom.value || !timetableValidTo.value) {
+      error.value = 'Please select both valid from and valid to dates'
+      loading.value = false
+      return
+    }
+    
+    if (new Date(timetableValidFrom.value) > new Date(timetableValidTo.value)) {
+      error.value = 'Valid from date must be before valid to date'
+      loading.value = false
+      return
+    }
+    
     const response = await api.post(`/timetables/schools/${schoolId}/timetables/generate`, {
-      name: timetableName.value
+      name: timetableName.value,
+      valid_from: timetableValidFrom.value,
+      valid_to: timetableValidTo.value
     })
     
     success.value = 'Timetable generated successfully!'
     timetableName.value = ''
+    timetableValidFrom.value = ''
+    timetableValidTo.value = ''
     showGenerateForm.value = false
     
     // Reload timetables list
@@ -281,6 +329,28 @@ async function generateTimetable() {
 
 function viewTimetable(timetableId: number) {
   router.push(`/timetable/${timetableId}`)
+}
+
+function onDateSelected(date: Date) {
+  // Find timetables that are valid for this date
+  const dateStr = date.toISOString().split('T')[0]
+  const validTimetables = timetables.value.filter(t => {
+    if (t.is_primary === 0) {
+      // Substitute timetable - check if it's for this date
+      return t.substitute_for_date === dateStr
+    } else {
+      // Primary timetable - check if date is within valid range
+      if (!t.valid_from || !t.valid_to) return false
+      return dateStr >= t.valid_from && dateStr <= t.valid_to
+    }
+  })
+  
+  if (validTimetables.length > 0) {
+    // If there's a substitute timetable for this date, use it; otherwise use the primary
+    const substitute = validTimetables.find(t => t.is_primary === 0)
+    const timetableToView = substitute || validTimetables[0]
+    viewTimetable(timetableToView.id)
+  }
 }
 
 async function validateTimetable(timetableId: number) {
@@ -424,8 +494,27 @@ onMounted(async () => {
 
   &__form {
     display: flex;
+    flex-direction: column;
     gap: 1rem;
     margin-bottom: 1rem;
+  }
+
+  &__form-row {
+    display: flex;
+    gap: 1rem;
+  }
+
+  &__form-group {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+
+  &__label {
+    font-weight: 600;
+    color: #333;
+    font-size: 0.875rem;
   }
 
   &__input {
