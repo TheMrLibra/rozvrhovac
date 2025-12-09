@@ -13,6 +13,7 @@
         <router-link to="/classrooms" class="dashboard-view__link">Manage Classrooms</router-link>
         <router-link to="/allocations" class="dashboard-view__link">Subject Allocations</router-link>
         <router-link to="/settings" class="dashboard-view__link">School Settings</router-link>
+        <router-link to="/timetables" class="dashboard-view__link">All Timetables</router-link>
         <router-link to="/substitutions" class="dashboard-view__link">Substitutions</router-link>
       </div>
       <div v-else-if="authStore.user?.role === 'TEACHER'" class="dashboard-view__teacher-links">

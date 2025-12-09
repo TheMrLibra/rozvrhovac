@@ -33,7 +33,13 @@ const router = createRouter({
       meta: { requiresAuth: true, requiresRole: 'SCHOLAR' }
     },
     {
-      path: '/timetable',
+      path: '/timetables',
+      name: 'TimetablesList',
+      component: () => import('@/views/TimetablesListView.vue'),
+      meta: { requiresAuth: true, requiresRole: 'ADMIN' }
+    },
+    {
+      path: '/timetable/:timetableId?',
       name: 'Timetable',
       component: () => import('@/views/TimetableView.vue'),
       meta: { requiresAuth: true }

@@ -1,9 +1,9 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.database import get_db
 from app.core.dependencies import get_current_active_user, require_role
 from app.models.user import User, UserRole
-from app.schemas.timetable import TimetableCreate, TimetableResponse, ValidationResponse
+from app.schemas.timetable import TimetableCreate, TimetableResponse, ValidationResponse, ValidationErrorResponse
 from app.services.timetable_service import TimetableService
 from app.services.timetable_validation_service import TimetableValidationService, ValidationError
 
@@ -85,5 +85,40 @@ async def get_timetable(
     timetable = await repo.get_by_id_with_entries(timetable_id)
     if not timetable:
         raise HTTPException(status_code=404, detail="Timetable not found")
+    if timetable.school_id != school_id:
+        raise HTTPException(status_code=403, detail="Access denied")
     return timetable
+
+@router.delete("/schools/{school_id}/timetables/{timetable_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_timetable(
+    school_id: int,
+    timetable_id: int,
+    current_user: User = Depends(require_role([UserRole.ADMIN])),
+    db: AsyncSession = Depends(get_db)
+):
+    if current_user.school_id != school_id:
+        raise HTTPException(status_code=403, detail="Access denied")
+    
+    from app.repositories.timetable_repository import TimetableRepository, TimetableEntryRepository
+    from sqlalchemy import select
+    from app.models.timetable import TimetableEntry
+    
+    repo = TimetableRepository(db)
+    timetable = await repo.get_by_id(timetable_id)
+    if not timetable:
+        raise HTTPException(status_code=404, detail="Timetable not found")
+    if timetable.school_id != school_id:
+        raise HTTPException(status_code=403, detail="Access denied")
+    
+    # Delete all timetable entries first
+    entry_repo = TimetableEntryRepository(db)
+    result = await db.execute(
+        select(TimetableEntry).where(TimetableEntry.timetable_id == timetable_id)
+    )
+    entries = result.scalars().all()
+    for entry in entries:
+        await entry_repo.delete(entry.id)
+    
+    # Now delete the timetable
+    await repo.delete(timetable_id)
 

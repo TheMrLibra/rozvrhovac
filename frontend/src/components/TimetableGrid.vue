@@ -25,6 +25,7 @@
               :entry="getEntry(day - 1, hour)"
               :day="day - 1"
               :hour="hour"
+              :lunch-hours="props.lunchHours"
             />
           </td>
         </tr>
@@ -34,11 +35,11 @@
 </template>
 
 <script setup lang="ts">
-// computed not used
 import TimetableCell from './TimetableCell.vue'
 
 interface Props {
   timetable: any
+  lunchHours?: number[]
 }
 
 const props = defineProps<Props>()

@@ -1,11 +1,25 @@
 from pydantic import BaseModel
 from typing import Optional
 from datetime import date
+from app.schemas.class_group import ClassGroupResponse
+from app.schemas.subject import SubjectResponse
+from app.schemas.classroom import ClassroomResponse
 
 class TimetableCreate(BaseModel):
     name: str
     valid_from: Optional[date] = None
     valid_to: Optional[date] = None
+
+# Simple teacher response for timetable entries (without capabilities to avoid lazy loading)
+class TeacherSimpleResponse(BaseModel):
+    id: int
+    school_id: int
+    full_name: str
+    max_weekly_hours: int
+    user_id: Optional[int] = None
+    
+    class Config:
+        from_attributes = True
 
 class TimetableEntryResponse(BaseModel):
     id: int
@@ -16,6 +30,10 @@ class TimetableEntryResponse(BaseModel):
     classroom_id: Optional[int]
     day_of_week: int
     lesson_index: int
+    class_group: Optional[ClassGroupResponse] = None
+    subject: Optional[SubjectResponse] = None
+    teacher: Optional[TeacherSimpleResponse] = None
+    classroom: Optional[ClassroomResponse] = None
     
     class Config:
         from_attributes = True

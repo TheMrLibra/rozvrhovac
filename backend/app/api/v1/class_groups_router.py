@@ -24,6 +24,7 @@ async def create_class_group(
     except ValueError as e:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
 
+@router.get("", response_model=List[ClassGroupResponse])
 @router.get("/", response_model=List[ClassGroupResponse])
 async def get_class_groups(
     current_user: User = Depends(get_current_active_user),

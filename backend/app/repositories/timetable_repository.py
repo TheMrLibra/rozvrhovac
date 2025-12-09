@@ -41,7 +41,15 @@ class TimetableEntryRepository(BaseRepository[TimetableEntry]):
     
     async def get_by_timetable_id(self, timetable_id: int) -> List[TimetableEntry]:
         result = await self.db.execute(
-            select(TimetableEntry).where(TimetableEntry.timetable_id == timetable_id)
+            select(TimetableEntry)
+            .where(TimetableEntry.timetable_id == timetable_id)
+            .options(
+                selectinload(TimetableEntry.timetable),
+                selectinload(TimetableEntry.class_group),
+                selectinload(TimetableEntry.subject),
+                selectinload(TimetableEntry.teacher),
+                selectinload(TimetableEntry.classroom),
+            )
         )
         return list(result.scalars().all())
     
