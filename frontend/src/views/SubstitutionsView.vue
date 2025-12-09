@@ -285,12 +285,14 @@ onMounted(() => {
 </script>
 
 <style lang="scss" scoped>
+@import '../styles/neo.scss';
+
 .substitutions-view {
   min-height: 100vh;
-  background-color: #f5f5f5;
+  background: transparent;
 
   &__header {
-    background: white;
+    background: $neo-bg-base;
     padding: 1rem 2rem;
     display: flex;
     justify-content: space-between;
@@ -299,7 +301,7 @@ onMounted(() => {
   }
 
   &__title {
-    color: #333;
+    color: $neo-text;
   }
 
   &__back {
@@ -321,7 +323,7 @@ onMounted(() => {
   }
 
   &__section {
-    background: white;
+    background: $neo-bg-base;
     padding: 2rem;
     border-radius: 8px;
     margin-bottom: 2rem;
@@ -329,7 +331,7 @@ onMounted(() => {
 
     h2 {
       margin-bottom: 1rem;
-      color: #333;
+      color: $neo-text;
     }
   }
 
@@ -390,7 +392,7 @@ onMounted(() => {
     justify-content: space-between;
     align-items: center;
     padding: 1rem;
-    background-color: #f8f9fa;
+    background: $neo-bg-light;
     border-radius: 4px;
     border: 1px solid #dee2e6;
 
@@ -410,7 +412,7 @@ onMounted(() => {
 
       &--auto_generated {
         background-color: #ffc107;
-        color: #333;
+        color: $neo-text;
       }
 
       &--confirmed {
@@ -425,7 +427,7 @@ onMounted(() => {
     }
 
     &-details {
-      color: #666;
+      color: $neo-text-light;
       font-size: 0.875rem;
     }
 
@@ -462,7 +464,7 @@ onMounted(() => {
   &__edit {
     padding: 0.5rem 1rem;
     background-color: #ffc107;
-    color: #333;
+    color: $neo-text;
     border: none;
     border-radius: 4px;
     cursor: pointer;
@@ -481,7 +483,7 @@ onMounted(() => {
   &__empty {
     padding: 2rem;
     text-align: center;
-    color: #666;
+    color: $neo-text-light;
     font-style: italic;
   }
 
@@ -499,7 +501,7 @@ onMounted(() => {
   }
 
   &__modal-content {
-    background: white;
+    background: $neo-bg-base;
     padding: 2rem;
     border-radius: 8px;
     max-width: 500px;

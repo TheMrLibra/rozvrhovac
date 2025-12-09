@@ -56,10 +56,10 @@ function getEntry(dayOfWeek: number, lessonIndex: number) {
 </script>
 
 <style lang="scss" scoped>
-@import '../styles/glass.scss';
+@import '../styles/neo.scss';
 
 .timetable-grid {
-  @extend %glass-panel;
+  @extend %neo-panel;
   overflow: hidden;
   position: relative;
   z-index: 1;
@@ -71,42 +71,39 @@ function getEntry(dayOfWeek: number, lessonIndex: number) {
   }
 
   &__header {
-    background: rgba(74, 144, 226, 0.3);
-    backdrop-filter: blur(10px);
-    -webkit-backdrop-filter: blur(10px);
-    border-bottom: 1px solid rgba(255, 255, 255, 0.2);
+    background: $neo-bg-light;
+    border-bottom: 1px solid rgba(0, 0, 0, 0.05);
   }
 
   &__cell {
     padding: 1rem;
-    border: 1px solid rgba(255, 255, 255, 0.1);
+    border: 1px solid rgba(0, 0, 0, 0.03);
     text-align: center;
-    background: rgba(255, 255, 255, 0.05);
+    background: $neo-bg-base;
     transition: all 0.2s ease;
 
     &--header {
       font-weight: 600;
-      color: rgba(255, 255, 255, 0.95);
-      text-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+      color: $neo-text;
+      background: $neo-bg-light;
     }
 
     &--hour {
-      background: rgba(255, 255, 255, 0.08);
-      backdrop-filter: blur(8px);
-      -webkit-backdrop-filter: blur(8px);
+      @include neo-inset(0, 0.4);
+      background: $neo-bg-light;
       font-weight: 500;
       width: 80px;
-      color: rgba(255, 255, 255, 0.9);
-      text-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+      color: $neo-text;
     }
 
     &--lesson {
       min-width: 150px;
       min-height: 80px;
-      background: rgba(255, 255, 255, 0.05);
+      background: $neo-bg-base;
 
       &:hover {
-        background: rgba(255, 255, 255, 0.1);
+        @include neo-surface(0, 0.3);
+        background: $neo-bg-light;
       }
     }
   }

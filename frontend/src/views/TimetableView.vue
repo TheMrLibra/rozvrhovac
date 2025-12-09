@@ -161,7 +161,7 @@ onMounted(async () => {
 </script>
 
 <style lang="scss" scoped>
-@import '../styles/glass.scss';
+@import '../styles/neo.scss';
 
 .timetable-view {
   min-height: 100vh;
@@ -169,7 +169,7 @@ onMounted(async () => {
   z-index: 1;
 
   &__header {
-    @extend %glass-header;
+    @extend %neo-header;
     padding: 1.5rem 2rem;
     display: flex;
     justify-content: space-between;
@@ -180,10 +180,9 @@ onMounted(async () => {
   }
 
   &__title {
-    color: rgba(255, 255, 255, 0.95);
+    color: $neo-text;
     font-size: 1.75rem;
     font-weight: 700;
-    text-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
   }
 
   &__controls {
@@ -193,31 +192,19 @@ onMounted(async () => {
   }
 
   &__class-select {
-    @extend %glass-input;
+    @extend %neo-input;
     padding: 0.5rem 1rem;
-    border-radius: 12px;
     font-size: 1rem;
     cursor: pointer;
   }
 
   &__back {
+    @extend %neo-button;
+    @extend %neo-button--secondary;
     padding: 0.75rem 1.5rem;
-    background: rgba(108, 117, 125, 0.3);
-    backdrop-filter: blur(10px);
-    -webkit-backdrop-filter: blur(10px);
-    border: 1px solid rgba(255, 255, 255, 0.2);
-    color: rgba(255, 255, 255, 0.95);
     text-decoration: none;
     border-radius: 12px;
     font-weight: 500;
-    transition: all 0.3s ease;
-
-    &:hover {
-      background: rgba(108, 117, 125, 0.4);
-      border-color: rgba(255, 255, 255, 0.3);
-      transform: translateY(-2px);
-      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
-    }
   }
 
   &__content {
@@ -229,14 +216,14 @@ onMounted(async () => {
   &__loading {
     text-align: center;
     padding: 2rem;
-    color: rgba(255, 255, 255, 0.8);
+    color: $neo-text-light;
   }
 
   &__empty {
-    @extend %glass-card;
+    @extend %neo-card;
     text-align: center;
     padding: 3rem;
-    color: rgba(255, 255, 255, 0.7);
+    color: $neo-text-muted;
     font-style: italic;
   }
 }

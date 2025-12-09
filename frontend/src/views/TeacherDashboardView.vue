@@ -34,72 +34,73 @@ function handleLogout() {
 </script>
 
 <style lang="scss" scoped>
+@import '../styles/neo.scss';
+
 .teacher-dashboard-view {
   min-height: 100vh;
-  background-color: #f5f5f5;
+  background: transparent;
 
   &__header {
-    background: white;
-    padding: 1rem 2rem;
+    @extend %neo-header;
+    padding: 1.5rem 2rem;
     display: flex;
     justify-content: space-between;
     align-items: center;
-    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    position: sticky;
+    top: 0;
+    z-index: 100;
   }
 
   &__title {
-    color: #333;
+    color: $neo-text;
+    font-size: 1.75rem;
+    font-weight: 700;
+    margin: 0;
   }
 
   &__logout {
-    padding: 0.5rem 1rem;
-    background-color: #dc3545;
-    color: white;
-    border: none;
-    border-radius: 4px;
+    @extend %neo-button;
+    @extend %neo-button--danger;
+    padding: 0.75rem 1.5rem;
+    border-radius: 12px;
     cursor: pointer;
-
-    &:hover {
-      background-color: #c82333;
-    }
+    font-weight: 600;
   }
 
   &__content {
     padding: 2rem;
     max-width: 1200px;
     margin: 0 auto;
+    position: relative;
+    z-index: 1;
   }
 
   &__section {
-    background: white;
+    @extend %neo-panel;
     padding: 2rem;
-    border-radius: 8px;
-    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    margin-bottom: 2rem;
 
     h2 {
       margin-bottom: 1rem;
-      color: #333;
+      color: $neo-text;
+      font-weight: 700;
     }
   }
 
   &__actions {
     display: flex;
-    gap: 1rem;
+    gap: 1.5rem;
     flex-wrap: wrap;
   }
 
   &__action {
+    @extend %neo-button;
+    @extend %neo-button--primary;
     display: inline-block;
     padding: 1rem 2rem;
-    background-color: #4a90e2;
-    color: white;
     text-decoration: none;
-    border-radius: 4px;
-    transition: background-color 0.2s;
-
-    &:hover {
-      background-color: #357abd;
-    }
+    border-radius: 12px;
+    font-weight: 600;
   }
 }
 </style>

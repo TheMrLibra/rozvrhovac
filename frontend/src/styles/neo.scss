@@ -1,0 +1,230 @@
+// Neomorphism (Soft UI) utility mixins and classes
+
+// Base colors
+$neo-bg-light: #e6e9ef;
+$neo-bg-base: #f0f3f7;
+$neo-bg-dark: #f3f6fb;
+$neo-text: #2d3748;
+$neo-text-light: #4a5568;
+$neo-text-muted: #718096;
+$neo-shadow-light: #ffffff;
+$neo-shadow-dark: #d1d9e6;
+$neo-accent: #4a90e2;
+$neo-accent-hover: #357abd;
+
+// Neomorphic surface mixin (raised)
+@mixin neo-surface($radius: 16px, $intensity: 1) {
+  background: $neo-bg-base;
+  border-radius: $radius;
+  border: none;
+  box-shadow: 
+    calc(6px * #{$intensity}) calc(6px * #{$intensity}) calc(12px * #{$intensity}) $neo-shadow-dark,
+    calc(-6px * #{$intensity}) calc(-6px * #{$intensity}) calc(12px * #{$intensity}) $neo-shadow-light;
+}
+
+// Neomorphic surface mixin (pressed/inset)
+@mixin neo-inset($radius: 16px, $intensity: 1) {
+  background: $neo-bg-base;
+  border-radius: $radius;
+  border: none;
+  box-shadow: 
+    inset calc(6px * #{$intensity}) calc(6px * #{$intensity}) calc(12px * #{$intensity}) $neo-shadow-dark,
+    inset calc(-6px * #{$intensity}) calc(-6px * #{$intensity}) calc(12px * #{$intensity}) $neo-shadow-light;
+}
+
+// Neomorphic card modifier
+%neo-card {
+  @include neo-surface(16px, 1);
+  background: $neo-bg-base;
+}
+
+// Neomorphic panel modifier
+%neo-panel {
+  @include neo-surface(20px, 1.2);
+  background: $neo-bg-base;
+}
+
+// Neomorphic modal modifier
+%neo-modal {
+  @include neo-surface(24px, 1.5);
+  background: $neo-bg-base;
+}
+
+// Neomorphic header modifier
+%neo-header {
+  @include neo-surface(0 0 20px 20px, 0.8);
+  background: $neo-bg-light;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.05);
+}
+
+// Neomorphic input modifier
+%neo-input {
+  @include neo-inset(12px, 0.6);
+  background: $neo-bg-light;
+  color: $neo-text;
+  border: none;
+  transition: all 0.3s ease;
+  
+  &::placeholder {
+    color: $neo-text-muted;
+  }
+  
+  &:focus {
+    @include neo-inset(12px, 0.8);
+    outline: none;
+    background: $neo-bg-base;
+  }
+  
+  &:hover:not(:focus) {
+    background: $neo-bg-base;
+  }
+}
+
+// Neomorphic button modifier
+%neo-button {
+  @include neo-surface(12px, 0.8);
+  background: $neo-bg-base;
+  color: $neo-text;
+  border: none;
+  transition: all 0.3s ease;
+  font-weight: 600;
+  
+  &:hover:not(:disabled) {
+    @include neo-surface(12px, 1);
+    transform: translateY(-1px);
+  }
+  
+  &:active:not(:disabled) {
+    @include neo-inset(12px, 0.6);
+    transform: translateY(0);
+  }
+  
+  &:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+    box-shadow: none;
+  }
+  
+  // Primary button variant
+  &--primary {
+    background: linear-gradient(135deg, $neo-accent 0%, darken($neo-accent, 5%) 100%);
+    color: white;
+    box-shadow: 
+      calc(4px) calc(4px) calc(8px) darken($neo-shadow-dark, 10%),
+      calc(-4px) calc(-4px) calc(8px) $neo-shadow-light;
+    
+    &:hover:not(:disabled) {
+      background: linear-gradient(135deg, $neo-accent-hover 0%, darken($neo-accent-hover, 5%) 100%);
+      box-shadow: 
+        calc(6px) calc(6px) calc(12px) darken($neo-shadow-dark, 10%),
+        calc(-6px) calc(-6px) calc(12px) $neo-shadow-light;
+    }
+    
+    &:active:not(:disabled) {
+      box-shadow: 
+        inset calc(4px) calc(4px) calc(8px) darken($neo-accent, 15%),
+        inset calc(-4px) calc(-4px) calc(8px) lighten($neo-accent, 10%);
+    }
+  }
+  
+  // Secondary button variant
+  &--secondary {
+    background: $neo-bg-light;
+    
+    &:hover:not(:disabled) {
+      background: darken($neo-bg-light, 2%);
+    }
+  }
+  
+  // Danger button variant
+  &--danger {
+    background: linear-gradient(135deg, #dc3545 0%, darken(#dc3545, 5%) 100%);
+    color: white;
+    box-shadow: 
+      calc(4px) calc(4px) calc(8px) darken($neo-shadow-dark, 10%),
+      calc(-4px) calc(-4px) calc(8px) $neo-shadow-light;
+    
+    &:hover:not(:disabled) {
+      background: linear-gradient(135deg, #c82333 0%, darken(#c82333, 5%) 100%);
+    }
+    
+    &:active:not(:disabled) {
+      box-shadow: 
+        inset calc(4px) calc(4px) calc(8px) darken(#dc3545, 15%),
+        inset calc(-4px) calc(-4px) calc(8px) lighten(#dc3545, 10%);
+    }
+  }
+  
+  // Success button variant
+  &--success {
+    background: linear-gradient(135deg, #28a745 0%, darken(#28a745, 5%) 100%);
+    color: white;
+    box-shadow: 
+      calc(4px) calc(4px) calc(8px) darken($neo-shadow-dark, 10%),
+      calc(-4px) calc(-4px) calc(8px) $neo-shadow-light;
+    
+    &:hover:not(:disabled) {
+      background: linear-gradient(135deg, #218838 0%, darken(#218838, 5%) 100%);
+    }
+    
+    &:active:not(:disabled) {
+      box-shadow: 
+        inset calc(4px) calc(4px) calc(8px) darken(#28a745, 15%),
+        inset calc(-4px) calc(-4px) calc(8px) lighten(#28a745, 10%);
+    }
+  }
+  
+  // Warning button variant
+  &--warning {
+    background: linear-gradient(135deg, #ffc107 0%, darken(#ffc107, 5%) 100%);
+    color: $neo-text;
+    box-shadow: 
+      calc(4px) calc(4px) calc(8px) darken($neo-shadow-dark, 10%),
+      calc(-4px) calc(-4px) calc(8px) $neo-shadow-light;
+    
+    &:hover:not(:disabled) {
+      background: linear-gradient(135deg, #e0a800 0%, darken(#e0a800, 5%) 100%);
+    }
+    
+    &:active:not(:disabled) {
+      box-shadow: 
+        inset calc(4px) calc(4px) calc(8px) darken(#ffc107, 15%),
+        inset calc(-4px) calc(-4px) calc(8px) lighten(#ffc107, 10%);
+    }
+  }
+}
+
+// Neomorphic list item modifier
+%neo-list-item {
+  @include neo-surface(12px, 0.6);
+  background: $neo-bg-light;
+  transition: all 0.3s ease;
+  
+  &:hover {
+    @include neo-surface(12px, 0.8);
+    transform: translateY(-2px);
+  }
+}
+
+// Neomorphic message/alert modifier
+%neo-message {
+  @include neo-surface(12px, 0.6);
+  background: $neo-bg-light;
+  border: none;
+  
+  &--error {
+    background: lighten(#f8d7da, 10%);
+    color: darken(#721c24, 10%);
+  }
+  
+  &--success {
+    background: lighten(#d4edda, 10%);
+    color: darken(#155724, 10%);
+  }
+  
+  &--info {
+    background: lighten(#d1ecf1, 10%);
+    color: darken(#0c5460, 10%);
+  }
+}
+

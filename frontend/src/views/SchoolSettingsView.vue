@@ -241,7 +241,7 @@ onMounted(() => {
 </script>
 
 <style lang="scss" scoped>
-@import '../styles/glass.scss';
+@import '../styles/neo.scss';
 
 .school-settings-view {
   min-height: 100vh;
@@ -249,7 +249,7 @@ onMounted(() => {
   z-index: 1;
 
   &__header {
-    @extend %glass-header;
+    @extend %neo-header;
     padding: 1.5rem 2rem;
     display: flex;
     justify-content: space-between;
@@ -260,31 +260,19 @@ onMounted(() => {
   }
 
   &__title {
-    color: rgba(255, 255, 255, 0.95);
+    color: $neo-text;
     margin: 0;
     font-size: 1.75rem;
     font-weight: 700;
-    text-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
   }
 
   &__back {
+    @extend %neo-button;
+    @extend %neo-button--secondary;
     padding: 0.75rem 1.5rem;
-    background: rgba(108, 117, 125, 0.3);
-    backdrop-filter: blur(10px);
-    -webkit-backdrop-filter: blur(10px);
-    border: 1px solid rgba(255, 255, 255, 0.2);
-    color: rgba(255, 255, 255, 0.95);
     text-decoration: none;
     border-radius: 12px;
     font-weight: 500;
-    transition: all 0.3s ease;
-
-    &:hover {
-      background: rgba(108, 117, 125, 0.4);
-      border-color: rgba(255, 255, 255, 0.3);
-      transform: translateY(-2px);
-      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
-    }
   }
 
   &__content {
@@ -296,26 +284,25 @@ onMounted(() => {
   }
 
   &__form-container {
-    @extend %glass-panel;
+    @extend %neo-panel;
     padding: 2.5rem;
   }
 
   &__header-section {
     margin-bottom: 2rem;
     padding-bottom: 1.5rem;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.15);
+    border-bottom: 1px solid rgba(0, 0, 0, 0.05);
   }
 
   &__form-title {
-    color: rgba(255, 255, 255, 0.95);
+    color: $neo-text;
     margin: 0 0 0.5rem 0;
     font-size: 1.75rem;
     font-weight: 700;
-    text-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
   }
 
   &__form-description {
-    color: rgba(255, 255, 255, 0.8);
+    color: $neo-text-light;
     margin: 0;
     font-size: 1rem;
     line-height: 1.6;
@@ -328,9 +315,9 @@ onMounted(() => {
   }
 
   &__section {
-    @include glass-effect(0.1, 16px);
+    @include neo-surface(16px, 0.8);
     padding: 1.5rem;
-    border-radius: 16px;
+    background: $neo-bg-light;
   }
 
   &__section-title {
@@ -338,10 +325,9 @@ onMounted(() => {
     align-items: center;
     gap: 0.75rem;
     margin: 0 0 1.25rem 0;
-    color: rgba(255, 255, 255, 0.95);
+    color: $neo-text;
     font-size: 1.25rem;
     font-weight: 600;
-    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
   }
 
   &__section-icon {
@@ -366,29 +352,26 @@ onMounted(() => {
 
   &__label {
     font-weight: 600;
-    color: rgba(255, 255, 255, 0.95);
+    color: $neo-text;
     font-size: 0.95rem;
     display: flex;
     align-items: center;
     gap: 0.25rem;
-    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
   }
 
   &__required {
-    color: rgba(255, 100, 100, 0.9);
+    color: #dc3545;
     font-weight: 700;
   }
 
   &__input {
-    @extend %glass-input;
+    @extend %neo-input;
     padding: 0.875rem;
-    border-radius: 12px;
     font-size: 1rem;
-    transition: all 0.3s ease;
   }
 
   &__hint {
-    color: rgba(255, 255, 255, 0.7);
+    color: $neo-text-muted;
     font-size: 0.875rem;
     margin-top: 0.25rem;
     line-height: 1.4;
@@ -398,11 +381,12 @@ onMounted(() => {
     display: flex;
     justify-content: flex-end;
     padding-top: 1rem;
-    border-top: 1px solid rgba(255, 255, 255, 0.15);
+    border-top: 1px solid rgba(0, 0, 0, 0.05);
   }
 
   &__button {
-    @extend %glass-button;
+    @extend %neo-button;
+    @extend %neo-button--primary;
     padding: 1rem 2.5rem;
     border-radius: 12px;
     font-size: 1.1rem;
@@ -432,6 +416,7 @@ onMounted(() => {
   }
 
   &__message {
+    @extend %neo-message;
     margin-top: 1.5rem;
     padding: 1rem 1.25rem;
     border-radius: 12px;
@@ -440,19 +425,13 @@ onMounted(() => {
     gap: 0.75rem;
     font-weight: 500;
     animation: slideIn 0.3s ease-out;
-    backdrop-filter: blur(10px);
-    -webkit-backdrop-filter: blur(10px);
 
     &--error {
-      background: rgba(220, 53, 69, 0.2);
-      color: rgba(255, 200, 200, 0.95);
-      border: 1px solid rgba(220, 53, 69, 0.3);
+      @extend %neo-message--error;
     }
 
     &--success {
-      background: rgba(40, 167, 69, 0.2);
-      color: rgba(200, 255, 200, 0.95);
-      border: 1px solid rgba(40, 167, 69, 0.3);
+      @extend %neo-message--success;
     }
   }
 

@@ -85,51 +85,56 @@ async function generateTimetable() {
 </script>
 
 <style lang="scss" scoped>
+@import '../styles/neo.scss';
+
 .admin-dashboard {
   min-height: 100vh;
-  background-color: #f5f5f5;
+  background: transparent;
 
   &__header {
-    background: white;
-    padding: 1rem 2rem;
+    @extend %neo-header;
+    padding: 1.5rem 2rem;
     display: flex;
     justify-content: space-between;
     align-items: center;
-    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    position: sticky;
+    top: 0;
+    z-index: 100;
   }
 
   &__title {
-    color: #333;
+    color: $neo-text;
+    font-size: 1.75rem;
+    font-weight: 700;
+    margin: 0;
   }
 
   &__back {
-    padding: 0.5rem 1rem;
-    background-color: #6c757d;
-    color: white;
+    @extend %neo-button;
+    @extend %neo-button--secondary;
+    padding: 0.75rem 1.5rem;
     text-decoration: none;
-    border-radius: 4px;
-
-    &:hover {
-      background-color: #5a6268;
-    }
+    border-radius: 12px;
+    font-weight: 500;
   }
 
   &__content {
     padding: 2rem;
     max-width: 1200px;
     margin: 0 auto;
+    position: relative;
+    z-index: 1;
   }
 
   &__section {
-    background: white;
+    @extend %neo-panel;
     padding: 2rem;
-    border-radius: 8px;
     margin-bottom: 2rem;
-    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
 
     h2 {
       margin-bottom: 1rem;
-      color: #333;
+      color: $neo-text;
+      font-weight: 700;
     }
   }
 
@@ -140,45 +145,48 @@ async function generateTimetable() {
   }
 
   &__input {
+    @extend %neo-input;
     flex: 1;
     padding: 0.75rem;
-    border: 1px solid #ddd;
-    border-radius: 4px;
     font-size: 1rem;
   }
 
   &__button {
+    @extend %neo-button;
+    @extend %neo-button--primary;
     padding: 0.75rem 2rem;
-    background-color: #4a90e2;
-    color: white;
-    border: none;
-    border-radius: 4px;
     cursor: pointer;
     font-size: 1rem;
-
-    &:hover:not(:disabled) {
-      background-color: #357abd;
-    }
+    font-weight: 600;
 
     &:disabled {
-      opacity: 0.6;
+      opacity: 0.5;
       cursor: not-allowed;
     }
   }
 
   &__error {
-    color: #dc3545;
+    @extend %neo-message;
+    @extend %neo-message--error;
     margin-top: 1rem;
+    padding: 0.75rem;
+    border-radius: 12px;
   }
 
   &__success {
-    color: #28a745;
+    @extend %neo-message;
+    @extend %neo-message--success;
     margin-top: 1rem;
+    padding: 0.75rem;
+    border-radius: 12px;
   }
 
   &__valid {
-    color: #28a745;
+    @extend %neo-message;
+    @extend %neo-message--success;
     font-weight: 600;
+    padding: 1rem;
+    border-radius: 12px;
   }
 
   &__errors {
@@ -186,10 +194,10 @@ async function generateTimetable() {
   }
 
   &__error-item {
-    padding: 0.5rem;
-    background-color: #f8d7da;
-    color: #721c24;
-    border-radius: 4px;
+    @extend %neo-message;
+    @extend %neo-message--error;
+    padding: 0.75rem;
+    border-radius: 12px;
     margin-bottom: 0.5rem;
   }
 }

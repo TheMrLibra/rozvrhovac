@@ -138,12 +138,14 @@ onMounted(() => {
 </script>
 
 <style lang="scss" scoped>
+@import '../styles/neo.scss';
+
 .teacher-absence-view {
   min-height: 100vh;
-  background-color: #f5f5f5;
+  background: transparent;
 
   &__header {
-    background: white;
+    background: $neo-bg-base;
     padding: 1rem 2rem;
     display: flex;
     justify-content: space-between;
@@ -152,7 +154,7 @@ onMounted(() => {
   }
 
   &__title {
-    color: #333;
+    color: $neo-text;
   }
 
   &__back {
@@ -174,7 +176,7 @@ onMounted(() => {
   }
 
   &__section {
-    background: white;
+    background: $neo-bg-base;
     padding: 2rem;
     border-radius: 8px;
     margin-bottom: 2rem;
@@ -182,7 +184,7 @@ onMounted(() => {
 
     h2 {
       margin-bottom: 1rem;
-      color: #333;
+      color: $neo-text;
     }
   }
 
@@ -246,7 +248,7 @@ onMounted(() => {
 
   &__item {
     padding: 1rem;
-    background-color: #f8f9fa;
+    background: $neo-bg-light;
     border-radius: 4px;
     border: 1px solid #dee2e6;
 
@@ -258,11 +260,11 @@ onMounted(() => {
 
     &-dates {
       font-weight: 600;
-      color: #333;
+      color: $neo-text;
     }
 
     &-reason {
-      color: #666;
+      color: $neo-text-light;
       font-size: 0.875rem;
     }
   }
@@ -270,7 +272,7 @@ onMounted(() => {
   &__empty {
     padding: 2rem;
     text-align: center;
-    color: #666;
+    color: $neo-text-light;
     font-style: italic;
   }
 

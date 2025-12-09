@@ -587,10 +587,10 @@ onMounted(() => {
 </script>
 
 <style lang="scss" scoped>
-@import '../styles/glass.scss';
+@import '../styles/neo.scss';
 
 .timetable-calendar {
-  @extend %glass-panel;
+  @extend %neo-panel;
   padding: 1.5rem;
   position: relative;
   z-index: 1;
@@ -604,12 +604,11 @@ onMounted(() => {
 
   &__label {
     font-weight: 600;
-    color: rgba(255, 255, 255, 0.95);
-    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+    color: $neo-text;
   }
 
   &__select {
-    @extend %glass-input;
+    @extend %neo-input;
     flex: 1;
     max-width: 300px;
     padding: 0.75rem;
@@ -624,18 +623,16 @@ onMounted(() => {
   }
 
   &__toggle-button {
-    @extend %glass-button;
+    @extend %neo-button;
     flex: 1;
     padding: 0.75rem;
-    border-radius: 12px;
     cursor: pointer;
     font-size: 1rem;
     font-weight: 600;
 
     &--active {
-      background: rgba(255, 255, 255, 0.3);
-      border-color: rgba(255, 255, 255, 0.4);
-      color: rgba(255, 255, 255, 0.95);
+      @include neo-inset(12px, 0.6);
+      background: $neo-bg-light;
     }
   }
 
@@ -647,7 +644,7 @@ onMounted(() => {
   }
 
   &__nav-button {
-    @extend %glass-button;
+    @extend %neo-button;
     width: 2rem;
     height: 2rem;
     border-radius: 10px;
@@ -661,8 +658,7 @@ onMounted(() => {
     margin: 0;
     font-size: 1.25rem;
     font-weight: 600;
-    color: rgba(255, 255, 255, 0.95);
-    text-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    color: $neo-text;
   }
 
   &__weekdays {
@@ -675,10 +671,9 @@ onMounted(() => {
   &__weekday {
     text-align: center;
     font-weight: 600;
-    color: rgba(255, 255, 255, 0.9);
+    color: $neo-text;
     font-size: 0.875rem;
     padding: 0.5rem;
-    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
   }
 
   &__days {
@@ -688,9 +683,8 @@ onMounted(() => {
   }
 
   &__day {
-    @include glass-effect(0.08, 8px);
+    @include neo-surface(12px, 0.6);
     min-height: 100px;
-    border-radius: 12px;
     padding: 0.5rem;
     cursor: pointer;
     display: flex;
@@ -699,10 +693,8 @@ onMounted(() => {
     transition: all 0.3s ease;
 
     &:hover:not(&--other-month) {
-      background: rgba(255, 255, 255, 0.15);
-      border-color: rgba(255, 255, 255, 0.3);
+      @include neo-surface(12px, 0.8);
       transform: translateY(-2px);
-      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
     }
 
     &--other-month {
@@ -711,24 +703,20 @@ onMounted(() => {
     }
 
     &--today {
-      border-color: rgba(255, 255, 255, 0.4);
-      border-width: 2px;
-      background: rgba(255, 255, 255, 0.2);
-      box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.3);
+      @include neo-surface(12px, 1);
+      border: 2px solid $neo-accent;
     }
 
     &--has-entries {
-      background: rgba(255, 255, 255, 0.15);
-      border-color: rgba(255, 255, 255, 0.3);
+      @include neo-surface(12px, 0.8);
     }
   }
 
   &__day-number {
     font-weight: 600;
-    color: rgba(255, 255, 255, 0.95);
+    color: $neo-text;
     font-size: 0.875rem;
     margin-bottom: 0.25rem;
-    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
   }
 
   &__day-entries {
@@ -740,10 +728,9 @@ onMounted(() => {
 
   &__entries-count {
     font-size: 0.75rem;
-    color: rgba(255, 255, 255, 0.9);
+    color: $neo-text;
     font-weight: 600;
     margin-bottom: 0.25rem;
-    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
   }
 
   &__entries-preview {
@@ -754,7 +741,7 @@ onMounted(() => {
 
   &__entry-preview {
     font-size: 0.625rem;
-    color: rgba(255, 255, 255, 0.8);
+    color: $neo-text-light;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
@@ -777,7 +764,7 @@ onMounted(() => {
     margin: 0;
     font-size: 1.5rem;
     font-weight: 600;
-    color: #333;
+    color: $neo-text;
   }
 
   &__day-selector {
@@ -787,14 +774,14 @@ onMounted(() => {
   }
 
   &__date-input {
-    @extend %glass-input;
+    @extend %neo-input;
     padding: 0.75rem;
     border-radius: 12px;
     font-size: 1rem;
   }
 
   &__today-button {
-    @extend %glass-button;
+    @extend %neo-button;
     padding: 0.75rem 1.5rem;
     border-radius: 12px;
     font-size: 1rem;
@@ -808,24 +795,21 @@ onMounted(() => {
   }
 
   &__day-item {
-    @include glass-effect(0.1, 12px);
+    @extend %neo-list-item;
     display: flex;
     gap: 1rem;
     padding: 1rem;
-    border-radius: 16px;
-    border-left: 3px solid rgba(255, 255, 255, 0.3);
+    border-left: 3px solid $neo-accent;
     margin-bottom: 0.5rem;
-    transition: all 0.3s ease;
 
     &:hover {
-      background: rgba(255, 255, 255, 0.15);
-      border-color: rgba(255, 255, 255, 0.4);
+      @include neo-surface(16px, 0.8);
       transform: translateX(4px);
     }
 
     &--lunch {
-      background: rgba(255, 152, 0, 0.15);
-      border-left-color: rgba(255, 152, 0, 0.5);
+      background: lighten(#ff9800, 35%);
+      border-left-color: #ff9800;
     }
   }
 
@@ -835,8 +819,7 @@ onMounted(() => {
     flex-direction: column;
     justify-content: center;
     font-weight: 600;
-    color: rgba(255, 255, 255, 0.95);
-    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+    color: $neo-text;
   }
 
   &__time-start {
@@ -845,7 +828,7 @@ onMounted(() => {
 
   &__time-end {
     font-size: 0.875rem;
-    color: rgba(255, 255, 255, 0.7);
+    color: $neo-text-muted;
     font-weight: 400;
   }
 
@@ -864,8 +847,7 @@ onMounted(() => {
   &__lunch-text {
     font-size: 1.125rem;
     font-weight: 600;
-    color: rgba(255, 255, 255, 0.95);
-    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+    color: darken(#ff9800, 20%);
   }
 
   &__entry-details {
@@ -878,15 +860,14 @@ onMounted(() => {
   &__entry-subject {
     font-size: 1.125rem;
     font-weight: 600;
-    color: rgba(255, 255, 255, 0.95);
-    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+    color: $neo-text;
   }
 
   &__entry-info {
     display: flex;
     gap: 1rem;
     font-size: 0.875rem;
-    color: rgba(255, 255, 255, 0.8);
+    color: $neo-text-light;
   }
 
   &__entry-teacher {
@@ -894,19 +875,19 @@ onMounted(() => {
   }
 
   &__entry-classroom {
-    color: rgba(255, 255, 255, 0.7);
+    color: $neo-text-muted;
   }
 
   &__loading {
     text-align: center;
     padding: 2rem;
-    color: rgba(255, 255, 255, 0.8);
+    color: $neo-text-light;
   }
 
   &__empty {
     text-align: center;
     padding: 3rem;
-    color: rgba(255, 255, 255, 0.7);
+    color: $neo-text-muted;
     font-style: italic;
   }
 }

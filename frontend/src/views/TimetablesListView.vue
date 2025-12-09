@@ -438,7 +438,7 @@ onMounted(async () => {
 </script>
 
 <style lang="scss" scoped>
-@import '../styles/glass.scss';
+@import '../styles/neo.scss';
 
 .timetables-list-view {
   min-height: 100vh;
@@ -446,7 +446,7 @@ onMounted(async () => {
   z-index: 1;
 
   &__header {
-    @extend %glass-header;
+    @extend %neo-header;
     padding: 1.5rem 2rem;
     display: flex;
     justify-content: space-between;
@@ -457,10 +457,9 @@ onMounted(async () => {
   }
 
   &__title {
-    color: rgba(255, 255, 255, 0.95);
+    color: $neo-text;
     font-size: 1.75rem;
     font-weight: 700;
-    text-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
   }
 
   &__controls {
@@ -470,23 +469,12 @@ onMounted(async () => {
   }
 
   &__back {
+    @extend %neo-button;
+    @extend %neo-button--secondary;
     padding: 0.75rem 1.5rem;
-    background: rgba(108, 117, 125, 0.3);
-    backdrop-filter: blur(10px);
-    -webkit-backdrop-filter: blur(10px);
-    border: 1px solid rgba(255, 255, 255, 0.2);
-    color: rgba(255, 255, 255, 0.95);
     text-decoration: none;
     border-radius: 12px;
     font-weight: 500;
-    transition: all 0.3s ease;
-
-    &:hover {
-      background: rgba(108, 117, 125, 0.4);
-      border-color: rgba(255, 255, 255, 0.3);
-      transform: translateY(-2px);
-      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
-    }
   }
 
   &__content {
@@ -498,15 +486,14 @@ onMounted(async () => {
   }
 
   &__section {
-    @extend %glass-card;
+    @extend %neo-card;
     padding: 2rem;
     margin-bottom: 2rem;
 
     h2 {
       margin-bottom: 1rem;
-      color: rgba(255, 255, 255, 0.95);
+      color: $neo-text;
       font-weight: 700;
-      text-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
     }
   }
 
@@ -531,12 +518,12 @@ onMounted(async () => {
 
   &__label {
     font-weight: 600;
-    color: #333;
+    color: $neo-text;
     font-size: 0.875rem;
   }
 
   &__input {
-    @extend %glass-input;
+    @extend %neo-input;
     flex: 1;
     padding: 0.75rem;
     border-radius: 12px;
@@ -544,9 +531,9 @@ onMounted(async () => {
   }
 
   &__button {
-    @extend %glass-button;
+    @extend %neo-button;
+    @extend %neo-button--primary;
     padding: 0.75rem 2rem;
-    border-radius: 12px;
     cursor: pointer;
     font-size: 1rem;
     font-weight: 600;
@@ -564,21 +551,12 @@ onMounted(async () => {
   }
 
   &__item {
-    @include glass-effect(0.1, 12px);
+    @extend %neo-list-item;
     display: flex;
     justify-content: space-between;
     align-items: center;
     padding: 1.5rem;
-    border-radius: 16px;
     margin-bottom: 1rem;
-    transition: all 0.3s ease;
-
-    &:hover {
-      background: rgba(255, 255, 255, 0.15);
-      border-color: rgba(255, 255, 255, 0.25);
-      transform: translateY(-2px);
-      box-shadow: 0 8px 16px rgba(0, 0, 0, 0.15);
-    }
   }
 
   &__item-info {
@@ -587,20 +565,19 @@ onMounted(async () => {
 
   &__item-name {
     margin: 0 0 0.5rem 0;
-    color: rgba(255, 255, 255, 0.95);
+    color: $neo-text;
     font-size: 1.25rem;
     font-weight: 700;
-    text-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
   }
 
   &__item-details {
-    color: rgba(255, 255, 255, 0.8);
+    color: $neo-text-light;
     font-size: 0.875rem;
     margin-bottom: 0.5rem;
   }
 
   &__item-stats {
-    color: rgba(255, 255, 255, 0.7);
+    color: $neo-text-muted;
     font-size: 0.875rem;
   }
 
@@ -612,7 +589,7 @@ onMounted(async () => {
   &__view,
   &__validate,
   &__delete {
-    @extend %glass-button;
+    @extend %neo-button;
     padding: 0.5rem 1rem;
     border-radius: 10px;
     cursor: pointer;
@@ -626,78 +603,51 @@ onMounted(async () => {
   }
 
   &__view {
-    background: rgba(74, 144, 226, 0.3);
-    border-color: rgba(74, 144, 226, 0.4);
-
-    &:hover:not(:disabled) {
-      background: rgba(74, 144, 226, 0.4);
-      border-color: rgba(74, 144, 226, 0.5);
-    }
+    @extend %neo-button--primary;
   }
 
   &__validate {
-    background: rgba(40, 167, 69, 0.3);
-    border-color: rgba(40, 167, 69, 0.4);
-
-    &:hover:not(:disabled) {
-      background: rgba(40, 167, 69, 0.4);
-      border-color: rgba(40, 167, 69, 0.5);
-    }
+    @extend %neo-button--success;
   }
 
   &__delete {
-    background: rgba(220, 53, 69, 0.3);
-    border-color: rgba(220, 53, 69, 0.4);
-
-    &:hover:not(:disabled) {
-      background: rgba(220, 53, 69, 0.4);
-      border-color: rgba(220, 53, 69, 0.5);
-    }
+    @extend %neo-button--danger;
   }
 
   &__loading {
     text-align: center;
     padding: 2rem;
-    color: rgba(255, 255, 255, 0.8);
+    color: $neo-text-light;
   }
 
   &__empty {
     text-align: center;
     padding: 3rem;
-    color: rgba(255, 255, 255, 0.7);
+    color: $neo-text-muted;
     font-style: italic;
   }
 
   &__error {
-    color: rgba(255, 200, 200, 0.95);
+    @extend %neo-message;
+    @extend %neo-message--error;
     margin-top: 1rem;
     padding: 0.75rem;
-    background: rgba(220, 53, 69, 0.2);
-    backdrop-filter: blur(10px);
-    -webkit-backdrop-filter: blur(10px);
-    border: 1px solid rgba(220, 53, 69, 0.3);
     border-radius: 12px;
   }
 
   &__success {
-    color: rgba(200, 255, 200, 0.95);
+    @extend %neo-message;
+    @extend %neo-message--success;
     margin-top: 1rem;
     padding: 0.75rem;
-    background: rgba(40, 167, 69, 0.2);
-    backdrop-filter: blur(10px);
-    -webkit-backdrop-filter: blur(10px);
-    border: 1px solid rgba(40, 167, 69, 0.3);
     border-radius: 12px;
   }
 
   &__valid {
-    color: rgba(200, 255, 200, 0.95);
+    @extend %neo-message;
+    @extend %neo-message--success;
     font-weight: 600;
     padding: 1rem;
-    background: rgba(40, 167, 69, 0.2);
-    backdrop-filter: blur(10px);
-    -webkit-backdrop-filter: blur(10px);
-    border: 1px solid rgba(40, 167, 69, 0.3);
     border-radius: 12px;
   }
 
@@ -706,12 +656,9 @@ onMounted(async () => {
   }
 
   &__error-item {
+    @extend %neo-message;
+    @extend %neo-message--error;
     padding: 0.75rem;
-    background: rgba(220, 53, 69, 0.2);
-    backdrop-filter: blur(10px);
-    -webkit-backdrop-filter: blur(10px);
-    color: rgba(255, 200, 200, 0.95);
-    border: 1px solid rgba(220, 53, 69, 0.3);
     border-radius: 12px;
     margin-bottom: 0.5rem;
   }

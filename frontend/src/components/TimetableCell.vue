@@ -30,7 +30,7 @@ const isLunchBreak = computed(() => {
 </script>
 
 <style lang="scss" scoped>
-@import '../styles/glass.scss';
+@import '../styles/neo.scss';
 
 .timetable-cell {
   min-height: 80px;
@@ -45,46 +45,43 @@ const isLunchBreak = computed(() => {
 
   &__subject {
     font-weight: 600;
-    color: rgba(255, 255, 255, 0.95);
+    color: $neo-text;
     margin-bottom: 0.25rem;
-    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+    
   }
 
   &__teacher {
     font-size: 0.875rem;
-    color: rgba(255, 255, 255, 0.85);
+    color: $neo-text-light;
     margin-bottom: 0.25rem;
   }
 
   &__class {
     font-size: 0.875rem;
-    color: rgba(255, 255, 255, 0.9);
+    color: $neo-text;
     margin-bottom: 0.25rem;
     font-weight: 500;
   }
 
   &__classroom {
     font-size: 0.75rem;
-    color: rgba(255, 255, 255, 0.7);
+    color: $neo-text-muted;
   }
 
   &__lunch {
-    @include glass-effect(0.15, 12px);
+    @include neo-surface(12px, 0.6);
     min-height: 80px;
     display: flex;
     align-items: center;
     justify-content: center;
-    background: rgba(255, 152, 0, 0.2);
-    border: 1px solid rgba(255, 152, 0, 0.3);
-    color: rgba(255, 255, 255, 0.95);
+    background: lighten(#ffc107, 35%);
+    color: darken(#ffc107, 20%);
     font-weight: 600;
-    border-radius: 12px;
   }
 
   &__lunch-text {
     text-align: center;
     padding: 0.5rem;
-    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
   }
 }
 </style>

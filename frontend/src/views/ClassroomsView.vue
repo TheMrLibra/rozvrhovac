@@ -336,7 +336,7 @@ onMounted(() => {
 </script>
 
 <style lang="scss" scoped>
-@import '../styles/glass.scss';
+@import '../styles/neo.scss';
 
 .classrooms-view {
   min-height: 100vh;
@@ -344,7 +344,7 @@ onMounted(() => {
   z-index: 1;
 
   &__header {
-    @extend %glass-header;
+    @extend %neo-header;
     padding: 1.5rem 2rem;
     display: flex;
     justify-content: space-between;
@@ -355,27 +355,23 @@ onMounted(() => {
   }
 
   &__title {
-    color: rgba(255, 255, 255, 0.95);
+    color: $neo-text;
     font-size: 1.75rem;
     font-weight: 700;
-    text-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    
   }
 
   &__back {
+    @extend %neo-button;
+    @extend %neo-button--secondary;
     padding: 0.75rem 1.5rem;
-    background: rgba(108, 117, 125, 0.3);
-    backdrop-filter: blur(10px);
-    -webkit-backdrop-filter: blur(10px);
-    border: 1px solid rgba(255, 255, 255, 0.2);
-    color: rgba(255, 255, 255, 0.95);
     text-decoration: none;
     border-radius: 12px;
     font-weight: 500;
-    transition: all 0.3s ease;
 
     &:hover {
-      background: rgba(108, 117, 125, 0.4);
-      border-color: rgba(255, 255, 255, 0.3);
+      background: $neo-bg-light;
+      border-color: $neo-bg-base;
       transform: translateY(-2px);
       box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
     }
@@ -390,15 +386,15 @@ onMounted(() => {
   }
 
   &__section {
-    @extend %glass-card;
+    @extend %neo-card;
     padding: 2rem;
     margin-bottom: 2rem;
 
     h2 {
       margin-bottom: 1rem;
-      color: rgba(255, 255, 255, 0.95);
+      color: $neo-text;
       font-weight: 700;
-      text-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+      
     }
   }
 
@@ -409,7 +405,7 @@ onMounted(() => {
   }
 
   &__input {
-    @extend %glass-input;
+    @extend %neo-input;
     padding: 0.75rem;
     border-radius: 12px;
     font-size: 1rem;
@@ -427,19 +423,19 @@ onMounted(() => {
 
   &__label {
     font-weight: 600;
-    color: rgba(255, 255, 255, 0.95);
-    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+    color: $neo-text;
+    
   }
 
   &__hint {
     display: block;
-    color: rgba(255, 255, 255, 0.7);
+    color: $neo-text-muted;
     font-size: 0.875rem;
     margin-top: -0.25rem;
   }
 
   &__button {
-    @extend %glass-button;
+    @extend %neo-button;
     padding: 0.75rem 2rem;
     border-radius: 12px;
     cursor: pointer;
@@ -453,12 +449,12 @@ onMounted(() => {
     }
 
     &--secondary {
-      background: rgba(108, 117, 125, 0.3);
-      border-color: rgba(255, 255, 255, 0.2);
+      background: $neo-bg-light;
+      border-color: $neo-bg-light;
 
       &:hover:not(:disabled) {
-        background: rgba(108, 117, 125, 0.4);
-        border-color: rgba(255, 255, 255, 0.3);
+        background: $neo-bg-light;
+        border-color: $neo-bg-base;
       }
     }
   }
@@ -470,21 +466,12 @@ onMounted(() => {
   }
 
   &__item {
-    @include glass-effect(0.1, 12px);
+    @extend %neo-list-item;
     display: flex;
     justify-content: space-between;
     align-items: center;
     padding: 1rem;
-    border-radius: 16px;
     margin-bottom: 0.5rem;
-    transition: all 0.3s ease;
-
-    &:hover {
-      background: rgba(255, 255, 255, 0.15);
-      border-color: rgba(255, 255, 255, 0.25);
-      transform: translateY(-2px);
-      box-shadow: 0 8px 16px rgba(0, 0, 0, 0.15);
-    }
 
     &-info {
       display: flex;
@@ -494,19 +481,18 @@ onMounted(() => {
 
     &-name {
       font-weight: 600;
-      color: rgba(255, 255, 255, 0.95);
-      text-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+      color: $neo-text;
     }
 
     &-details {
       display: flex;
       gap: 1rem;
-      color: rgba(255, 255, 255, 0.8);
+      color: $neo-text-light;
       font-size: 0.875rem;
     }
 
     &-no-specializations {
-      color: rgba(255, 255, 255, 0.6);
+      color: $neo-text-muted;
       font-style: italic;
       font-size: 0.875rem;
     }
@@ -519,7 +505,7 @@ onMounted(() => {
 
   &__edit,
   &__delete {
-    @extend %glass-button;
+    @extend %neo-button;
     padding: 0.5rem 1rem;
     border-radius: 10px;
     cursor: pointer;
@@ -533,30 +519,17 @@ onMounted(() => {
   }
 
   &__edit {
-    background: rgba(255, 193, 7, 0.3);
-    border-color: rgba(255, 193, 7, 0.4);
-    color: rgba(255, 255, 255, 0.95);
-
-    &:hover:not(:disabled) {
-      background: rgba(255, 193, 7, 0.4);
-      border-color: rgba(255, 193, 7, 0.5);
-    }
+    @extend %neo-button--warning;
   }
 
   &__delete {
-    background: rgba(220, 53, 69, 0.3);
-    border-color: rgba(220, 53, 69, 0.4);
-
-    &:hover:not(:disabled) {
-      background: rgba(220, 53, 69, 0.4);
-      border-color: rgba(220, 53, 69, 0.5);
-    }
+    @extend %neo-button--danger;
   }
 
   &__empty {
     padding: 2rem;
     text-align: center;
-    color: #666;
+    color: $neo-text-muted;
     font-style: italic;
   }
 
@@ -566,7 +539,7 @@ onMounted(() => {
     left: 0;
     right: 0;
     bottom: 0;
-    background-color: rgba(0, 0, 0, 0.5);
+    background: rgba(0, 0, 0, 0.3);
     display: flex;
     align-items: center;
     justify-content: center;
@@ -574,13 +547,16 @@ onMounted(() => {
   }
 
   &__modal-content {
-    background: white;
+    @extend %neo-modal;
     padding: 2rem;
-    border-radius: 8px;
     max-width: 500px;
     width: 90%;
     max-height: 90vh;
     overflow-y: auto;
+
+    h3 {
+      color: $neo-text;
+    }
   }
 
   &__modal-actions {
@@ -590,18 +566,18 @@ onMounted(() => {
   }
 
   &__error {
-    color: #dc3545;
+    @extend %neo-message;
+    @extend %neo-message--error;
     padding: 1rem;
-    background-color: #f8d7da;
-    border-radius: 4px;
+    border-radius: 12px;
     margin-top: 1rem;
   }
 
   &__success {
-    color: #28a745;
+    @extend %neo-message;
+    @extend %neo-message--success;
     padding: 1rem;
-    background-color: #d4edda;
-    border-radius: 4px;
+    border-radius: 12px;
     margin-top: 1rem;
   }
 }

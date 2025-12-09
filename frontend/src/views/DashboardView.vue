@@ -38,7 +38,7 @@ function handleLogout() {
 </script>
 
 <style lang="scss" scoped>
-@import '../styles/glass.scss';
+@import '../styles/neo.scss';
 
 .dashboard-view {
   min-height: 100vh;
@@ -46,7 +46,7 @@ function handleLogout() {
   z-index: 1;
 
   &__header {
-    @extend %glass-header;
+    @extend %neo-header;
     padding: 1.5rem 2rem;
     display: flex;
     justify-content: space-between;
@@ -57,30 +57,18 @@ function handleLogout() {
   }
 
   &__title {
-    color: rgba(255, 255, 255, 0.95);
+    color: $neo-text;
     font-size: 1.75rem;
     font-weight: 700;
-    text-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
   }
 
   &__logout {
+    @extend %neo-button;
+    @extend %neo-button--danger;
     padding: 0.75rem 1.5rem;
-    background: rgba(220, 53, 69, 0.3);
-    backdrop-filter: blur(10px);
-    -webkit-backdrop-filter: blur(10px);
-    border: 1px solid rgba(255, 255, 255, 0.2);
-    color: rgba(255, 255, 255, 0.95);
     border-radius: 12px;
     cursor: pointer;
     font-weight: 600;
-    transition: all 0.3s ease;
-
-    &:hover {
-      background: rgba(220, 53, 69, 0.4);
-      border-color: rgba(255, 255, 255, 0.3);
-      transform: translateY(-2px);
-      box-shadow: 0 4px 12px rgba(220, 53, 69, 0.3);
-    }
   }
 
   &__content {
@@ -101,10 +89,10 @@ function handleLogout() {
   }
 
   &__link {
-    @extend %glass-card;
+    @extend %neo-card;
     display: inline-block;
     padding: 1.25rem 2rem;
-    color: rgba(255, 255, 255, 0.95);
+    color: $neo-text;
     text-decoration: none;
     font-weight: 600;
     transition: all 0.3s ease;
@@ -112,10 +100,13 @@ function handleLogout() {
     min-width: 180px;
 
     &:hover {
-      background: rgba(255, 255, 255, 0.25);
-      border-color: rgba(255, 255, 255, 0.3);
-      transform: translateY(-4px);
-      box-shadow: 0 12px 24px rgba(0, 0, 0, 0.2);
+      @include neo-surface(16px, 1.2);
+      transform: translateY(-2px);
+    }
+    
+    &:active {
+      @include neo-inset(16px, 0.6);
+      transform: translateY(0);
     }
   }
 }
