@@ -2,15 +2,18 @@
   <div class="dashboard-view">
     <header class="dashboard-view__header">
       <div class="dashboard-view__header-content">
-        <h1 class="dashboard-view__title">Dashboard</h1>
-      </div>
+        <h1 class="dashboard-view__title">{{ t('common.dashboard') }}</h1>
         <div v-if="authStore.user?.role === 'ADMIN'" class="dashboard-view__admin-links">
-            <router-link to="/settings" class="dashboard-view__link">School Settings</router-link>
-            <router-link to="/classes" class="dashboard-view__link">Classes</router-link>
-            <router-link to="/teachers" class="dashboard-view__link">Teachers</router-link>
-            <router-link to="/timetables" class="dashboard-view__link">Timetables</router-link>
+          <router-link to="/settings" class="dashboard-view__link">{{ t('navigation.schoolSettings') }}</router-link>
+          <router-link to="/classes" class="dashboard-view__link">{{ t('navigation.classes') }}</router-link>
+          <router-link to="/teachers" class="dashboard-view__link">{{ t('navigation.teachers') }}</router-link>
+          <router-link to="/timetables" class="dashboard-view__link">{{ t('navigation.timetables') }}</router-link>
         </div>
-      <button @click="handleLogout" class="dashboard-view__logout">Logout</button>
+      </div>
+      <div class="dashboard-view__header-actions">
+        <LanguageSwitcher />
+        <button @click="handleLogout" class="dashboard-view__logout">{{ t('common.logout') }}</button>
+      </div>
     </header>
     <main class="dashboard-view__content">
       <div v-if="authStore.user?.role === 'ADMIN'" class="dashboard-view__sections-grid">
@@ -18,11 +21,11 @@
         <div class="dashboard-view__lessons-section">
           <h2 class="dashboard-view__section-title">
             <span class="dashboard-view__section-icon">⏰</span>
-            Currently Running Lessons
+            {{ t('dashboard.currentlyRunningLessons') }}
           </h2>
-          <div v-if="loadingLessons" class="dashboard-view__loading">Loading...</div>
+          <div v-if="loadingLessons" class="dashboard-view__loading">{{ t('common.loading') }}</div>
           <div v-else-if="currentLessons.length === 0" class="dashboard-view__empty">
-            No lessons are currently running
+            {{ t('dashboard.noLessonsRunning') }}
           </div>
           <div v-else class="dashboard-view__lessons-list">
             <div
@@ -36,15 +39,15 @@
               </div>
               <div class="dashboard-view__lesson-details">
                 <div class="dashboard-view__lesson-detail">
-                  <span class="dashboard-view__lesson-label">Subject:</span>
+                  <span class="dashboard-view__lesson-label">{{ t('dashboard.subject') }}:</span>
                   <span class="dashboard-view__lesson-value">{{ lesson.subject?.name || 'N/A' }}</span>
                 </div>
                 <div class="dashboard-view__lesson-detail">
-                  <span class="dashboard-view__lesson-label">Teacher:</span>
+                  <span class="dashboard-view__lesson-label">{{ t('dashboard.teacher') }}:</span>
                   <span class="dashboard-view__lesson-value">{{ lesson.teacher?.full_name || 'N/A' }}</span>
                 </div>
                 <div v-if="lesson.classroom" class="dashboard-view__lesson-detail">
-                  <span class="dashboard-view__lesson-label">Classroom:</span>
+                  <span class="dashboard-view__lesson-label">{{ t('dashboard.classroom') }}:</span>
                   <span class="dashboard-view__lesson-value">{{ lesson.classroom?.name || 'N/A' }}</span>
                 </div>
               </div>
@@ -56,11 +59,11 @@
         <div class="dashboard-view__absences-section">
           <h2 class="dashboard-view__section-title">
             <span class="dashboard-view__section-icon">📅</span>
-            Today's Absent Teachers
+            {{ t('dashboard.todaysAbsentTeachers') }}
           </h2>
-          <div v-if="loadingAbsences" class="dashboard-view__loading">Loading...</div>
+          <div v-if="loadingAbsences" class="dashboard-view__loading">{{ t('common.loading') }}</div>
           <div v-else-if="todayAbsences.length === 0" class="dashboard-view__empty">
-            No teachers are absent today
+            {{ t('dashboard.noTeachersAbsent') }}
           </div>
           <div v-else class="dashboard-view__absences-list">
             <div
@@ -85,13 +88,13 @@
       </div>
 
       <div v-if="authStore.user?.role === 'TEACHER'" class="dashboard-view__teacher-links">
-        <router-link to="/teacher" class="dashboard-view__link">Teacher Dashboard</router-link>
-        <router-link to="/absence" class="dashboard-view__link">Report Absence</router-link>
-        <router-link to="/timetable" class="dashboard-view__link">View Timetable</router-link>
+        <router-link to="/teacher" class="dashboard-view__link">{{ t('navigation.teacherDashboard') }}</router-link>
+        <router-link to="/absence" class="dashboard-view__link">{{ t('navigation.reportAbsence') }}</router-link>
+        <router-link to="/timetable" class="dashboard-view__link">{{ t('navigation.viewTimetable') }}</router-link>
       </div>
       <div v-else-if="authStore.user?.role === 'SCHOLAR'" class="dashboard-view__scholar-links">
-        <router-link to="/scholar" class="dashboard-view__link">Scholar Dashboard</router-link>
-        <router-link to="/timetable" class="dashboard-view__link">View Timetable</router-link>
+        <router-link to="/scholar" class="dashboard-view__link">{{ t('navigation.scholarDashboard') }}</router-link>
+        <router-link to="/timetable" class="dashboard-view__link">{{ t('navigation.viewTimetable') }}</router-link>
       </div>
     </main>
   </div>
@@ -101,7 +104,12 @@
 import { ref, onMounted, computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
+import { useI18nStore } from '@/stores/i18n'
+import LanguageSwitcher from '@/components/LanguageSwitcher.vue'
 import api from '@/services/api'
+
+const i18nStore = useI18nStore()
+const t = i18nStore.t
 
 interface Absence {
   id: number
@@ -426,6 +434,12 @@ onMounted(() => {
     flex-direction: column;
     gap: 1rem;
     flex: 1;
+  }
+
+  &__header-actions {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
   }
 
   &__title {
