@@ -81,9 +81,23 @@
               Break Settings
             </h3>
             <div class="school-settings-view__fields-grid">
+              <div class="school-settings-view__field school-settings-view__field--full">
+                <label class="school-settings-view__label">
+                  Break Durations (minutes)
+                </label>
+                <input
+                  v-model="breakDurationsInput"
+                  type="text"
+                  placeholder="5,20,10,10,10,10,10"
+                  class="school-settings-view__input"
+                />
+                <small class="school-settings-view__hint">
+                  Comma-separated break durations in minutes. Each value represents the break duration after that lesson (e.g., "5,20,10" means 5min after lesson 1, 20min after lesson 2, 10min after lesson 3+). If fewer values are provided, the last value is used for remaining breaks.
+                </small>
+              </div>
               <div class="school-settings-view__field">
                 <label class="school-settings-view__label">
-                  Break Duration (minutes)
+                  Default Break Duration (minutes)
                   <span class="school-settings-view__required">*</span>
                 </label>
                 <input
@@ -93,7 +107,7 @@
                   class="school-settings-view__input"
                   required
                 />
-                <small class="school-settings-view__hint">Duration of breaks between lessons</small>
+                <small class="school-settings-view__hint">Fallback duration if break_durations is not set</small>
               </div>
             </div>
           </div>
@@ -173,6 +187,7 @@ const settings = ref({
   end_time: '16:00',
   class_hour_length_minutes: 45,
   break_duration_minutes: 10,
+  break_durations: null as number[] | null,
   lunch_duration_minutes: 30,
   possible_lunch_hours: [] as number[]
 })
@@ -184,6 +199,17 @@ const lunchHoursInput = computed({
       settings.value.possible_lunch_hours = value.split(',').map(v => parseInt(v.trim())).filter(v => !isNaN(v))
     } else {
       settings.value.possible_lunch_hours = []
+    }
+  }
+})
+
+const breakDurationsInput = computed({
+  get: () => settings.value.break_durations?.join(',') || '',
+  set: (value: string) => {
+    if (value.trim()) {
+      settings.value.break_durations = value.split(',').map(v => parseInt(v.trim())).filter(v => !isNaN(v))
+    } else {
+      settings.value.break_durations = null
     }
   }
 })
@@ -200,6 +226,7 @@ async function loadSettings() {
       end_time: data.end_time || '16:00',
       class_hour_length_minutes: data.class_hour_length_minutes || 45,
       break_duration_minutes: data.break_duration_minutes || 10,
+      break_durations: data.break_durations || null,
       lunch_duration_minutes: data.lunch_duration_minutes || 30,
       possible_lunch_hours: data.possible_lunch_hours || []
     }

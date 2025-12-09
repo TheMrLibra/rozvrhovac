@@ -68,7 +68,26 @@ class TimetableService:
         # Calculate max lessons per day from settings
         total_minutes = (settings.end_time.hour * 60 + settings.end_time.minute) - \
                        (settings.start_time.hour * 60 + settings.start_time.minute)
-        lesson_duration = settings.class_hour_length_minutes + settings.break_duration_minutes
+        
+        # Helper function to get break duration for a specific break index
+        def get_break_duration(break_index: int) -> int:
+            """Get break duration after lesson (break_index + 1). break_index 0 = after lesson 1"""
+            if settings.break_durations and len(settings.break_durations) > 0:
+                if break_index < len(settings.break_durations):
+                    return settings.break_durations[break_index]
+                else:
+                    # Use last value as default for remaining breaks
+                    return settings.break_durations[-1]
+            else:
+                # Fallback to single break_duration_minutes
+                return settings.break_duration_minutes
+        
+        # For max lessons calculation, use average break duration
+        if settings.break_durations and len(settings.break_durations) > 0:
+            avg_break_duration = sum(settings.break_durations) / len(settings.break_durations)
+            lesson_duration = settings.class_hour_length_minutes + int(avg_break_duration)
+        else:
+            lesson_duration = settings.class_hour_length_minutes + settings.break_duration_minutes
         
         # Calculate lunch break in class hours (round up)
         lunch_hours_count = 0
@@ -96,7 +115,7 @@ class TimetableService:
         # Calculate available minutes (subtract lunch duration)
         lunch_duration_minutes = lunch_hours_count * settings.class_hour_length_minutes if lunch_hour_slots else 0
         available_minutes = total_minutes - lunch_duration_minutes
-        max_lessons_per_day = available_minutes // lesson_duration
+        max_lessons_per_day = int(available_minutes // lesson_duration)
         
         # Group subjects by class for even distribution
         class_subjects: Dict[int, List[Tuple[Subject, int]]] = {}  # class_id -> [(subject, allocation_id), ...]

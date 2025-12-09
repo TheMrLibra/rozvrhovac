@@ -27,7 +27,8 @@ class SchoolSettings(Base):
     start_time = Column(Time, nullable=False)  # e.g., 08:00
     end_time = Column(Time, nullable=False)  # e.g., 16:00
     class_hour_length_minutes = Column(Integer, nullable=False, default=45)
-    break_duration_minutes = Column(Integer, nullable=False, default=10)
+    break_duration_minutes = Column(Integer, nullable=False, default=10)  # Deprecated: kept for backward compatibility
+    break_durations = Column(JSON, nullable=True)  # e.g., [5, 20, 10, 10, 10] - break durations after each lesson (index 0 = after lesson 1)
     possible_lunch_hours = Column(JSON, nullable=True)  # e.g., [3, 4, 5]
     lunch_duration_minutes = Column(Integer, nullable=False, default=30)
     

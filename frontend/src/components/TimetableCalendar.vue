@@ -251,7 +251,24 @@ const daySchedule = computed((): ScheduleItem[] => {
   const schedule: ScheduleItem[] = []
   const startTime = schoolSettings.value.start_time || '08:00'
   const classHourLength = schoolSettings.value.class_hour_length_minutes || 45
-  const breakDuration = schoolSettings.value.break_duration_minutes || 10
+  const defaultBreakDuration = schoolSettings.value.break_duration_minutes || 10
+  const breakDurations = schoolSettings.value.break_durations || null
+  
+  // Helper function to get break duration for a specific break index
+  const getBreakDuration = (breakIndex: number): number => {
+    // breakIndex 0 = break after lesson 1, breakIndex 1 = break after lesson 2, etc.
+    if (breakDurations && breakDurations.length > 0) {
+      if (breakIndex < breakDurations.length) {
+        return breakDurations[breakIndex]
+      } else {
+        // Use last value as default for remaining breaks
+        return breakDurations[breakDurations.length - 1]
+      }
+    } else {
+      // Fallback to single break_duration_minutes
+      return defaultBreakDuration
+    }
+  }
   
   // Parse start time
   const [startHours, startMinutes] = startTime.split(':').map(Number)
@@ -306,6 +323,8 @@ const daySchedule = computed((): ScheduleItem[] => {
       if (nextIndex <= maxLessonIndex) {
         const nextIsLunch = lunchHourSlots.value.includes(nextIndex)
         if (!nextIsLunch) {
+          // breakIndex = lessonIndex - 1 (break after lesson 1 is at index 0)
+          const breakDuration = getBreakDuration(lessonIndex - 1)
           currentTime = new Date(currentTime.getTime() + breakDuration * 60000)
         }
       }
@@ -317,6 +336,8 @@ const daySchedule = computed((): ScheduleItem[] => {
       if (nextIndex <= maxLessonIndex) {
         const nextIsLunch = lunchHourSlots.value.includes(nextIndex)
         if (!nextIsLunch) {
+          // breakIndex = lessonIndex - 1 (break after lesson 1 is at index 0)
+          const breakDuration = getBreakDuration(lessonIndex - 1)
           currentTime = new Date(currentTime.getTime() + breakDuration * 60000)
         }
       }
