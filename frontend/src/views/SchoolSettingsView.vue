@@ -85,14 +85,45 @@
                 <label class="school-settings-view__label">
                   Break Durations (minutes)
                 </label>
-                <input
-                  v-model="breakDurationsInput"
-                  type="text"
-                  placeholder="5,20,10,10,10,10,10"
-                  class="school-settings-view__input"
-                />
+                <div class="school-settings-view__break-durations">
+                  <div
+                    v-for="(_, index) in breakDurationsList"
+                    :key="index"
+                    class="school-settings-view__break-item"
+                  >
+                    <div class="school-settings-view__break-label">
+                      <span class="school-settings-view__break-number">Break {{ index + 1 }}</span>
+                      <span class="school-settings-view__break-description">after lesson {{ index + 1 }}</span>
+                    </div>
+                    <input
+                      v-model.number="breakDurationsList[index]"
+                      type="number"
+                      min="0"
+                      class="school-settings-view__input school-settings-view__input--break"
+                      placeholder="10"
+                      @input="updateBreakDurations"
+                    />
+                    <span class="school-settings-view__break-unit">min</span>
+                    <button
+                      v-if="breakDurationsList.length > 1"
+                      type="button"
+                      @click="removeBreak(index)"
+                      class="school-settings-view__break-remove"
+                      title="Remove break"
+                    >
+                      ×
+                    </button>
+                  </div>
+                  <button
+                    type="button"
+                    @click="addBreak"
+                    class="school-settings-view__break-add"
+                  >
+                    + Add Break
+                  </button>
+                </div>
                 <small class="school-settings-view__hint">
-                  Comma-separated break durations in minutes. Each value represents the break duration after that lesson (e.g., "5,20,10" means 5min after lesson 1, 20min after lesson 2, 10min after lesson 3+). If fewer values are provided, the last value is used for remaining breaks.
+                  Set the duration for each break between lessons. The last break duration will be used for any additional breaks if needed.
                 </small>
               </div>
               <div class="school-settings-view__field">
@@ -203,16 +234,26 @@ const lunchHoursInput = computed({
   }
 })
 
-const breakDurationsInput = computed({
-  get: () => settings.value.break_durations?.join(',') || '',
-  set: (value: string) => {
-    if (value.trim()) {
-      settings.value.break_durations = value.split(',').map(v => parseInt(v.trim())).filter(v => !isNaN(v))
-    } else {
-      settings.value.break_durations = null
-    }
+const breakDurationsList = ref<number[]>([10])
+
+function updateBreakDurations() {
+  settings.value.break_durations = breakDurationsList.value.filter(d => d !== null && d !== undefined && !isNaN(d))
+}
+
+function addBreak() {
+  const lastDuration = breakDurationsList.value.length > 0 
+    ? breakDurationsList.value[breakDurationsList.value.length - 1] 
+    : settings.value.break_duration_minutes || 10
+  breakDurationsList.value.push(lastDuration)
+  updateBreakDurations()
+}
+
+function removeBreak(index: number) {
+  if (breakDurationsList.value.length > 1) {
+    breakDurationsList.value.splice(index, 1)
+    updateBreakDurations()
   }
-})
+}
 
 async function loadSettings() {
   try {
@@ -229,6 +270,13 @@ async function loadSettings() {
       break_durations: data.break_durations || null,
       lunch_duration_minutes: data.lunch_duration_minutes || 30,
       possible_lunch_hours: data.possible_lunch_hours || []
+    }
+    
+    // Initialize break durations list
+    if (data.break_durations && data.break_durations.length > 0) {
+      breakDurationsList.value = [...data.break_durations]
+    } else {
+      breakDurationsList.value = [data.break_duration_minutes || 10]
     }
   } catch (err: any) {
     if (err.response?.status !== 404) {
@@ -402,6 +450,80 @@ onMounted(() => {
     font-size: 0.875rem;
     margin-top: 0.25rem;
     line-height: 1.4;
+  }
+
+  &__break-durations {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+  }
+
+  &__break-item {
+    @include neo-surface(12px, 0.6);
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    padding: 1rem;
+    background: $neo-bg-light;
+    transition: all 0.3s ease;
+
+    &:hover {
+      @include neo-surface(12px, 0.8);
+    }
+  }
+
+  &__break-label {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+    min-width: 140px;
+  }
+
+  &__break-number {
+    font-weight: 600;
+    color: $neo-text;
+    font-size: 0.95rem;
+  }
+
+  &__break-description {
+    font-size: 0.8rem;
+    color: $neo-text-muted;
+  }
+
+  &__input--break {
+    flex: 0 0 100px;
+    text-align: center;
+  }
+
+  &__break-unit {
+    color: $neo-text-light;
+    font-size: 0.9rem;
+    font-weight: 500;
+    min-width: 35px;
+  }
+
+  &__break-remove {
+    @extend %neo-button;
+    @extend %neo-button--danger;
+    width: 32px;
+    height: 32px;
+    padding: 0;
+    border-radius: 50%;
+    font-size: 1.5rem;
+    line-height: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+  }
+
+  &__break-add {
+    @extend %neo-button;
+    @extend %neo-button--secondary;
+    align-self: flex-start;
+    padding: 0.75rem 1.5rem;
+    border-radius: 12px;
+    font-weight: 600;
   }
 
   &__actions {
