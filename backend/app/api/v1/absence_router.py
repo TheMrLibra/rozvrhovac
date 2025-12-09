@@ -1,9 +1,12 @@
 from fastapi import APIRouter, Depends, HTTPException, status, Query
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import select
+from sqlalchemy.orm import selectinload
 from typing import List, Optional
 from app.core.database import get_db
 from app.core.dependencies import get_current_active_user, require_role
 from app.models.user import User, UserRole
+from app.models.absence import TeacherAbsence
 from app.schemas.absence import TeacherAbsenceCreate, TeacherAbsenceResponse
 from app.repositories.absence_repository import TeacherAbsenceRepository
 
@@ -73,8 +76,14 @@ async def get_absence(
     if current_user.school_id != school_id:
         raise HTTPException(status_code=403, detail="Access denied")
     
+    from sqlalchemy.orm import selectinload
     repo = TeacherAbsenceRepository(db)
-    absence = await repo.get_by_id(absence_id)
+    result = await repo.db.execute(
+        select(TeacherAbsence)
+        .options(selectinload(TeacherAbsence.teacher))
+        .where(TeacherAbsence.id == absence_id)
+    )
+    absence = result.scalar_one_or_none()
     if not absence or absence.school_id != school_id:
         raise HTTPException(status_code=404, detail="Absence not found")
     

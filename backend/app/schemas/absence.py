@@ -11,9 +11,17 @@ class TeacherAbsenceBase(BaseModel):
 class TeacherAbsenceCreate(TeacherAbsenceBase):
     pass
 
+class TeacherSimpleResponse(BaseModel):
+    id: int
+    full_name: str
+    
+    class Config:
+        from_attributes = True
+
 class TeacherAbsenceResponse(TeacherAbsenceBase):
     id: int
     school_id: int
+    teacher: Optional[TeacherSimpleResponse] = None
     
     class Config:
         from_attributes = True
