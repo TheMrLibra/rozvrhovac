@@ -2,7 +2,7 @@
   <div class="school-settings-view">
     <header class="school-settings-view__header">
       <h1 class="school-settings-view__title">School Settings</h1>
-      <router-link to="/admin" class="school-settings-view__back">Back</router-link>
+      <router-link to="/dashboard" class="school-settings-view__back">Dashboard</router-link>
     </header>
     <main class="school-settings-view__content">
       <div class="school-settings-view__form-container">

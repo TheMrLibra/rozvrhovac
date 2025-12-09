@@ -4,18 +4,19 @@
       <h1 class="timetables-list-view__title">Timetables</h1>
       <div class="timetables-list-view__controls">
         <button
+          v-if="authStore.user?.role === 'ADMIN'"
           @click="showGenerateForm = !showGenerateForm"
           class="timetables-list-view__button"
         >
-          Generate New Timetable
+          Generate New Fixed Timetable
         </button>
-        <router-link to="/dashboard" class="timetables-list-view__back">Back</router-link>
+        <router-link to="/dashboard" class="timetables-list-view__back">Dashboard</router-link>
       </div>
     </header>
     <main class="timetables-list-view__content">
       <!-- Generate Form -->
-      <div v-if="showGenerateForm" class="timetables-list-view__section">
-        <h2>Generate New Timetable</h2>
+      <div v-if="showGenerateForm && authStore.user?.role === 'ADMIN'" class="timetables-list-view__section">
+        <h2>Generate New Fixed Timetable</h2>
         <form @submit.prevent="generateTimetable" class="timetables-list-view__form">
           <input
             v-model="timetableName"
@@ -32,13 +33,13 @@
         <div v-if="success" class="timetables-list-view__success">{{ success }}</div>
       </div>
 
-      <!-- Timetables List -->
+      <!-- Fixed (Primary) Timetables -->
       <div class="timetables-list-view__section">
-        <h2>All Timetables</h2>
+        <h2>Fixed Timetables</h2>
         <div v-if="loading" class="timetables-list-view__loading">Loading timetables...</div>
-        <div v-else-if="timetables.length > 0" class="timetables-list-view__list">
+        <div v-else-if="primaryTimetables.length > 0" class="timetables-list-view__list">
           <div
-            v-for="timetable in timetables"
+            v-for="timetable in primaryTimetables"
             :key="timetable.id"
             class="timetables-list-view__item"
           >
@@ -82,8 +83,83 @@
           </div>
         </div>
         <div v-else class="timetables-list-view__empty">
-          No timetables found. Generate one to get started.
+          No fixed timetables found. Generate one to get started.
         </div>
+      </div>
+
+      <!-- Substitute Timetables -->
+      <div class="timetables-list-view__section">
+        <h2>Substitute Timetables</h2>
+        <div v-if="loading" class="timetables-list-view__loading">Loading timetables...</div>
+        <div v-else-if="substituteTimetables.length > 0" class="timetables-list-view__list">
+          <div
+            v-for="timetable in substituteTimetables"
+            :key="timetable.id"
+            class="timetables-list-view__item"
+          >
+            <div class="timetables-list-view__item-info">
+              <h3 class="timetables-list-view__item-name">{{ timetable.name }}</h3>
+              <div class="timetables-list-view__item-details">
+                <span v-if="timetable.substitute_for_date">
+                  For Date: {{ formatDate(timetable.substitute_for_date) }}
+                </span>
+                <span v-else>No date specified</span>
+              </div>
+              <div class="timetables-list-view__item-stats">
+                <span>{{ timetable.entries?.length || 0 }} entries</span>
+              </div>
+            </div>
+            <div class="timetables-list-view__item-actions">
+              <button
+                @click="viewTimetable(timetable.id)"
+                class="timetables-list-view__view"
+                :disabled="loading"
+              >
+                View
+              </button>
+              <button
+                @click="deleteTimetable(timetable.id)"
+                class="timetables-list-view__delete"
+                :disabled="loading"
+              >
+                Delete
+              </button>
+            </div>
+          </div>
+        </div>
+        <div v-else class="timetables-list-view__empty">
+          No substitute timetables found.
+        </div>
+      </div>
+
+      <!-- Generate Substitute Timetable -->
+      <div v-if="authStore.user?.role === 'ADMIN' && primaryTimetables.length > 0" class="timetables-list-view__section">
+        <h2>Generate Substitute Timetable</h2>
+        <form @submit.prevent="generateSubstituteTimetable" class="timetables-list-view__form">
+          <select
+            v-model="substituteForm.base_timetable_id"
+            class="timetables-list-view__input"
+            required
+          >
+            <option value="">Select Base Timetable</option>
+            <option
+              v-for="timetable in primaryTimetables"
+              :key="timetable.id"
+              :value="timetable.id"
+            >
+              {{ timetable.name }}
+            </option>
+          </select>
+          <input
+            v-model="substituteForm.substitute_date"
+            type="date"
+            class="timetables-list-view__input"
+            required
+          />
+          <button type="submit" class="timetables-list-view__button" :disabled="loading">
+            {{ loading ? 'Generating...' : 'Generate Substitute' }}
+          </button>
+        </form>
       </div>
 
       <!-- Validation Results -->
@@ -109,7 +185,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import api from '@/services/api'
@@ -120,6 +196,9 @@ interface Timetable {
   valid_from: string | null
   valid_to: string | null
   entries?: any[]
+  is_primary?: number
+  substitute_for_date?: string | null
+  base_timetable_id?: number | null
 }
 
 const router = useRouter()
@@ -131,6 +210,18 @@ const success = ref('')
 const showGenerateForm = ref(false)
 const timetableName = ref('')
 const validationResult = ref<any>(null)
+const substituteForm = ref({
+  base_timetable_id: null as number | null,
+  substitute_date: ''
+})
+
+const primaryTimetables = computed(() => {
+  return timetables.value.filter(t => t.is_primary === 1)
+})
+
+const substituteTimetables = computed(() => {
+  return timetables.value.filter(t => t.is_primary === 0)
+})
 
 function formatDate(dateString: string): string {
   if (!dateString) return 'N/A'
@@ -233,6 +324,39 @@ async function deleteTimetable(timetableId: number) {
     await loadTimetables()
   } catch (err: any) {
     error.value = err.response?.data?.detail || 'Failed to delete timetable'
+  } finally {
+    loading.value = false
+  }
+}
+
+async function generateSubstituteTimetable() {
+  if (!substituteForm.value.base_timetable_id || !substituteForm.value.substitute_date) {
+    error.value = 'Please select a base timetable and date'
+    return
+  }
+  
+  loading.value = true
+  error.value = ''
+  success.value = ''
+  
+  try {
+    const schoolId = authStore.user?.school_id
+    if (!schoolId) {
+      throw new Error('School ID not found')
+    }
+    
+    await api.post(
+      `/timetables/schools/${schoolId}/timetables/${substituteForm.value.base_timetable_id}/generate-substitute`,
+      {
+        substitute_date: substituteForm.value.substitute_date
+      }
+    )
+    
+    success.value = 'Substitute timetable generated successfully!'
+    substituteForm.value = { base_timetable_id: null, substitute_date: '' }
+    await loadTimetables()
+  } catch (err: any) {
+    error.value = err.response?.data?.detail || 'Failed to generate substitute timetable'
   } finally {
     loading.value = false
   }

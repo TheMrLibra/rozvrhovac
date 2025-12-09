@@ -1,6 +1,6 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, Query
 from sqlalchemy.ext.asyncio import AsyncSession
-from typing import List
+from typing import List, Optional
 from app.core.database import get_db
 from app.core.dependencies import get_current_active_user, require_role
 from app.models.user import User, UserRole
@@ -42,7 +42,7 @@ async def create_absence(
 @router.get("/schools/{school_id}/absences", response_model=List[TeacherAbsenceResponse])
 async def list_absences(
     school_id: int,
-    teacher_id: int = None,
+    teacher_id: Optional[int] = Query(None, description="Filter by teacher ID"),
     current_user: User = Depends(get_current_active_user),
     db: AsyncSession = Depends(get_db)
 ):
@@ -83,4 +83,21 @@ async def get_absence(
         raise HTTPException(status_code=403, detail="Access denied")
     
     return absence
+
+@router.delete("/schools/{school_id}/absences/{absence_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_absence(
+    school_id: int,
+    absence_id: int,
+    current_user: User = Depends(require_role([UserRole.ADMIN])),
+    db: AsyncSession = Depends(get_db)
+):
+    if current_user.school_id != school_id:
+        raise HTTPException(status_code=403, detail="Access denied")
+    
+    repo = TeacherAbsenceRepository(db)
+    absence = await repo.get_by_id(absence_id)
+    if not absence or absence.school_id != school_id:
+        raise HTTPException(status_code=404, detail="Absence not found")
+    
+    await repo.delete(absence_id)
 

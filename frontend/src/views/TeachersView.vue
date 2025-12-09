@@ -1,8 +1,8 @@
 <template>
   <div class="teachers-view">
     <header class="teachers-view__header">
-      <h1 class="teachers-view__title">Manage Teachers</h1>
-      <router-link to="/admin" class="teachers-view__back">Back</router-link>
+      <h1 class="teachers-view__title">Teachers</h1>
+      <router-link to="/dashboard" class="teachers-view__back">Dashboard</router-link>
     </header>
     <main class="teachers-view__content">
       <div class="teachers-view__section">
@@ -36,11 +36,61 @@
         </form>
       </div>
 
+      <!-- Teacher Filter -->
+      <div class="teachers-view__section">
+        <h2>Filter by Teacher</h2>
+        <select
+          v-model="selectedTeacherId"
+          class="teachers-view__filter"
+          @change="onTeacherChange"
+        >
+          <option :value="null">All Teachers</option>
+          <option
+            v-for="teacher in teachers"
+            :key="teacher.id"
+            :value="teacher.id"
+          >
+            {{ teacher.full_name }}
+          </option>
+        </select>
+      </div>
+
+      <!-- Selected Teacher's Absences -->
+      <div v-if="selectedTeacherId" class="teachers-view__section">
+        <h2>Absences for {{ getSelectedTeacherName() }}</h2>
+        <div v-if="loadingAbsences" class="teachers-view__loading">Loading absences...</div>
+        <div v-else-if="teacherAbsences.length > 0" class="teachers-view__absences-list">
+          <div
+            v-for="absence in teacherAbsences"
+            :key="absence.id"
+            class="teachers-view__absence-item"
+          >
+            <div class="teachers-view__absence-info">
+              <span class="teachers-view__absence-dates">
+                {{ formatDate(absence.date_from) }} - {{ formatDate(absence.date_to) }}
+              </span>
+              <span v-if="absence.reason" class="teachers-view__absence-reason">
+                Reason: {{ absence.reason }}
+              </span>
+            </div>
+            <button
+              v-if="authStore.user?.role === 'ADMIN'"
+              @click="deleteAbsence(absence.id)"
+              class="teachers-view__absence-delete"
+              :disabled="loading"
+            >
+              Delete
+            </button>
+          </div>
+        </div>
+        <div v-else class="teachers-view__empty">No absences reported</div>
+      </div>
+
       <div class="teachers-view__section">
         <h2>Teachers List</h2>
-        <div v-if="teachers.length > 0" class="teachers-view__list">
+        <div v-if="filteredTeachers.length > 0" class="teachers-view__list">
           <div
-            v-for="teacher in teachers"
+            v-for="teacher in filteredTeachers"
             :key="teacher.id"
             class="teachers-view__item"
           >
@@ -68,6 +118,14 @@
                 Manage Specializations
               </button>
               <button
+                @click="reportAbsence(teacher)"
+                class="teachers-view__absence"
+                :disabled="loading"
+              >
+                Report Absence
+              </button>
+              <button
+                v-if="authStore.user?.role === 'ADMIN'"
                 @click="deleteTeacher(teacher.id)"
                 class="teachers-view__delete"
                 :disabled="loading"
@@ -77,7 +135,7 @@
             </div>
           </div>
         </div>
-        <div v-else class="teachers-view__empty">No teachers yet</div>
+        <div v-else class="teachers-view__empty">No teachers found</div>
       </div>
 
       <!-- Edit Modal -->
@@ -113,6 +171,54 @@
               <button
                 type="button"
                 @click="editingTeacher = null"
+                class="teachers-view__button teachers-view__button--secondary"
+              >
+                Cancel
+              </button>
+            </div>
+          </form>
+        </div>
+      </div>
+
+      <!-- Absence Reporting Modal -->
+      <div v-if="reportingAbsence" class="teachers-view__modal">
+        <div class="teachers-view__modal-content">
+          <h3>Report Absence for {{ reportingAbsence.full_name }}</h3>
+          <form @submit.prevent="submitAbsence" class="teachers-view__form">
+            <div class="teachers-view__field">
+              <label class="teachers-view__label">Date From</label>
+              <input
+                v-model="newAbsence.date_from"
+                type="date"
+                class="teachers-view__input"
+                required
+              />
+            </div>
+            <div class="teachers-view__field">
+              <label class="teachers-view__label">Date To</label>
+              <input
+                v-model="newAbsence.date_to"
+                type="date"
+                class="teachers-view__input"
+                required
+              />
+            </div>
+            <div class="teachers-view__field">
+              <label class="teachers-view__label">Reason (optional)</label>
+              <textarea
+                v-model="newAbsence.reason"
+                placeholder="Reason for absence"
+                class="teachers-view__input"
+                rows="3"
+              ></textarea>
+            </div>
+            <div class="teachers-view__modal-actions">
+              <button type="submit" class="teachers-view__button" :disabled="loading">
+                Report Absence
+              </button>
+              <button
+                type="button"
+                @click="reportingAbsence = null; newAbsence = { date_from: '', date_to: '', reason: '' }"
                 class="teachers-view__button teachers-view__button--secondary"
               >
                 Cancel
@@ -205,7 +311,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, computed } from 'vue'
 import { useAuthStore } from '@/stores/auth'
 import api from '@/services/api'
 
@@ -245,6 +351,22 @@ const success = ref('')
 const editingTeacher = ref<Teacher | null>(null)
 const managingCapabilities = ref<Teacher | null>(null)
 const teacherCapabilities = ref<TeacherCapability[]>([])
+const reportingAbsence = ref<Teacher | null>(null)
+const selectedTeacherId = ref<number | null>(null)
+const teacherAbsences = ref<any[]>([])
+const loadingAbsences = ref(false)
+const newAbsence = ref({
+  date_from: '',
+  date_to: '',
+  reason: ''
+})
+
+const filteredTeachers = computed(() => {
+  if (!selectedTeacherId.value) {
+    return teachers.value
+  }
+  return teachers.value.filter(t => t.id === selectedTeacherId.value)
+})
 
 const newTeacher = ref({
   full_name: '',
@@ -476,6 +598,108 @@ function getTeacherSubjects(capabilities: TeacherCapability[]): string {
   return subjectIds
     .map(id => getSubjectName(id))
     .join(', ')
+}
+
+function reportAbsence(teacher: Teacher) {
+  reportingAbsence.value = teacher
+  newAbsence.value = { date_from: '', date_to: '', reason: '' }
+}
+
+async function submitAbsence() {
+  if (!reportingAbsence.value) return
+  
+  loading.value = true
+  error.value = ''
+  success.value = ''
+  
+  try {
+    const schoolId = authStore.user?.school_id
+    if (!schoolId) {
+      throw new Error('School ID not found')
+    }
+    
+    await api.post(`/absences/schools/${schoolId}/absences`, {
+      teacher_id: reportingAbsence.value.id,
+      date_from: newAbsence.value.date_from,
+      date_to: newAbsence.value.date_to,
+      reason: newAbsence.value.reason || null
+    })
+    
+    success.value = 'Absence reported successfully'
+    reportingAbsence.value = null
+    newAbsence.value = { date_from: '', date_to: '', reason: '' }
+    
+    // Reload absences if viewing a teacher
+    if (selectedTeacherId.value) {
+      await loadTeacherAbsences(selectedTeacherId.value)
+    }
+  } catch (err: any) {
+    error.value = err.response?.data?.detail || 'Failed to report absence'
+  } finally {
+    loading.value = false
+  }
+}
+
+function getSelectedTeacherName(): string {
+  const teacher = teachers.value.find(t => t.id === selectedTeacherId.value)
+  return teacher ? teacher.full_name : 'Unknown'
+}
+
+function formatDate(dateString: string): string {
+  return new Date(dateString).toLocaleDateString()
+}
+
+async function loadTeacherAbsences(teacherId: number) {
+  loadingAbsences.value = true
+  try {
+    const schoolId = authStore.user?.school_id
+    if (!schoolId) return
+    
+    const response = await api.get(`/absences/schools/${schoolId}/absences?teacher_id=${teacherId}`)
+    teacherAbsences.value = response.data
+  } catch (err: any) {
+    console.error('Failed to load absences:', err)
+    teacherAbsences.value = []
+  } finally {
+    loadingAbsences.value = false
+  }
+}
+
+async function onTeacherChange() {
+  if (selectedTeacherId.value) {
+    await loadTeacherAbsences(selectedTeacherId.value)
+  } else {
+    teacherAbsences.value = []
+  }
+}
+
+async function deleteAbsence(absenceId: number) {
+  if (!confirm('Are you sure you want to delete this absence?')) {
+    return
+  }
+  
+  loading.value = true
+  error.value = ''
+  success.value = ''
+  
+  try {
+    const schoolId = authStore.user?.school_id
+    if (!schoolId) {
+      throw new Error('School ID not found')
+    }
+    
+    await api.delete(`/absences/schools/${schoolId}/absences/${absenceId}`)
+    success.value = 'Absence deleted successfully'
+    
+    // Reload absences
+    if (selectedTeacherId.value) {
+      await loadTeacherAbsences(selectedTeacherId.value)
+    }
+  } catch (err: any) {
+    error.value = err.response?.data?.detail || 'Failed to delete absence'
+  } finally {
+    loading.value = false
+  }
 }
 
 async function deleteTeacher(teacherId: number) {
@@ -716,6 +940,25 @@ onMounted(() => {
     }
   }
 
+  &__absence {
+    padding: 0.5rem 1rem;
+    background-color: #ff9800;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 0.875rem;
+
+    &:hover:not(:disabled) {
+      background-color: #f57c00;
+    }
+
+    &:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+    }
+  }
+
   &__delete {
     padding: 0.5rem 1rem;
     background-color: #dc3545;
@@ -740,6 +983,77 @@ onMounted(() => {
     text-align: center;
     color: #666;
     font-style: italic;
+  }
+
+  &__filter {
+    width: 100%;
+    max-width: 400px;
+    padding: 0.75rem;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    font-size: 1rem;
+
+    &:focus {
+      outline: none;
+      border-color: #4a90e2;
+    }
+  }
+
+  &__loading {
+    text-align: center;
+    padding: 2rem;
+    color: #666;
+  }
+
+  &__absences-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+
+  &__absence-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 1rem;
+    background-color: #f8f9fa;
+    border-radius: 4px;
+    border: 1px solid #dee2e6;
+  }
+
+  &__absence-info {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+  }
+
+  &__absence-dates {
+    font-weight: 600;
+    color: #333;
+  }
+
+  &__absence-reason {
+    color: #666;
+    font-size: 0.875rem;
+  }
+
+  &__absence-delete {
+    padding: 0.5rem 1rem;
+    background-color: #dc3545;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 0.875rem;
+
+    &:hover:not(:disabled) {
+      background-color: #c82333;
+    }
+
+    &:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+    }
   }
 
   &__modal {

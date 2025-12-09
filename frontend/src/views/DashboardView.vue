@@ -6,24 +6,20 @@
     </header>
     <main class="dashboard-view__content">
       <div v-if="authStore.user?.role === 'ADMIN'" class="dashboard-view__admin-links">
-        <router-link to="/admin" class="dashboard-view__link">Admin Panel</router-link>
-        <router-link to="/classes" class="dashboard-view__link">Manage Classes</router-link>
-        <router-link to="/teachers" class="dashboard-view__link">Manage Teachers</router-link>
-        <router-link to="/subjects" class="dashboard-view__link">Manage Subjects</router-link>
-        <router-link to="/classrooms" class="dashboard-view__link">Manage Classrooms</router-link>
-        <router-link to="/allocations" class="dashboard-view__link">Subject Allocations</router-link>
         <router-link to="/settings" class="dashboard-view__link">School Settings</router-link>
-        <router-link to="/timetables" class="dashboard-view__link">All Timetables</router-link>
-        <router-link to="/substitutions" class="dashboard-view__link">Substitutions</router-link>
+        <router-link to="/classes" class="dashboard-view__link">Classes</router-link>
+        <router-link to="/teachers" class="dashboard-view__link">Teachers</router-link>
+        <router-link to="/timetables" class="dashboard-view__link">Timetables</router-link>
       </div>
       <div v-else-if="authStore.user?.role === 'TEACHER'" class="dashboard-view__teacher-links">
         <router-link to="/teacher" class="dashboard-view__link">Teacher Dashboard</router-link>
         <router-link to="/absence" class="dashboard-view__link">Report Absence</router-link>
+        <router-link to="/timetable" class="dashboard-view__link">View Timetable</router-link>
       </div>
       <div v-else-if="authStore.user?.role === 'SCHOLAR'" class="dashboard-view__scholar-links">
         <router-link to="/scholar" class="dashboard-view__link">Scholar Dashboard</router-link>
+        <router-link to="/timetable" class="dashboard-view__link">View Timetable</router-link>
       </div>
-      <router-link to="/timetable" class="dashboard-view__link">View Timetable</router-link>
     </main>
   </div>
 </template>

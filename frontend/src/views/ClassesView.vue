@@ -1,111 +1,87 @@
 <template>
   <div class="classes-view">
     <header class="classes-view__header">
-      <h1 class="classes-view__title">Manage Classes</h1>
-      <router-link to="/admin" class="classes-view__back">Back</router-link>
+      <h1 class="classes-view__title">Classes</h1>
+      <router-link to="/dashboard" class="classes-view__back">Dashboard</router-link>
     </header>
     <main class="classes-view__content">
-      <!-- Grade Levels Section -->
+      <!-- Class Filter -->
       <div class="classes-view__section">
-        <h2>Grade Levels</h2>
-        <form @submit.prevent="createGradeLevel" class="classes-view__form">
-          <input
-            v-model="newGradeLevel.name"
-            type="text"
-            placeholder="Grade level name (e.g., 1st, 2nd)"
-            class="classes-view__input"
-            required
-          />
-          <input
-            v-model.number="newGradeLevel.level"
-            type="number"
-            placeholder="Level (for sorting)"
-            class="classes-view__input"
-            min="1"
-          />
-          <button type="submit" class="classes-view__button" :disabled="loading">
-            Add Grade Level
-          </button>
-        </form>
-        <div v-if="gradeLevels.length > 0" class="classes-view__list">
-          <div
-            v-for="gradeLevel in gradeLevels"
-            :key="gradeLevel.id"
-            class="classes-view__item"
-          >
-            <span class="classes-view__item-name">{{ gradeLevel.name }}</span>
-            <span v-if="gradeLevel.level" class="classes-view__item-level">Level: {{ gradeLevel.level }}</span>
-          </div>
-        </div>
-        <div v-else class="classes-view__empty">No grade levels yet</div>
-      </div>
-
-      <!-- Classes Section -->
-      <div class="classes-view__section">
-        <h2>Classes</h2>
-        <form @submit.prevent="createClass" class="classes-view__form">
-          <input
-            v-model="newClass.name"
-            type="text"
-            placeholder="Class name (e.g., 1.A, 1.B)"
-            class="classes-view__input"
-            required
-          />
-          <select
-            v-model="newClass.grade_level_id"
-            class="classes-view__input"
-            required
-          >
-            <option value="">Select grade level</option>
-            <option
-              v-for="gradeLevel in gradeLevels"
-              :key="gradeLevel.id"
-              :value="gradeLevel.id"
-            >
-              {{ gradeLevel.name }}
-            </option>
-          </select>
-          <button type="submit" class="classes-view__button" :disabled="loading || !newClass.grade_level_id">
-            Add Class
-          </button>
-        </form>
-        <div v-if="classes.length > 0" class="classes-view__list">
-          <div
+        <h2>Select Class</h2>
+        <select
+          v-model="selectedClassId"
+          class="classes-view__filter"
+          @change="onClassChange"
+        >
+          <option :value="null">Select a class...</option>
+          <option
             v-for="classItem in classes"
             :key="classItem.id"
-            class="classes-view__item classes-view__item--class"
+            :value="classItem.id"
           >
-            <div class="classes-view__item-main">
-              <span class="classes-view__item-name">{{ classItem.name }}</span>
-              <span class="classes-view__item-grade">
-                Grade: {{ getGradeLevelName(classItem.grade_level_id) }}
-              </span>
-            </div>
-            <div class="classes-view__item-actions">
-              <button
-                @click="manageSubjectAllocations(classItem)"
-                class="classes-view__manage-subjects"
-                :disabled="loading"
-              >
-                Manage Subjects
-              </button>
-              <button
-                @click="deleteClass(classItem.id)"
-                class="classes-view__delete"
-                :disabled="loading"
-              >
-                Delete
-              </button>
-            </div>
-          </div>
-        </div>
-        <div v-else class="classes-view__empty">No classes yet. Create a grade level first.</div>
+            {{ classItem.name }}
+          </option>
+        </select>
       </div>
 
-      <!-- Subject Allocations Modal -->
-      <div v-if="managingAllocations" class="classes-view__modal">
+      <!-- Class Details -->
+      <div v-if="selectedClassId" class="classes-view__details">
+        <!-- Timetable Section -->
+        <div class="classes-view__section">
+          <h2>Timetable</h2>
+          <div v-if="loadingTimetable" class="classes-view__loading">Loading timetable...</div>
+          <div v-else-if="primaryTimetable && classTimetableEntries.length > 0" class="classes-view__timetable-wrapper">
+            <TimetableGrid
+              :timetable="{ ...primaryTimetable, entries: classTimetableEntries }"
+              :lunch-hours="actualLunchHours"
+            />
+          </div>
+          <div v-else class="classes-view__empty">No timetable available for this class</div>
+        </div>
+
+        <!-- Subjects Section -->
+        <div class="classes-view__section">
+          <h2>Subjects</h2>
+          <div v-if="classAllocations.length > 0" class="classes-view__subjects-list">
+            <div
+              v-for="allocation in classAllocations"
+              :key="allocation.id"
+              class="classes-view__subject-item"
+            >
+              <div class="classes-view__subject-info">
+                <span class="classes-view__subject-name">{{ getSubjectName(allocation.subject_id) }}</span>
+                <span class="classes-view__subject-hours">{{ allocation.weekly_hours }} hours/week</span>
+              </div>
+              <div class="classes-view__subject-teachers">
+                <strong>Teachers:</strong>
+                <span v-if="getTeachersForSubject(allocation.subject_id).length > 0">
+                  {{ getTeachersForSubject(allocation.subject_id).map((t: Teacher) => t.full_name).join(', ') }}
+                </span>
+                <span v-else class="classes-view__no-teachers">No teachers assigned</span>
+              </div>
+            </div>
+          </div>
+          <div v-else class="classes-view__empty">No subjects allocated to this class</div>
+        </div>
+
+        <!-- Management Section (Admin only) -->
+        <div v-if="authStore.user?.role === 'ADMIN'" class="classes-view__section">
+          <h2>Manage Class</h2>
+          <div class="classes-view__management-actions">
+            <button
+              @click="showSubjectModal = true"
+              class="classes-view__button"
+            >
+              Manage Subjects
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Subject Management Modal -->
+      <div v-if="showSubjectModal && selectedClassId" class="classes-view__modal">
         <div class="classes-view__modal-content classes-view__modal-content--large">
-          <h3>Manage Subject Allocations for {{ managingAllocations.name }}</h3>
+          <h3>Manage Subject Allocations for {{ getSelectedClassName() }}</h3>
           <div class="classes-view__allocations-section">
             <h4>Add Subject Allocation</h4>
             <form @submit.prevent="addAllocation" class="classes-view__form">
@@ -171,7 +147,7 @@
           <div class="classes-view__modal-actions">
             <button
               type="button"
-              @click="managingAllocations = null"
+              @click="showSubjectModal = false"
               class="classes-view__button classes-view__button--secondary"
             >
               Close
@@ -216,15 +192,10 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, computed } from 'vue'
+import { useAuthStore } from '@/stores/auth'
 import api from '@/services/api'
-
-interface GradeLevel {
-  id: number
-  name: string
-  level: number | null
-  school_id: number
-}
+import TimetableGrid from '@/components/TimetableGrid.vue'
 
 interface ClassGroup {
   id: number
@@ -245,43 +216,83 @@ interface SubjectAllocation {
   weekly_hours: number
 }
 
-const gradeLevels = ref<GradeLevel[]>([])
+interface Teacher {
+  id: number
+  full_name: string
+  capabilities?: any[]
+}
+
+interface Timetable {
+  id: number
+  name: string
+  entries: any[]
+  is_primary?: number
+}
+
+const authStore = useAuthStore()
 const classes = ref<ClassGroup[]>([])
 const subjects = ref<Subject[]>([])
+const teachers = ref<Teacher[]>([])
+const selectedClassId = ref<number | null>(null)
 const loading = ref(false)
+const loadingTimetable = ref(false)
 const error = ref('')
 const success = ref('')
-const managingAllocations = ref<ClassGroup | null>(null)
+const showSubjectModal = ref(false)
 const classAllocations = ref<SubjectAllocation[]>([])
 const editingAllocation = ref<SubjectAllocation | null>(null)
-
-const newGradeLevel = ref({
-  name: '',
-  level: null as number | null
-})
-
-const newClass = ref({
-  name: '',
-  grade_level_id: null as number | null
-})
+const primaryTimetable = ref<Timetable | null>(null)
+const schoolSettings = ref<any>(null)
 
 const newAllocation = ref({
   subject_id: null as number | null,
   weekly_hours: 1
 })
 
-function getGradeLevelName(gradeLevelId: number): string {
-  const gradeLevel = gradeLevels.value.find(gl => gl.id === gradeLevelId)
-  return gradeLevel ? gradeLevel.name : 'Unknown'
+const classTimetableEntries = computed(() => {
+  if (!primaryTimetable.value || !selectedClassId.value) return []
+  return primaryTimetable.value.entries.filter(
+    (entry: any) => entry.class_group_id === selectedClassId.value
+  )
+})
+
+const actualLunchHours = computed(() => {
+  if (!schoolSettings.value?.possible_lunch_hours || !schoolSettings.value?.lunch_duration_minutes || !schoolSettings.value?.class_hour_length_minutes) {
+    return []
+  }
+  
+  const lunchHoursCount = Math.ceil(schoolSettings.value.lunch_duration_minutes / schoolSettings.value.class_hour_length_minutes)
+  const possibleHours = [...schoolSettings.value.possible_lunch_hours].sort((a, b) => a - b)
+  
+  for (let i = 0; i <= possibleHours.length - lunchHoursCount; i++) {
+    const consecutive = possibleHours.slice(i, i + lunchHoursCount)
+    const isConsecutive = consecutive.every((hour, idx) => hour === consecutive[0] + idx)
+    if (isConsecutive) {
+      return consecutive
+    }
+  }
+  
+  return possibleHours.slice(0, lunchHoursCount)
+})
+
+function getSelectedClassName(): string {
+  const classItem = classes.value.find(c => c.id === selectedClassId.value)
+  return classItem ? classItem.name : ''
 }
 
-async function loadGradeLevels() {
-  try {
-    const response = await api.get('/class-groups/grade-levels/')
-    gradeLevels.value = response.data
-  } catch (err: any) {
-    error.value = err.response?.data?.detail || 'Failed to load grade levels'
-  }
+function getSubjectName(subjectId: number): string {
+  const subject = subjects.value.find(s => s.id === subjectId)
+  return subject ? subject.name : 'Unknown'
+}
+
+function getTeachersForSubject(subjectId: number): Teacher[] {
+  return teachers.value.filter(teacher => {
+    if (!teacher.capabilities) return false
+    return teacher.capabilities.some((cap: any) => 
+      cap.subject_id === subjectId && 
+      (cap.class_group_id === selectedClassId.value || cap.class_group_id === null)
+    )
+  })
 }
 
 async function loadClasses() {
@@ -295,8 +306,6 @@ async function loadClasses() {
 
 async function loadSubjects() {
   try {
-    const { useAuthStore } = await import('@/stores/auth')
-    const authStore = useAuthStore()
     const schoolId = authStore.user?.school_id
     if (!schoolId) return
     
@@ -307,22 +316,83 @@ async function loadSubjects() {
   }
 }
 
-async function loadClassAllocations(classGroupId: number) {
+async function loadTeachers() {
   try {
-    const response = await api.get(`/subjects/class-subject-allocations?class_group_id=${classGroupId}`)
+    const schoolId = authStore.user?.school_id
+    if (!schoolId) return
+    
+    const response = await api.get(`/teachers/schools/${schoolId}/teachers`)
+    teachers.value = response.data
+  } catch (err: any) {
+    console.error('Failed to load teachers:', err)
+  }
+}
+
+async function loadSchoolSettings() {
+  try {
+    const schoolId = authStore.user?.school_id
+    if (!schoolId) return
+    
+    const response = await api.get(`/schools/${schoolId}/settings`)
+    schoolSettings.value = response.data
+  } catch (err: any) {
+    console.error('Failed to load school settings:', err)
+  }
+}
+
+async function loadClassAllocations() {
+  if (!selectedClassId.value) return
+  
+  try {
+    const response = await api.get(`/subjects/class-subject-allocations?class_group_id=${selectedClassId.value}`)
     classAllocations.value = response.data
   } catch (err: any) {
     error.value = err.response?.data?.detail || 'Failed to load allocations'
   }
 }
 
-async function manageSubjectAllocations(classItem: ClassGroup) {
-  managingAllocations.value = classItem
-  await loadClassAllocations(classItem.id)
+async function loadPrimaryTimetable() {
+  if (!selectedClassId.value) return
+  
+  loadingTimetable.value = true
+  try {
+    const schoolId = authStore.user?.school_id
+    if (!schoolId) return
+    
+    // Get all timetables and find the primary one
+    const response = await api.get(`/timetables/schools/${schoolId}/timetables`)
+    const timetables = response.data
+    
+    // Find primary timetable (is_primary === 1)
+    const primary = timetables.find((t: any) => t.is_primary === 1)
+    
+    if (primary) {
+      // Get full timetable with entries
+      const fullResponse = await api.get(`/timetables/schools/${schoolId}/timetables/${primary.id}`)
+      primaryTimetable.value = fullResponse.data
+    } else {
+      primaryTimetable.value = null
+    }
+  } catch (err: any) {
+    console.error('Failed to load timetable:', err)
+    primaryTimetable.value = null
+  } finally {
+    loadingTimetable.value = false
+  }
+}
+
+async function onClassChange() {
+  if (selectedClassId.value) {
+    await loadClassAllocations()
+    await loadPrimaryTimetable()
+  } else {
+    classAllocations.value = []
+    primaryTimetable.value = null
+  }
 }
 
 async function addAllocation() {
-  if (!managingAllocations.value || !newAllocation.value.subject_id) return
+  if (!selectedClassId.value || !newAllocation.value.subject_id) return
   
   loading.value = true
   error.value = ''
@@ -330,13 +400,13 @@ async function addAllocation() {
   
   try {
     await api.post('/subjects/class-subject-allocations', {
-      class_group_id: managingAllocations.value.id,
+      class_group_id: selectedClassId.value,
       subject_id: newAllocation.value.subject_id,
       weekly_hours: newAllocation.value.weekly_hours
     })
     success.value = 'Allocation added successfully'
     newAllocation.value = { subject_id: null, weekly_hours: 1 }
-    await loadClassAllocations(managingAllocations.value.id)
+    await loadClassAllocations()
   } catch (err: any) {
     error.value = err.response?.data?.detail || 'Failed to add allocation'
   } finally {
@@ -361,9 +431,7 @@ async function updateAllocation() {
     })
     success.value = 'Allocation updated successfully'
     editingAllocation.value = null
-    if (managingAllocations.value) {
-      await loadClassAllocations(managingAllocations.value.id)
-    }
+    await loadClassAllocations()
   } catch (err: any) {
     error.value = err.response?.data?.detail || 'Failed to update allocation'
   } finally {
@@ -383,9 +451,7 @@ async function removeAllocation(allocationId: number) {
   try {
     await api.delete(`/subjects/class-subject-allocations/${allocationId}`)
     success.value = 'Allocation removed successfully'
-    if (managingAllocations.value) {
-      await loadClassAllocations(managingAllocations.value.id)
-    }
+    await loadClassAllocations()
   } catch (err: any) {
     error.value = err.response?.data?.detail || 'Failed to remove allocation'
   } finally {
@@ -393,72 +459,11 @@ async function removeAllocation(allocationId: number) {
   }
 }
 
-function getSubjectName(subjectId: number): string {
-  const subject = subjects.value.find(s => s.id === subjectId)
-  return subject ? subject.name : 'Unknown'
-}
-
-async function createGradeLevel() {
-  loading.value = true
-  error.value = ''
-  success.value = ''
-  
-  try {
-    await api.post('/class-groups/grade-levels/', newGradeLevel.value)
-    success.value = 'Grade level created successfully'
-    newGradeLevel.value = { name: '', level: null }
-    await loadGradeLevels()
-  } catch (err: any) {
-    error.value = err.response?.data?.detail || 'Failed to create grade level'
-  } finally {
-    loading.value = false
-  }
-}
-
-async function createClass() {
-  loading.value = true
-  error.value = ''
-  success.value = ''
-  
-  try {
-    await api.post('/class-groups/', {
-      name: newClass.value.name,
-      grade_level_id: newClass.value.grade_level_id
-    })
-    success.value = 'Class created successfully'
-    newClass.value = { name: '', grade_level_id: null }
-    await loadClasses()
-  } catch (err: any) {
-    error.value = err.response?.data?.detail || 'Failed to create class'
-  } finally {
-    loading.value = false
-  }
-}
-
-async function deleteClass(classId: number) {
-  if (!confirm('Are you sure you want to delete this class?')) {
-    return
-  }
-  
-  loading.value = true
-  error.value = ''
-  success.value = ''
-  
-  try {
-    await api.delete(`/class-groups/${classId}`)
-    success.value = 'Class deleted successfully'
-    await loadClasses()
-  } catch (err: any) {
-    error.value = err.response?.data?.detail || 'Failed to delete class'
-  } finally {
-    loading.value = false
-  }
-}
-
 onMounted(async () => {
-  await loadGradeLevels()
   await loadClasses()
   await loadSubjects()
+  await loadTeachers()
+  await loadSchoolSettings()
 })
 </script>
 
@@ -494,7 +499,7 @@ onMounted(async () => {
 
   &__content {
     padding: 2rem;
-    max-width: 1200px;
+    max-width: 1400px;
     margin: 0 auto;
   }
 
@@ -509,6 +514,76 @@ onMounted(async () => {
       margin-bottom: 1rem;
       color: #333;
     }
+  }
+
+  &__filter {
+    width: 100%;
+    max-width: 400px;
+    padding: 0.75rem;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    font-size: 1rem;
+
+    &:focus {
+      outline: none;
+      border-color: #4a90e2;
+    }
+  }
+
+  &__details {
+    display: flex;
+    flex-direction: column;
+    gap: 2rem;
+  }
+
+  &__timetable-wrapper {
+    overflow-x: auto;
+  }
+
+  &__subjects-list {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+  }
+
+  &__subject-item {
+    padding: 1rem;
+    background-color: #f8f9fa;
+    border-radius: 4px;
+    border: 1px solid #dee2e6;
+  }
+
+  &__subject-info {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 0.5rem;
+  }
+
+  &__subject-name {
+    font-weight: 600;
+    color: #333;
+    font-size: 1.1rem;
+  }
+
+  &__subject-hours {
+    color: #4a90e2;
+    font-weight: 600;
+  }
+
+  &__subject-teachers {
+    color: #666;
+    font-size: 0.9rem;
+  }
+
+  &__no-teachers {
+    color: #999;
+    font-style: italic;
+  }
+
+  &__management-actions {
+    display: flex;
+    gap: 1rem;
   }
 
   &__form {
@@ -550,90 +625,20 @@ onMounted(async () => {
       opacity: 0.6;
       cursor: not-allowed;
     }
-  }
 
-  &__list {
-    display: flex;
-    flex-direction: column;
-    gap: 0.5rem;
-  }
+    &--secondary {
+      background-color: #6c757d;
 
-  &__item {
-    display: flex;
-    align-items: center;
-    gap: 1rem;
-    padding: 1rem;
-    background-color: #f8f9fa;
-    border-radius: 4px;
-    border: 1px solid #dee2e6;
-
-    &--class {
-      justify-content: space-between;
-    }
-
-    &-main {
-      display: flex;
-      flex-direction: column;
-      gap: 0.25rem;
-    }
-
-    &-actions {
-      display: flex;
-      gap: 0.5rem;
-    }
-
-    &-name {
-      font-weight: 600;
-      color: #333;
-    }
-
-    &-level {
-      color: #666;
-      font-size: 0.875rem;
-    }
-
-    &-grade {
-      color: #666;
-      font-size: 0.875rem;
+      &:hover:not(:disabled) {
+        background-color: #5a6268;
+      }
     }
   }
 
-  &__manage-subjects {
-    padding: 0.5rem 1rem;
-    background-color: #17a2b8;
-    color: white;
-    border: none;
-    border-radius: 4px;
-    cursor: pointer;
-    font-size: 0.875rem;
-
-    &:hover:not(:disabled) {
-      background-color: #138496;
-    }
-
-    &:disabled {
-      opacity: 0.6;
-      cursor: not-allowed;
-    }
-  }
-
-  &__delete {
-    padding: 0.5rem 1rem;
-    background-color: #dc3545;
-    color: white;
-    border: none;
-    border-radius: 4px;
-    cursor: pointer;
-    font-size: 0.875rem;
-
-    &:hover:not(:disabled) {
-      background-color: #c82333;
-    }
-
-    &:disabled {
-      opacity: 0.6;
-      cursor: not-allowed;
-    }
+  &__loading {
+    text-align: center;
+    padding: 2rem;
+    color: #666;
   }
 
   &__empty {
@@ -773,4 +778,3 @@ onMounted(async () => {
   }
 }
 </style>
-
