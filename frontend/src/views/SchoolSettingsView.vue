@@ -1,15 +1,15 @@
 <template>
   <div class="school-settings-view">
     <header class="school-settings-view__header">
-      <h1 class="school-settings-view__title">School Settings</h1>
-      <router-link to="/dashboard" class="school-settings-view__back">Dashboard</router-link>
+      <h1 class="school-settings-view__title">{{ t('schoolSettings.title') }}</h1>
+      <router-link to="/dashboard" class="school-settings-view__back">{{ t('common.dashboard') }}</router-link>
     </header>
     <main class="school-settings-view__content">
       <div class="school-settings-view__form-container">
         <div class="school-settings-view__header-section">
-          <h2 class="school-settings-view__form-title">Configure School Settings</h2>
+          <h2 class="school-settings-view__form-title">{{ t('schoolSettings.configureSettings') }}</h2>
           <p class="school-settings-view__form-description">
-            Manage your school's timetable configuration including class hours, breaks, and lunch periods.
+            {{ t('schoolSettings.configureDescription') }}
           </p>
         </div>
         
@@ -18,12 +18,12 @@
           <div class="school-settings-view__section">
             <h3 class="school-settings-view__section-title">
               <span class="school-settings-view__section-icon">🕐</span>
-              Time Settings
+              {{ t('schoolSettings.timeSettings') }}
             </h3>
             <div class="school-settings-view__fields-grid">
               <div class="school-settings-view__field">
                 <label class="school-settings-view__label">
-                  Start Time
+                  {{ t('schoolSettings.startTime') }}
                   <span class="school-settings-view__required">*</span>
                 </label>
                 <input
@@ -32,11 +32,11 @@
                   class="school-settings-view__input"
                   required
                 />
-                <small class="school-settings-view__hint">School day start time</small>
+                <small class="school-settings-view__hint">{{ t('schoolSettings.schoolDayStart') }}</small>
               </div>
               <div class="school-settings-view__field">
                 <label class="school-settings-view__label">
-                  End Time
+                  {{ t('schoolSettings.endTime') }}
                   <span class="school-settings-view__required">*</span>
                 </label>
                 <input
@@ -45,7 +45,7 @@
                   class="school-settings-view__input"
                   required
                 />
-                <small class="school-settings-view__hint">School day end time</small>
+                <small class="school-settings-view__hint">{{ t('schoolSettings.schoolDayEnd') }}</small>
               </div>
             </div>
           </div>
@@ -54,12 +54,12 @@
           <div class="school-settings-view__section">
             <h3 class="school-settings-view__section-title">
               <span class="school-settings-view__section-icon">📚</span>
-              Class Hour Settings
+              {{ t('schoolSettings.classHourSettings') }}
             </h3>
             <div class="school-settings-view__fields-grid">
               <div class="school-settings-view__field">
                 <label class="school-settings-view__label">
-                  Class Hour Length (minutes)
+                  {{ t('schoolSettings.classHourLength') }}
                   <span class="school-settings-view__required">*</span>
                 </label>
                 <input
@@ -69,7 +69,7 @@
                   class="school-settings-view__input"
                   required
                 />
-                <small class="school-settings-view__hint">Duration of each class period</small>
+                <small class="school-settings-view__hint">{{ t('schoolSettings.durationOfPeriod') }}</small>
               </div>
             </div>
           </div>
@@ -78,12 +78,12 @@
           <div class="school-settings-view__section">
             <h3 class="school-settings-view__section-title">
               <span class="school-settings-view__section-icon">☕</span>
-              Break Settings
+              {{ t('schoolSettings.breakSettings') }}
             </h3>
             <div class="school-settings-view__fields-grid">
               <div class="school-settings-view__field school-settings-view__field--full">
                 <label class="school-settings-view__label">
-                  Break Durations (minutes)
+                  {{ t('schoolSettings.breakDurations') }}
                 </label>
                 <div class="school-settings-view__break-durations">
                   <div
@@ -92,8 +92,8 @@
                     class="school-settings-view__break-item"
                   >
                     <div class="school-settings-view__break-label">
-                      <span class="school-settings-view__break-number">Break {{ index + 1 }}</span>
-                      <span class="school-settings-view__break-description">after lesson {{ index + 1 }}</span>
+                      <span class="school-settings-view__break-number">{{ t('commonPhrases.back') }} {{ index + 1 }}</span>
+                      <span class="school-settings-view__break-description">{{ t('schoolSettings.breakAfterLesson') }} {{ index + 1 }}</span>
                     </div>
                     <input
                       v-model.number="breakDurationsList[index]"
@@ -109,7 +109,7 @@
                       type="button"
                       @click="removeBreak(index)"
                       class="school-settings-view__break-remove"
-                      title="Remove break"
+                      :title="t('schoolSettings.removeBreak')"
                     >
                       ×
                     </button>
@@ -119,16 +119,16 @@
                     @click="addBreak"
                     class="school-settings-view__break-add"
                   >
-                    + Add Break
+                    + {{ t('schoolSettings.addBreak') }}
                   </button>
                 </div>
                 <small class="school-settings-view__hint">
-                  Set the duration for each break between lessons. The last break duration will be used for any additional breaks if needed.
+                  {{ t('schoolSettings.setBreakDurations') }}
                 </small>
               </div>
               <div class="school-settings-view__field">
                 <label class="school-settings-view__label">
-                  Default Break Duration (minutes)
+                  {{ t('schoolSettings.defaultBreakDuration') }}
                   <span class="school-settings-view__required">*</span>
                 </label>
                 <input
@@ -138,7 +138,7 @@
                   class="school-settings-view__input"
                   required
                 />
-                <small class="school-settings-view__hint">Fallback duration if break_durations is not set</small>
+                <small class="school-settings-view__hint">{{ t('schoolSettings.fallbackDuration') }}</small>
               </div>
             </div>
           </div>
@@ -147,12 +147,12 @@
           <div class="school-settings-view__section">
             <h3 class="school-settings-view__section-title">
               <span class="school-settings-view__section-icon">🍽️</span>
-              Lunch Settings
+              {{ t('schoolSettings.lunchSettings') }}
             </h3>
             <div class="school-settings-view__fields-grid">
               <div class="school-settings-view__field">
                 <label class="school-settings-view__label">
-                  Lunch Duration (minutes)
+                  {{ t('schoolSettings.lunchDuration') }}
                   <span class="school-settings-view__required">*</span>
                 </label>
                 <input
@@ -166,7 +166,7 @@
               </div>
               <div class="school-settings-view__field school-settings-view__field--full">
                 <label class="school-settings-view__label">
-                  Possible Lunch Hours
+                  {{ t('schoolSettings.possibleLunchHours') }}
                 </label>
                 <input
                   v-model="lunchHoursInput"
@@ -175,8 +175,7 @@
                   class="school-settings-view__input"
                 />
                 <small class="school-settings-view__hint">
-                  Comma-separated lesson indices when lunch is possible (e.g., 3,4,5). 
-                  Lesson indices start from 1.
+                  {{ t('schoolSettings.commaSeparatedHours') }}
                 </small>
               </div>
             </div>
@@ -185,7 +184,7 @@
           <div class="school-settings-view__actions">
             <button type="submit" class="school-settings-view__button" :disabled="loading">
               <span v-if="loading" class="school-settings-view__button-spinner">⏳</span>
-              {{ loading ? 'Saving...' : 'Save Settings' }}
+              {{ loading ? t('schoolSettings.saving') : t('schoolSettings.saveSettings') }}
             </button>
           </div>
         </form>
@@ -206,9 +205,12 @@
 <script setup lang="ts">
 import { ref, onMounted, computed } from 'vue'
 import { useAuthStore } from '@/stores/auth'
+import { useI18nStore } from '@/stores/i18n'
 import api from '@/services/api'
 
 const authStore = useAuthStore()
+const i18nStore = useI18nStore()
+const t = i18nStore.t
 const loading = ref(false)
 const error = ref('')
 const success = ref('')

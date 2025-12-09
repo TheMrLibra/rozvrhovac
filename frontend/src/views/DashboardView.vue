@@ -3,13 +3,13 @@
     <header class="dashboard-view__header">
       <div class="dashboard-view__header-content">
         <h1 class="dashboard-view__title">{{ t('common.dashboard') }}</h1>
-        <div v-if="authStore.user?.role === 'ADMIN'" class="dashboard-view__admin-links">
+      </div>
+      <div v-if="authStore.user?.role === 'ADMIN'" class="dashboard-view__admin-links">
           <router-link to="/settings" class="dashboard-view__link">{{ t('navigation.schoolSettings') }}</router-link>
           <router-link to="/classes" class="dashboard-view__link">{{ t('navigation.classes') }}</router-link>
           <router-link to="/teachers" class="dashboard-view__link">{{ t('navigation.teachers') }}</router-link>
           <router-link to="/timetables" class="dashboard-view__link">{{ t('navigation.timetables') }}</router-link>
         </div>
-      </div>
       <div class="dashboard-view__header-actions">
         <LanguageSwitcher />
         <button @click="handleLogout" class="dashboard-view__logout">{{ t('common.logout') }}</button>

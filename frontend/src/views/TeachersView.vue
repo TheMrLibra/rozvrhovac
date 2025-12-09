@@ -1,12 +1,12 @@
 <template>
   <div class="teachers-view">
     <header class="teachers-view__header">
-      <h1 class="teachers-view__title">Teachers</h1>
-      <router-link to="/dashboard" class="teachers-view__back">Dashboard</router-link>
+      <h1 class="teachers-view__title">{{ t('teachers.title') }}</h1>
+      <router-link to="/dashboard" class="teachers-view__back">{{ t('common.dashboard') }}</router-link>
     </header>
     <main class="teachers-view__content">
       <div class="teachers-view__section">
-        <h2>Add New Teacher</h2>
+        <h2>{{ t('teachers.addNewTeacher') }}</h2>
         <form @submit.prevent="createTeacher" class="teachers-view__form">
           <input
             v-model="newTeacher.full_name"
@@ -26,25 +26,25 @@
           <input
             v-model="availabilityInput"
             type="text"
-            placeholder="Availability (e.g., monday:1,2,3 tuesday:1,2)"
+            :placeholder="t('teachers.availabilityPlaceholder')"
             class="teachers-view__input"
           />
-          <small class="teachers-view__hint">Format: day:hour1,hour2 (e.g., monday:1,2,3 tuesday:1,2)</small>
+          <small class="teachers-view__hint">{{ t('teachers.availabilityFormat') }}</small>
           <button type="submit" class="teachers-view__button" :disabled="loading">
-            Add Teacher
+            {{ t('teachers.addTeacher') }}
           </button>
         </form>
       </div>
 
       <!-- Teacher Filter -->
       <div class="teachers-view__section">
-        <h2>Filter by Teacher</h2>
+        <h2>{{ t('teachers.filterByTeacher') }}</h2>
         <select
           v-model="selectedTeacherId"
           class="teachers-view__filter"
           @change="onTeacherChange"
         >
-          <option :value="null">All Teachers</option>
+          <option :value="null">{{ t('teachers.allTeachers') }}</option>
           <option
             v-for="teacher in teachers"
             :key="teacher.id"
@@ -57,8 +57,8 @@
 
       <!-- Selected Teacher's Absences -->
       <div v-if="selectedTeacherId" class="teachers-view__section">
-        <h2>Absences for {{ getSelectedTeacherName() }}</h2>
-        <div v-if="loadingAbsences" class="teachers-view__loading">Loading absences...</div>
+        <h2>{{ t('teachers.absencesFor') }} {{ getSelectedTeacherName() }}</h2>
+        <div v-if="loadingAbsences" class="teachers-view__loading">{{ t('teachers.loadingAbsences') }}</div>
         <div v-else-if="teacherAbsences.length > 0" class="teachers-view__absences-list">
           <div
             v-for="absence in teacherAbsences"
@@ -70,7 +70,7 @@
                 {{ formatDate(absence.date_from) }} - {{ formatDate(absence.date_to) }}
               </span>
               <span v-if="absence.reason" class="teachers-view__absence-reason">
-                Reason: {{ absence.reason }}
+                {{ t('dashboard.reason') }}: {{ absence.reason }}
               </span>
             </div>
             <button
@@ -83,11 +83,11 @@
             </button>
           </div>
         </div>
-        <div v-else class="teachers-view__empty">No absences reported</div>
+        <div v-else class="teachers-view__empty">{{ t('teachers.noAbsencesReported') }}</div>
       </div>
 
       <div class="teachers-view__section">
-        <h2>Teachers List</h2>
+        <h2>{{ t('teachers.teachersList') }}</h2>
         <div v-if="filteredTeachers.length > 0" class="teachers-view__list">
           <div
             v-for="teacher in filteredTeachers"
@@ -96,7 +96,7 @@
           >
             <div class="teachers-view__item-info">
               <span class="teachers-view__item-name">{{ teacher.full_name }}</span>
-              <span class="teachers-view__item-hours">Max Hours: {{ teacher.max_weekly_hours }}</span>
+              <span class="teachers-view__item-hours">{{ t('teachers.maxHours') }}: {{ teacher.max_weekly_hours }}</span>
               <div v-if="teacher.capabilities && teacher.capabilities.length > 0" class="teachers-view__item-subjects">
                 Subjects: {{ getTeacherSubjects(teacher.capabilities) }}
               </div>
@@ -135,13 +135,13 @@
             </div>
           </div>
         </div>
-        <div v-else class="teachers-view__empty">No teachers found</div>
+        <div v-else class="teachers-view__empty">{{ t('teachers.noTeachers') }}</div>
       </div>
 
       <!-- Edit Modal -->
       <div v-if="editingTeacher" class="teachers-view__modal">
         <div class="teachers-view__modal-content">
-          <h3>Edit Teacher</h3>
+          <h3>{{ t('teachers.editTeacher') }}</h3>
           <form @submit.prevent="updateTeacher" class="teachers-view__form">
             <input
               v-model="editingTeacher.full_name"
@@ -313,7 +313,11 @@
 <script setup lang="ts">
 import { ref, onMounted, computed } from 'vue'
 import { useAuthStore } from '@/stores/auth'
+import { useI18nStore } from '@/stores/i18n'
 import api from '@/services/api'
+
+const i18nStore = useI18nStore()
+const t = i18nStore.t
 
 interface Teacher {
   id: number
