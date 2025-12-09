@@ -98,9 +98,9 @@
               <span class="teachers-view__item-name">{{ teacher.full_name }}</span>
               <span class="teachers-view__item-hours">{{ t('teachers.maxHours') }}: {{ teacher.max_weekly_hours }}</span>
               <div v-if="teacher.capabilities && teacher.capabilities.length > 0" class="teachers-view__item-subjects">
-                Subjects: {{ getTeacherSubjects(teacher.capabilities) }}
+                {{ t('teachers.subjects') }}: {{ getTeacherSubjects(teacher.capabilities) }}
               </div>
-              <div v-else class="teachers-view__item-no-subjects">No subjects assigned</div>
+              <div v-else class="teachers-view__item-no-subjects">{{ t('teachers.noSubjectsAssigned') }}</div>
             </div>
             <div class="teachers-view__item-actions">
               <button
@@ -108,21 +108,21 @@
                 class="teachers-view__edit"
                 :disabled="loading"
               >
-                Edit
+                {{ t('teachers.edit') }}
               </button>
               <button
                 @click="manageCapabilities(teacher)"
                 class="teachers-view__capabilities"
                 :disabled="loading"
               >
-                Manage Specializations
+                {{ t('teachers.manageSpecializations') }}
               </button>
               <button
                 @click="reportAbsence(teacher)"
                 class="teachers-view__absence"
                 :disabled="loading"
               >
-                Report Absence
+                {{ t('teachers.reportAbsence') }}
               </button>
               <button
                 v-if="authStore.user?.role === 'ADMIN'"
@@ -130,7 +130,7 @@
                 class="teachers-view__delete"
                 :disabled="loading"
               >
-                Delete
+                {{ t('teachers.delete') }}
               </button>
             </div>
           </div>
@@ -146,14 +146,14 @@
             <input
               v-model="editingTeacher.full_name"
               type="text"
-              placeholder="Full Name"
+              :placeholder="t('teachers.fullName')"
               class="teachers-view__input"
               required
             />
             <input
               v-model.number="editingTeacher.max_weekly_hours"
               type="number"
-              placeholder="Max Weekly Hours"
+              :placeholder="t('teachers.maxWeeklyHours')"
               min="1"
               class="teachers-view__input"
               required
@@ -161,19 +161,19 @@
             <input
               v-model="editAvailabilityInput"
               type="text"
-              placeholder="Availability"
+              :placeholder="t('teachers.availability')"
               class="teachers-view__input"
             />
             <div class="teachers-view__modal-actions">
               <button type="submit" class="teachers-view__button" :disabled="loading">
-                Save
+                {{ t('teachers.save') }}
               </button>
               <button
                 type="button"
                 @click="editingTeacher = null"
                 class="teachers-view__button teachers-view__button--secondary"
               >
-                Cancel
+                {{ t('teachers.cancel') }}
               </button>
             </div>
           </form>
@@ -183,10 +183,10 @@
       <!-- Absence Reporting Modal -->
       <div v-if="reportingAbsence" class="teachers-view__modal">
         <div class="teachers-view__modal-content">
-          <h3>Report Absence for {{ reportingAbsence.full_name }}</h3>
+          <h3>{{ t('teachers.reportAbsenceFor') }} {{ reportingAbsence.full_name }}</h3>
           <form @submit.prevent="submitAbsence" class="teachers-view__form">
             <div class="teachers-view__field">
-              <label class="teachers-view__label">Date From</label>
+              <label class="teachers-view__label">{{ t('teachers.dateFrom') }}</label>
               <input
                 v-model="newAbsence.date_from"
                 type="date"
@@ -195,7 +195,7 @@
               />
             </div>
             <div class="teachers-view__field">
-              <label class="teachers-view__label">Date To</label>
+              <label class="teachers-view__label">{{ t('teachers.dateTo') }}</label>
               <input
                 v-model="newAbsence.date_to"
                 type="date"
@@ -204,24 +204,24 @@
               />
             </div>
             <div class="teachers-view__field">
-              <label class="teachers-view__label">Reason (optional)</label>
+              <label class="teachers-view__label">{{ t('teachers.reasonOptional') }}</label>
               <textarea
                 v-model="newAbsence.reason"
-                placeholder="Reason for absence"
+                :placeholder="t('teachers.reasonForAbsence')"
                 class="teachers-view__input"
                 rows="3"
               ></textarea>
             </div>
             <div class="teachers-view__modal-actions">
               <button type="submit" class="teachers-view__button" :disabled="loading">
-                Report Absence
+                {{ t('teachers.reportAbsence') }}
               </button>
               <button
                 type="button"
                 @click="reportingAbsence = null; newAbsence = { date_from: '', date_to: '', reason: '' }"
                 class="teachers-view__button teachers-view__button--secondary"
               >
-                Cancel
+                {{ t('teachers.cancel') }}
               </button>
             </div>
           </form>
@@ -231,16 +231,16 @@
       <!-- Capabilities Modal -->
       <div v-if="managingCapabilities" class="teachers-view__modal">
         <div class="teachers-view__modal-content teachers-view__modal-content--large">
-          <h3>Manage Specializations for {{ managingCapabilities.full_name }}</h3>
+          <h3>{{ t('teachers.manageSpecializationsFor') }} {{ managingCapabilities.full_name }}</h3>
           <div class="teachers-view__capabilities-section">
-            <h4>Add New Specialization</h4>
+            <h4>{{ t('teachers.addNewSpecialization') }}</h4>
             <form @submit.prevent="addCapability" class="teachers-view__form">
               <select
                 v-model="newCapability.subject_id"
                 class="teachers-view__input"
                 required
               >
-                <option value="">Select Subject</option>
+                <option value="">{{ t('teachers.selectSubject') }}</option>
                 <option
                   v-for="subject in subjects"
                   :key="subject.id"
@@ -253,7 +253,7 @@
                 v-model="newCapability.class_group_id"
                 class="teachers-view__input"
               >
-                <option :value="null">All Classes (or select specific class)</option>
+                <option :value="null">{{ t('teachers.allClassesOrSelect') }}</option>
                 <option
                   v-for="classGroup in classes"
                   :key="classGroup.id"
@@ -263,12 +263,12 @@
                 </option>
               </select>
               <button type="submit" class="teachers-view__button" :disabled="loading">
-                Add Specialization
+                {{ t('teachers.addSpecialization') }}
               </button>
             </form>
           </div>
           <div class="teachers-view__capabilities-section">
-            <h4>Current Specializations</h4>
+            <h4>{{ t('teachers.currentSpecializations') }}</h4>
             <div v-if="teacherCapabilities.length > 0" class="teachers-view__capabilities-list">
               <div
                 v-for="capability in teacherCapabilities"
@@ -279,18 +279,18 @@
                   {{ getSubjectName(capability.subject_id) }}
                 </span>
                 <span v-if="capability.class_group_id" class="teachers-view__capability-class">
-                  (Class: {{ getClassName(capability.class_group_id) }})
+                  ({{ t('teachers.class') }}: {{ getClassName(capability.class_group_id) }})
                 </span>
                 <button
                   @click="removeCapability(capability.id)"
                   class="teachers-view__capability-remove"
                   :disabled="loading"
                 >
-                  Remove
+                  {{ t('teachers.remove') }}
                 </button>
               </div>
             </div>
-            <div v-else class="teachers-view__empty">No specializations yet</div>
+            <div v-else class="teachers-view__empty">{{ t('teachers.noSpecializationsYet') }}</div>
           </div>
           <div class="teachers-view__modal-actions">
             <button
@@ -298,7 +298,7 @@
               @click="managingCapabilities = null"
               class="teachers-view__button teachers-view__button--secondary"
             >
-              Close
+              {{ t('teachers.close') }}
             </button>
           </div>
         </div>

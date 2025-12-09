@@ -38,6 +38,10 @@ async def create_test_data():
             # First delete timetable entries and timetables
             await db.execute(text("DELETE FROM timetable_entries WHERE timetable_id IN (SELECT id FROM timetables WHERE school_id = :school_id)"), {"school_id": school_id})
             await db.execute(text("DELETE FROM timetables WHERE school_id = :school_id"), {"school_id": school_id})
+            # Delete substitutions (references teacher_absences and teachers)
+            await db.execute(text("DELETE FROM substitutions WHERE school_id = :school_id"), {"school_id": school_id})
+            # Delete teacher absences (references teachers)
+            await db.execute(text("DELETE FROM teacher_absences WHERE school_id = :school_id"), {"school_id": school_id})
             # Delete allocations and capabilities
             await db.execute(text("DELETE FROM class_subject_allocations WHERE class_group_id IN (SELECT id FROM class_groups WHERE school_id = :school_id)"), {"school_id": school_id})
             await db.execute(text("DELETE FROM teacher_subject_capabilities WHERE teacher_id IN (SELECT id FROM teachers WHERE school_id = :school_id)"), {"school_id": school_id})
@@ -311,6 +315,12 @@ async def create_test_data():
         await db.commit()
         print(f"  ✓ Assigned {len(primary_assignments)} primary teachers to class-subject combinations")
         
+        # Create a mapping of class-subject to primary teacher for allocations
+        primary_teacher_map = {}
+        for assignment in primary_assignments:
+            key = (assignment["class"], assignment["subject"])
+            primary_teacher_map[key] = teachers[assignment["teacher"]].id
+        
         # Create Classrooms
         print("\n🏫 Creating Classrooms...")
         classrooms_data = [
@@ -438,15 +448,23 @@ async def create_test_data():
         for alloc_data in allocations_data:
             class_group = class_groups[alloc_data["class"]]
             subject = subjects[alloc_data["subject"]]
+            # Get primary teacher ID if assigned
+            primary_teacher_id = primary_teacher_map.get((alloc_data["class"], alloc_data["subject"]))
             allocation = ClassSubjectAllocation(
                 class_group_id=class_group.id,
                 subject_id=subject.id,
-                weekly_hours=alloc_data["hours"]
+                weekly_hours=alloc_data["hours"],
+                primary_teacher_id=primary_teacher_id
             )
             db.add(allocation)
         
         await db.commit()
+        
+        # Count allocations with primary teachers
+        allocations_with_primary = sum(1 for alloc_data in allocations_data 
+                                      if primary_teacher_map.get((alloc_data["class"], alloc_data["subject"])))
         print(f"  ✓ Created {len(allocations_data)} subject allocations")
+        print(f"  ✓ {allocations_with_primary} allocations have primary teachers assigned")
         
         print("\n" + "=" * 60)
         print("✅ Test data created successfully!")

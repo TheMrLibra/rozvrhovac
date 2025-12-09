@@ -118,7 +118,7 @@ class TimetableService:
         max_lessons_per_day = int(available_minutes // lesson_duration)
         
         # Group subjects by class for even distribution
-        class_subjects: Dict[int, List[Tuple[Subject, int]]] = {}  # class_id -> [(subject, allocation_id), ...]
+        class_subjects: Dict[int, List[Tuple[Subject, ClassSubjectAllocation]]] = {}  # class_id -> [(subject, allocation), ...]
         for class_group in classes:
             allocations = await self.allocation_repo.get_by_class_group_id(class_group.id)
             class_subjects[class_group.id] = []
@@ -126,7 +126,7 @@ class TimetableService:
                 subject = await self.db.get(Subject, allocation.subject_id)
                 if subject:
                     for _ in range(allocation.weekly_hours):
-                        class_subjects[class_group.id].append((subject, allocation.id))
+                        class_subjects[class_group.id].append((subject, allocation))
             
             # Sort by difficulty (harder constraints first) for each class
             class_subjects[class_group.id].sort(key=lambda x: self._get_subject_difficulty(x[0]), reverse=True)
@@ -178,7 +178,7 @@ class TimetableService:
         self,
         timetable_id: int,
         class_group: ClassGroup,
-        subjects_to_place: List[Tuple[Subject, int]],
+        subjects_to_place: List[Tuple[Subject, ClassSubjectAllocation]],
         teachers: List[Teacher],
         classrooms: List[Classroom],
         settings: SchoolSettings,
@@ -216,13 +216,12 @@ class TimetableService:
         
         # Pre-find primary teachers for all class-subject combinations (for primary timetables)
         if is_primary_timetable:
-            unique_subjects = set(subject.id for subject, _ in subjects_to_place)
-            for subject_id in unique_subjects:
-                subject_obj = next((s for s, _ in subjects_to_place if s.id == subject_id), None)
-                if subject_obj:
-                    primary_teacher = await self._find_primary_teacher_for_class_subject(subject_obj, class_group, teachers)
+            for subject, allocation in subjects_to_place:
+                if allocation.primary_teacher_id:
+                    # Use the primary teacher from the allocation
+                    primary_teacher = next((t for t in teachers if t.id == allocation.primary_teacher_id), None)
                     if primary_teacher:
-                        class_subject_teacher[(class_group.id, subject_id)] = primary_teacher.id
+                        class_subject_teacher[(class_group.id, subject.id)] = primary_teacher.id
         
         # First, ensure at least one lesson per day
         # Place one subject on each day first
@@ -235,7 +234,7 @@ class TimetableService:
                 break
             
             # Find a subject that can be placed on this day
-            for idx, (subject, allocation_id) in enumerate(subjects_remaining):
+            for idx, (subject, allocation) in enumerate(subjects_remaining):
                 placed = False
                 
                 # Try each lesson index for this day
@@ -307,7 +306,7 @@ class TimetableService:
             return (hours_per_day[day], day, lesson_index)
         
         # Place remaining subjects
-        for subject, allocation_id in subjects_remaining:
+        for subject, allocation in subjects_remaining:
             placed = False
             
             # Sort available slots by priority (days with fewer hours first)
@@ -370,9 +369,14 @@ class TimetableService:
         self,
         subject: Subject,
         class_group: ClassGroup,
-        teachers: List[Teacher]
+        teachers: List[Teacher],
+        allocation: Optional[ClassSubjectAllocation] = None
     ) -> Optional[Teacher]:
-        """Find the primary teacher for a class-subject combination (without checking availability)"""
+        """Find the primary teacher for a class-subject combination (without checking availability)
+        Now uses primary_teacher_id from ClassSubjectAllocation if available"""
+        if allocation and allocation.primary_teacher_id:
+            return next((t for t in teachers if t.id == allocation.primary_teacher_id), None)
+        # Fallback to old method if allocation doesn't have primary_teacher_id
         for teacher in teachers:
             for capability in teacher.capabilities:
                 if capability.subject_id == subject.id:
@@ -422,11 +426,11 @@ class TimetableService:
             
             return teacher
         
-        # For primary timetables without assigned teacher, find primary teacher first
+        # For primary timetables without assigned teacher, this shouldn't happen
+        # because we pre-find primary teachers. But if it does, return None
+        # (we don't want to fall back to TeacherSubjectCapability anymore)
         if is_primary_timetable:
-            primary_teacher = await self._find_primary_teacher_for_class_subject(subject, class_group, teachers)
-            if not primary_teacher:
-                return None
+            return None
             
             # Check if primary teacher is available at this time
             if primary_teacher.availability:

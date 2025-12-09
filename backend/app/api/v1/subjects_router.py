@@ -146,7 +146,9 @@ async def create_allocation(
     
     from app.models.subject import ClassSubjectAllocation
     allocation = ClassSubjectAllocation(**allocation_data.model_dump())
-    return await repo.create(allocation)
+    await repo.create(allocation)
+    # Reload with primary_teacher relationship
+    return await repo.get_by_id_with_primary_teacher(allocation.id)
 
 @router.get("/class-subject-allocations", response_model=List[ClassSubjectAllocationResponse])
 async def list_allocations(

@@ -2,13 +2,13 @@
   <div class="timetable-calendar">
     <!-- Class Selector -->
     <div class="timetable-calendar__class-selector">
-      <label class="timetable-calendar__label">Select Class:</label>
+      <label class="timetable-calendar__label">{{ t('components.timetableCalendar.selectClass') }}:</label>
       <select
         v-model="selectedClassId"
         class="timetable-calendar__select"
         @change="onClassChange"
       >
-        <option :value="null">All Classes</option>
+        <option :value="null">{{ t('components.timetableCalendar.allClasses') }}</option>
         <option
           v-for="classGroup in classGroups"
           :key="classGroup.id"
@@ -25,13 +25,13 @@
         @click="viewMode = 'month'"
         :class="['timetable-calendar__toggle-button', { 'timetable-calendar__toggle-button--active': viewMode === 'month' }]"
       >
-        Month View
+        {{ t('components.timetableCalendar.monthView') }}
       </button>
       <button
         @click="viewMode = 'day'"
         :class="['timetable-calendar__toggle-button', { 'timetable-calendar__toggle-button--active': viewMode === 'day' }]"
       >
-        Day View
+        {{ t('components.timetableCalendar.dayView') }}
       </button>
     </div>
 
@@ -100,9 +100,9 @@
           class="timetable-calendar__date-input"
           @change="onDayDateChange"
         />
-        <button @click="goToToday" class="timetable-calendar__today-button">Today</button>
+        <button @click="goToToday" class="timetable-calendar__today-button">{{ t('components.timetableCalendar.today') }}</button>
       </div>
-      <div v-if="loadingDayEntries" class="timetable-calendar__loading">Loading timetable...</div>
+      <div v-if="loadingDayEntries" class="timetable-calendar__loading">{{ t('common.loading') }}</div>
       <div v-else-if="daySchedule.length > 0" class="timetable-calendar__day-timetable">
         <div
           v-for="(item, index) in daySchedule"
@@ -118,19 +118,19 @@
           </div>
           <div v-if="item.type === 'lunch'" class="timetable-calendar__lunch-break">
             <div class="timetable-calendar__lunch-icon">🍽️</div>
-            <div class="timetable-calendar__lunch-text">Lunch Break</div>
+            <div class="timetable-calendar__lunch-text">{{ t('components.timetableCalendar.lunchBreak') }}</div>
           </div>
           <div v-else-if="item.entry" class="timetable-calendar__entry-details">
-            <div class="timetable-calendar__entry-subject">{{ item.entry.subject?.name || 'N/A' }}</div>
+            <div class="timetable-calendar__entry-subject">{{ item.entry.subject?.name || t('commonPhrases.na') }}</div>
             <div class="timetable-calendar__entry-info">
-              <span class="timetable-calendar__entry-teacher">{{ item.entry.teacher?.full_name || 'N/A' }}</span>
+              <span class="timetable-calendar__entry-teacher">{{ item.entry.teacher?.full_name || t('commonPhrases.na') }}</span>
               <span v-if="item.entry.classroom" class="timetable-calendar__entry-classroom">{{ item.entry.classroom.name }}</span>
             </div>
           </div>
         </div>
       </div>
       <div v-else class="timetable-calendar__empty">
-        No timetable entries for this day
+        {{ t('components.timetableCalendar.noEntries') }}
       </div>
     </div>
   </div>
@@ -139,7 +139,11 @@
 <script setup lang="ts">
 import { ref, computed, watch, onMounted } from 'vue'
 import { useAuthStore } from '@/stores/auth'
+import { useI18nStore } from '@/stores/i18n'
 import api from '@/services/api'
+
+const i18nStore = useI18nStore()
+const t = i18nStore.t
 
 interface Timetable {
   id: number

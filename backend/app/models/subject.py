@@ -29,7 +29,9 @@ class ClassSubjectAllocation(Base):
     class_group_id = Column(Integer, ForeignKey("class_groups.id"), nullable=False, index=True)
     subject_id = Column(Integer, ForeignKey("subjects.id"), nullable=False)
     weekly_hours = Column(Integer, nullable=False)  # number of hours per week
+    primary_teacher_id = Column(Integer, ForeignKey("teachers.id"), nullable=True, index=True)  # Primary teacher for this class-subject
     
     class_group = relationship("ClassGroup", back_populates="subject_allocations")
     subject = relationship("Subject", back_populates="class_allocations")
+    primary_teacher = relationship("Teacher", foreign_keys=[primary_teacher_id])
 

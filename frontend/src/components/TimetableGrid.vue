@@ -35,7 +35,9 @@
 </template>
 
 <script setup lang="ts">
+import { computed } from 'vue'
 import TimetableCell from './TimetableCell.vue'
+import { useI18nStore } from '@/stores/i18n'
 
 interface Props {
   timetable: any
@@ -44,7 +46,16 @@ interface Props {
 
 const props = defineProps<Props>()
 
-const days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday']
+const i18nStore = useI18nStore()
+const t = i18nStore.t
+
+const days = computed(() => [
+  t('components.timetableGrid.monday'),
+  t('components.timetableGrid.tuesday'),
+  t('components.timetableGrid.wednesday'),
+  t('components.timetableGrid.thursday'),
+  t('components.timetableGrid.friday')
+])
 const hours = [1, 2, 3, 4, 5, 6, 7, 8]
 
 function getEntry(dayOfWeek: number, lessonIndex: number) {

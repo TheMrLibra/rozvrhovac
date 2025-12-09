@@ -107,6 +107,19 @@
                 class="classes-view__input"
                 required
               />
+              <select
+                v-model="newAllocation.primary_teacher_id"
+                class="classes-view__input"
+              >
+                <option :value="null">Select Primary Teacher (optional)</option>
+                <option
+                  v-for="teacher in getTeachersForSubject(newAllocation.subject_id || 0)"
+                  :key="teacher.id"
+                  :value="teacher.id"
+                >
+                  {{ teacher.full_name }}
+                </option>
+              </select>
               <button type="submit" class="classes-view__button" :disabled="loading">
                 Add Allocation
               </button>
@@ -125,6 +138,12 @@
                 </span>
                 <span class="classes-view__allocation-hours">
                   {{ allocation.weekly_hours }} hours/week
+                </span>
+                <span v-if="allocation.primary_teacher" class="classes-view__allocation-teacher">
+                  Primary: {{ allocation.primary_teacher.full_name }}
+                </span>
+                <span v-else class="classes-view__allocation-teacher classes-view__allocation-teacher--none">
+                  No primary teacher
                 </span>
                 <button
                   @click="editAllocation(allocation)"
@@ -169,6 +188,19 @@
               class="classes-view__input"
               required
             />
+            <select
+              v-model="editingAllocation.primary_teacher_id"
+              class="classes-view__input"
+            >
+              <option :value="null">Select Primary Teacher (optional)</option>
+              <option
+                v-for="teacher in getTeachersForSubject(editingAllocation.subject_id)"
+                :key="teacher.id"
+                :value="teacher.id"
+              >
+                {{ teacher.full_name }}
+              </option>
+            </select>
             <div class="classes-view__modal-actions">
               <button type="submit" class="classes-view__button" :disabled="loading">
                 Save
@@ -214,6 +246,11 @@ interface SubjectAllocation {
   class_group_id: number
   subject_id: number
   weekly_hours: number
+  primary_teacher_id?: number | null
+  primary_teacher?: {
+    id: number
+    full_name: string
+  } | null
 }
 
 interface Teacher {
@@ -246,7 +283,8 @@ const schoolSettings = ref<any>(null)
 
 const newAllocation = ref({
   subject_id: null as number | null,
-  weekly_hours: 1
+  weekly_hours: 1,
+  primary_teacher_id: null as number | null
 })
 
 const classTimetableEntries = computed(() => {
@@ -402,10 +440,11 @@ async function addAllocation() {
     await api.post('/subjects/class-subject-allocations', {
       class_group_id: selectedClassId.value,
       subject_id: newAllocation.value.subject_id,
-      weekly_hours: newAllocation.value.weekly_hours
+      weekly_hours: newAllocation.value.weekly_hours,
+      primary_teacher_id: newAllocation.value.primary_teacher_id || null
     })
     success.value = 'Allocation added successfully'
-    newAllocation.value = { subject_id: null, weekly_hours: 1 }
+    newAllocation.value = { subject_id: null, weekly_hours: 1, primary_teacher_id: null }
     await loadClassAllocations()
   } catch (err: any) {
     error.value = err.response?.data?.detail || 'Failed to add allocation'
@@ -427,7 +466,8 @@ async function updateAllocation() {
   
   try {
     await api.put(`/subjects/class-subject-allocations/${editingAllocation.value.id}`, {
-      weekly_hours: editingAllocation.value.weekly_hours
+      weekly_hours: editingAllocation.value.weekly_hours,
+      primary_teacher_id: editingAllocation.value.primary_teacher_id || null
     })
     success.value = 'Allocation updated successfully'
     editingAllocation.value = null
@@ -725,6 +765,17 @@ onMounted(async () => {
   &__allocation-hours {
     color: $neo-text;
     font-weight: 600;
+  }
+
+  &__allocation-teacher {
+    color: $neo-text;
+    font-size: 0.9rem;
+    opacity: 0.8;
+
+    &--none {
+      opacity: 0.5;
+      font-style: italic;
+    }
   }
 
   &__allocation-edit,

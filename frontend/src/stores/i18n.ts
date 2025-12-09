@@ -131,20 +131,40 @@ const translations: Record<Language, Translations> = {
       reason: 'Reason',
       teachersList: 'Teachers List',
       maxHours: 'Max Hours',
+      subjects: 'Subjects',
+      noSubjectsAssigned: 'No subjects assigned',
+      edit: 'Edit',
+      manageSpecializations: 'Manage Specializations',
+      reportAbsence: 'Report Absence',
+      delete: 'Delete',
       subjectCapabilities: 'Subject Capabilities',
       addCapability: 'Add Capability',
       selectSubject: 'Select Subject',
       selectGradeLevel: 'Select Grade Level (optional)',
       selectClassGroup: 'Select Class Group (optional)',
+      allClassesOrSelect: 'All Classes (or select specific class)',
       isPrimary: 'Is Primary Teacher',
       editTeacher: 'Edit Teacher',
       deleteTeacher: 'Delete Teacher',
       save: 'Save',
       cancel: 'Cancel',
+      close: 'Close',
       noTeachers: 'No teachers found',
       seeAbsences: 'See Absences',
       capabilities: 'Capabilities',
-      absences: 'Absences'
+      absences: 'Absences',
+      reportAbsenceFor: 'Report Absence for',
+      dateFrom: 'Date From',
+      dateTo: 'Date To',
+      reasonOptional: 'Reason (optional)',
+      reasonForAbsence: 'Reason for absence',
+      manageSpecializationsFor: 'Manage Specializations for',
+      addNewSpecialization: 'Add New Specialization',
+      addSpecialization: 'Add Specialization',
+      currentSpecializations: 'Current Specializations',
+      noSpecializationsYet: 'No specializations yet',
+      class: 'Class',
+      remove: 'Remove'
     },
     timetables: {
       title: 'Timetables',
@@ -240,6 +260,35 @@ const translations: Record<Language, Translations> = {
       confirm: 'Confirm',
       areYouSure: 'Are you sure?',
       thisActionCannotBeUndone: 'This action cannot be undone.'
+    },
+    components: {
+      timetableGrid: {
+        monday: 'Monday',
+        tuesday: 'Tuesday',
+        wednesday: 'Wednesday',
+        thursday: 'Thursday',
+        friday: 'Friday'
+      },
+      timetableCell: {
+        lunchBreak: 'Lunch Break',
+        subject: 'Subject',
+        class: 'Class',
+        teacher: 'Teacher'
+      },
+      timetableCalendar: {
+        selectClass: 'Select Class',
+        allClasses: 'All Classes',
+        monthView: 'Month View',
+        dayView: 'Day View',
+        today: 'Today',
+        noEntries: 'No timetable entries for this day',
+        lesson: 'Lesson',
+        subject: 'Subject',
+        teacher: 'Teacher',
+        classroom: 'Classroom',
+        time: 'Time',
+        lunchBreak: 'Lunch Break'
+      }
     }
   },
   cs: {
@@ -365,20 +414,40 @@ const translations: Record<Language, Translations> = {
       reason: 'Důvod',
       teachersList: 'Seznam učitelů',
       maxHours: 'Max. hodiny',
+      subjects: 'Předměty',
+      noSubjectsAssigned: 'Nejsou přiřazeny žádné předměty',
+      edit: 'Upravit',
+      manageSpecializations: 'Spravovat specializace',
+      reportAbsence: 'Nahlásit nepřítomnost',
+      delete: 'Smazat',
       subjectCapabilities: 'Schopnosti v předmětech',
       addCapability: 'Přidat schopnost',
       selectSubject: 'Vybrat předmět',
       selectGradeLevel: 'Vybrat ročník (volitelné)',
       selectClassGroup: 'Vybrat třídu (volitelné)',
+      allClassesOrSelect: 'Všechny třídy (nebo vyberte konkrétní třídu)',
       isPrimary: 'Je hlavní učitel',
       editTeacher: 'Upravit učitele',
       deleteTeacher: 'Smazat učitele',
       save: 'Uložit',
       cancel: 'Zrušit',
+      close: 'Zavřít',
       noTeachers: 'Nebyli nalezeni žádní učitelé',
       seeAbsences: 'Zobrazit nepřítomnosti',
       capabilities: 'Schopnosti',
-      absences: 'Nepřítomnosti'
+      absences: 'Nepřítomnosti',
+      reportAbsenceFor: 'Nahlásit nepřítomnost pro',
+      dateFrom: 'Datum od',
+      dateTo: 'Datum do',
+      reasonOptional: 'Důvod (volitelné)',
+      reasonForAbsence: 'Důvod nepřítomnosti',
+      manageSpecializationsFor: 'Spravovat specializace pro',
+      addNewSpecialization: 'Přidat novou specializaci',
+      addSpecialization: 'Přidat specializaci',
+      currentSpecializations: 'Současné specializace',
+      noSpecializationsYet: 'Zatím žádné specializace',
+      class: 'Třída',
+      remove: 'Odstranit'
     },
     timetables: {
       title: 'Rozvrhy',
@@ -474,6 +543,35 @@ const translations: Record<Language, Translations> = {
       confirm: 'Potvrdit',
       areYouSure: 'Jste si jisti?',
       thisActionCannotBeUndone: 'Tuto akci nelze vrátit zpět.'
+    },
+    components: {
+      timetableGrid: {
+        monday: 'Pondělí',
+        tuesday: 'Úterý',
+        wednesday: 'Středa',
+        thursday: 'Čtvrtek',
+        friday: 'Pátek'
+      },
+      timetableCell: {
+        lunchBreak: 'Oběd',
+        subject: 'Předmět',
+        class: 'Třída',
+        teacher: 'Učitel'
+      },
+      timetableCalendar: {
+        selectClass: 'Vybrat třídu',
+        allClasses: 'Všechny třídy',
+        monthView: 'Měsíční zobrazení',
+        dayView: 'Denní zobrazení',
+        today: 'Dnes',
+        noEntries: 'Pro tento den nejsou žádné záznamy rozvrhu',
+        lesson: 'Hodina',
+        subject: 'Předmět',
+        teacher: 'Učitel',
+        classroom: 'Učebna',
+        time: 'Čas',
+        lunchBreak: 'Oběd'
+      }
     }
   }
 }

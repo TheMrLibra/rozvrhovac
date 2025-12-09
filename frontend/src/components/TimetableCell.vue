@@ -1,12 +1,12 @@
 <template>
   <div class="timetable-cell">
     <div v-if="isLunchBreak" class="timetable-cell__lunch">
-      <div class="timetable-cell__lunch-text">🍽️ Lunch Break</div>
+      <div class="timetable-cell__lunch-text">🍽️ {{ t('components.timetableCell.lunchBreak') }}</div>
     </div>
     <div v-else-if="entry" class="timetable-cell__content">
-      <div class="timetable-cell__subject">{{ entry.subject?.name || 'Subject' }}</div>
-      <div class="timetable-cell__class">{{ entry.class_group?.name || 'Class' }}</div>
-      <div class="timetable-cell__teacher">{{ entry.teacher?.full_name || 'Teacher' }}</div>
+      <div class="timetable-cell__subject">{{ entry.subject?.name || t('commonPhrases.na') }}</div>
+      <div class="timetable-cell__class">{{ entry.class_group?.name || t('commonPhrases.na') }}</div>
+      <div class="timetable-cell__teacher">{{ entry.teacher?.full_name || t('commonPhrases.na') }}</div>
       <div v-if="entry.classroom" class="timetable-cell__classroom">{{ entry.classroom?.name }}</div>
     </div>
   </div>
@@ -14,6 +14,7 @@
 
 <script setup lang="ts">
 import { computed } from 'vue'
+import { useI18nStore } from '@/stores/i18n'
 
 interface Props {
   entry: any
@@ -23,6 +24,9 @@ interface Props {
 }
 
 const props = defineProps<Props>()
+
+const i18nStore = useI18nStore()
+const t = i18nStore.t
 
 const isLunchBreak = computed(() => {
   return props.lunchHours && props.lunchHours.includes(props.hour) && !props.entry

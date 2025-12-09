@@ -35,15 +35,25 @@ class ClassSubjectAllocationBase(BaseModel):
     class_group_id: int
     subject_id: int
     weekly_hours: int
+    primary_teacher_id: Optional[int] = None
 
 class ClassSubjectAllocationCreate(ClassSubjectAllocationBase):
     pass
 
 class ClassSubjectAllocationUpdate(BaseModel):
     weekly_hours: Optional[int] = None
+    primary_teacher_id: Optional[int] = None
+
+class TeacherSimpleResponse(BaseModel):
+    id: int
+    full_name: str
+    
+    class Config:
+        from_attributes = True
 
 class ClassSubjectAllocationResponse(ClassSubjectAllocationBase):
     id: int
+    primary_teacher: Optional[TeacherSimpleResponse] = None
     
     class Config:
         from_attributes = True
