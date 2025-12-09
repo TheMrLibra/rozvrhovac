@@ -19,6 +19,7 @@ class TeacherSubjectCapabilityBase(BaseModel):
     subject_id: int
     grade_level_id: Optional[int] = None
     class_group_id: Optional[int] = None
+    is_primary: Optional[int] = 0  # 0 = not primary, 1 = primary teacher for this class-subject
 
 class TeacherSubjectCapabilityCreate(TeacherSubjectCapabilityBase):
     pass

@@ -55,12 +55,13 @@ class TimetableService:
         # Get all classrooms
         classrooms = await self.classroom_repo.get_by_school_id(school_id)
         
-        # Create timetable
+        # Create timetable (mark as primary)
         timetable = Timetable(
             school_id=school_id,
             name=name,
             valid_from=valid_from,
-            valid_to=valid_to
+            valid_to=valid_to,
+            is_primary=1  # This is a primary timetable
         )
         timetable = await self.timetable_repo.create(timetable)
         
@@ -128,7 +129,8 @@ class TimetableService:
                 settings,
                 max_lessons_per_day,
                 entries,  # Pass all existing entries to check conflicts
-                lunch_hour_slots  # Pass lunch hour slots to block
+                lunch_hour_slots,  # Pass lunch hour slots to block
+                is_primary_timetable=True  # This is a primary timetable
             )
             entries.extend(class_entries)
         
@@ -163,7 +165,8 @@ class TimetableService:
         settings: SchoolSettings,
         max_lessons_per_day: int,
         existing_entries: List[TimetableEntry],
-        lunch_hour_slots: List[int] = None
+        lunch_hour_slots: List[int] = None,
+        is_primary_timetable: bool = True
     ) -> List[TimetableEntry]:
         """Place subjects for a class ensuring every day has at least one lesson, with even distribution"""
         entries: List[TimetableEntry] = []
@@ -187,6 +190,20 @@ class TimetableService:
             for lesson_index in range(1, max_lessons_per_day + 1):
                 if lesson_index not in lunch_hours:
                     available_slots.append((day, lesson_index))
+        
+        # Track which teacher is assigned to each class-subject combination
+        # For primary timetables, we'll only use the primary teacher for each class-subject
+        class_subject_teacher: Dict[Tuple[int, int], int] = {}  # (class_group_id, subject_id) -> teacher_id
+        
+        # Pre-find primary teachers for all class-subject combinations (for primary timetables)
+        if is_primary_timetable:
+            unique_subjects = set(subject.id for subject, _ in subjects_to_place)
+            for subject_id in unique_subjects:
+                subject_obj = next((s for s, _ in subjects_to_place if s.id == subject_id), None)
+                if subject_obj:
+                    primary_teacher = await self._find_primary_teacher_for_class_subject(subject_obj, class_group, teachers)
+                    if primary_teacher:
+                        class_subject_teacher[(class_group.id, subject_id)] = primary_teacher.id
         
         # First, ensure at least one lesson per day
         # Place one subject on each day first
@@ -212,12 +229,20 @@ class TimetableService:
                            and e.class_group_id == class_group.id for e in existing_entries + entries):
                         continue
                     
-                    # Find suitable teacher
+                    # Check if we already have a teacher assigned for this class-subject
+                    class_subject_key = (class_group.id, subject.id)
+                    assigned_teacher_id = class_subject_teacher.get(class_subject_key)
+                    
+                    # Find suitable teacher (checking availability at this specific time slot)
                     teacher = await self._find_suitable_teacher(
-                        subject, class_group, day, lesson_index, teachers, existing_entries + entries, teacher_hours
+                        subject, class_group, day, lesson_index, teachers, existing_entries + entries, teacher_hours, is_primary_timetable, assigned_teacher_id
                     )
                     if not teacher:
                         continue
+                    
+                    # If we didn't have an assigned teacher yet, store it now
+                    if not assigned_teacher_id:
+                        class_subject_teacher[class_subject_key] = teacher.id
                     
                     # Find suitable classroom
                     classroom = await self._find_suitable_classroom(
@@ -278,12 +303,20 @@ class TimetableService:
                        and e.class_group_id == class_group.id for e in existing_entries + entries):
                     continue
                 
-                # Find suitable teacher
+                # Check if we already have a teacher assigned for this class-subject
+                class_subject_key = (class_group.id, subject.id)
+                assigned_teacher_id = class_subject_teacher.get(class_subject_key)
+                
+                # Find suitable teacher (checking availability at this specific time slot)
                 teacher = await self._find_suitable_teacher(
-                    subject, class_group, day, lesson_index, teachers, existing_entries + entries, teacher_hours
+                    subject, class_group, day, lesson_index, teachers, existing_entries + entries, teacher_hours, is_primary_timetable, assigned_teacher_id
                 )
                 if not teacher:
                     continue
+                
+                # If we didn't have an assigned teacher yet, store it now
+                if not assigned_teacher_id:
+                    class_subject_teacher[class_subject_key] = teacher.id
                 
                 # Find suitable classroom
                 classroom = await self._find_suitable_classroom(
@@ -314,6 +347,21 @@ class TimetableService:
         
         return entries
     
+    async def _find_primary_teacher_for_class_subject(
+        self,
+        subject: Subject,
+        class_group: ClassGroup,
+        teachers: List[Teacher]
+    ) -> Optional[Teacher]:
+        """Find the primary teacher for a class-subject combination (without checking availability)"""
+        for teacher in teachers:
+            for capability in teacher.capabilities:
+                if capability.subject_id == subject.id:
+                    # Check if this is the primary teacher for this specific class-subject
+                    if capability.is_primary == 1 and capability.class_group_id == class_group.id:
+                        return teacher
+        return None
+    
     async def _find_suitable_teacher(
         self,
         subject: Subject,
@@ -322,25 +370,83 @@ class TimetableService:
         lesson_index: int,
         teachers: List[Teacher],
         placed_entries: List[TimetableEntry],
-        teacher_hours: Dict[int, int]
+        teacher_hours: Dict[int, int],
+        is_primary_timetable: bool = True,
+        assigned_teacher_id: Optional[int] = None
     ) -> Optional[Teacher]:
-        """Find a teacher who can teach this subject and is available"""
+        """Find a teacher who can teach this subject and is available at this specific time slot.
+        For primary timetables, if assigned_teacher_id is provided, only checks that teacher.
+        For substitute timetables, can return any suitable teacher."""
         day_names = ["monday", "tuesday", "wednesday", "thursday", "friday"]
         day_name = day_names[day]
         
-        # Shuffle teachers to distribute load more evenly
-        shuffled_teachers = list(teachers)
-        random.shuffle(shuffled_teachers)
+        # If we have an assigned teacher (for primary timetables), only check that teacher
+        if assigned_teacher_id is not None:
+            teacher = next((t for t in teachers if t.id == assigned_teacher_id), None)
+            if not teacher:
+                return None
+            
+            # Check teacher availability
+            if teacher.availability:
+                available_hours = teacher.availability.get(day_name, [])
+                if available_hours and lesson_index not in available_hours:
+                    return None
+            
+            # Check if teacher is already busy at this time (across ALL classes)
+            if any(e.teacher_id == teacher.id and e.day_of_week == day and e.lesson_index == lesson_index
+                   for e in placed_entries):
+                return None
+            
+            # Check teacher weekly hours
+            if teacher_hours.get(teacher.id, 0) >= teacher.max_weekly_hours:
+                return None
+            
+            return teacher
         
-        for teacher in shuffled_teachers:
+        # For primary timetables without assigned teacher, find primary teacher first
+        if is_primary_timetable:
+            primary_teacher = await self._find_primary_teacher_for_class_subject(subject, class_group, teachers)
+            if not primary_teacher:
+                return None
+            
+            # Check if primary teacher is available at this time
+            if primary_teacher.availability:
+                available_hours = primary_teacher.availability.get(day_name, [])
+                if available_hours and lesson_index not in available_hours:
+                    return None
+            
+            # Check if teacher is already busy at this time
+            if any(e.teacher_id == primary_teacher.id and e.day_of_week == day and e.lesson_index == lesson_index
+                   for e in placed_entries):
+                return None
+            
+            # Check teacher weekly hours
+            if teacher_hours.get(primary_teacher.id, 0) >= primary_teacher.max_weekly_hours:
+                return None
+            
+            return primary_teacher
+        
+        # For substitute timetables, find any suitable teacher
+        primary_teacher = None
+        other_teachers = []
+        
+        for teacher in teachers:
             # Check if teacher can teach this subject
             can_teach = False
+            is_primary = False
             for capability in teacher.capabilities:
                 if capability.subject_id == subject.id:
-                    if (capability.grade_level_id == class_group.grade_level_id or 
+                    # Check if this capability matches the class
+                    matches_class = (
                         capability.class_group_id == class_group.id or
-                        (capability.grade_level_id is None and capability.class_group_id is None)):
+                        (capability.grade_level_id == class_group.grade_level_id and capability.class_group_id is None) or
+                        (capability.grade_level_id is None and capability.class_group_id is None)
+                    )
+                    if matches_class:
                         can_teach = True
+                        # Check if this is the primary teacher for this class-subject
+                        if capability.is_primary == 1 and capability.class_group_id == class_group.id:
+                            is_primary = True
                         break
             
             if not can_teach:
@@ -361,7 +467,19 @@ class TimetableService:
             if teacher_hours.get(teacher.id, 0) >= teacher.max_weekly_hours:
                 continue
             
-            return teacher
+            if is_primary:
+                primary_teacher = teacher
+            else:
+                other_teachers.append(teacher)
+        
+        # For substitute timetables, return primary teacher if found, otherwise any suitable teacher
+        if primary_teacher:
+            return primary_teacher
+        
+        # If no primary teacher, return first available teacher (shuffle for load balancing)
+        if other_teachers:
+            random.shuffle(other_teachers)
+            return other_teachers[0]
         
         return None
     

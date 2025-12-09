@@ -190,6 +190,24 @@ async def create_teacher_capability(
     if not subject or subject.school_id != school_id:
         raise HTTPException(status_code=404, detail="Subject not found")
     
+    # If setting as primary teacher, ensure no other teacher is primary for this class-subject
+    if capability_data.is_primary == 1 and capability_data.class_group_id:
+        from sqlalchemy import select
+        from app.models.teacher import TeacherSubjectCapability
+        result = await db.execute(
+            select(TeacherSubjectCapability).where(
+                TeacherSubjectCapability.subject_id == capability_data.subject_id,
+                TeacherSubjectCapability.class_group_id == capability_data.class_group_id,
+                TeacherSubjectCapability.is_primary == 1,
+                TeacherSubjectCapability.teacher_id != teacher_id
+            )
+        )
+        existing_primary = result.scalar_one_or_none()
+        if existing_primary:
+            # Remove primary status from existing primary teacher
+            existing_primary.is_primary = 0
+            await db.commit()
+    
     capability = TeacherSubjectCapability(**capability_data.model_dump())
     db.add(capability)
     await db.commit()

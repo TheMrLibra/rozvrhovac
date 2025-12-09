@@ -4,8 +4,11 @@ from app.core.database import get_db
 from app.core.dependencies import get_current_active_user, require_role
 from app.models.user import User, UserRole
 from app.schemas.timetable import TimetableCreate, TimetableResponse, ValidationResponse, ValidationErrorResponse
+from pydantic import BaseModel
 from app.services.timetable_service import TimetableService
 from app.services.timetable_validation_service import TimetableValidationService, ValidationError
+from app.services.substitute_timetable_service import SubstituteTimetableService
+from datetime import date
 
 router = APIRouter()
 
@@ -121,4 +124,37 @@ async def delete_timetable(
     
     # Now delete the timetable
     await repo.delete(timetable_id)
+
+class SubstituteTimetableCreate(BaseModel):
+    substitute_date: date
+
+@router.post("/schools/{school_id}/timetables/{base_timetable_id}/generate-substitute", response_model=TimetableResponse)
+async def generate_substitute_timetable(
+    school_id: int,
+    base_timetable_id: int,
+    data: SubstituteTimetableCreate,
+    current_user: User = Depends(require_role([UserRole.ADMIN])),
+    db: AsyncSession = Depends(get_db)
+):
+    """Generate a substitute timetable for a specific date based on absences"""
+    if current_user.school_id != school_id:
+        raise HTTPException(status_code=403, detail="Access denied")
+    
+    substitute_service = SubstituteTimetableService(db)
+    try:
+        substitute_timetable = await substitute_service.generate_substitute_timetable(
+            school_id=school_id,
+            base_timetable_id=base_timetable_id,
+            substitute_date=data.substitute_date
+        )
+        
+        # Get full timetable with entries
+        from app.repositories.timetable_repository import TimetableRepository
+        repo = TimetableRepository(db)
+        full_timetable = await repo.get_by_id_with_entries(substitute_timetable.id)
+        if not full_timetable:
+            raise HTTPException(status_code=404, detail="Substitute timetable not found after creation")
+        return full_timetable
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
 

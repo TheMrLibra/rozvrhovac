@@ -60,6 +60,7 @@ async def create_test_data():
             {"name": "1st Grade", "level": 1},
             {"name": "2nd Grade", "level": 2},
             {"name": "3rd Grade", "level": 3},
+            {"name": "4th Grade", "level": 4},
         ]
         grade_levels = {}
         for gl_data in grade_levels_data:
@@ -80,9 +81,14 @@ async def create_test_data():
         class_groups_data = [
             {"name": "1.A", "grade_level": 1},
             {"name": "1.B", "grade_level": 1},
+            {"name": "1.C", "grade_level": 1},
             {"name": "2.A", "grade_level": 2},
             {"name": "2.B", "grade_level": 2},
+            {"name": "2.C", "grade_level": 2},
             {"name": "3.A", "grade_level": 3},
+            {"name": "3.B", "grade_level": 3},
+            {"name": "4.A", "grade_level": 4},
+            {"name": "4.B", "grade_level": 4},
         ]
         class_groups = {}
         for cg_data in class_groups_data:
@@ -131,16 +137,38 @@ async def create_test_data():
         
         await db.commit()
         
-        # Create Teachers
+        # Create Teachers (multiple teachers per subject for primary/substitute support)
         print("\n👨‍🏫 Creating Teachers...")
         teachers_data = [
+            # Mathematics teachers (3 teachers)
             {"name": "John Smith", "hours": 20, "subjects": ["Mathematics", "Physics"]},
+            {"name": "Robert Miller", "hours": 22, "subjects": ["Mathematics"]},
+            {"name": "Sarah Johnson", "hours": 18, "subjects": ["Mathematics", "Physics"]},
+            # Physics teachers (2 teachers)
+            {"name": "Michael Chen", "hours": 20, "subjects": ["Physics", "Mathematics"]},
+            # Chemistry teachers (2 teachers)
             {"name": "Jane Doe", "hours": 18, "subjects": ["Chemistry", "Biology"]},
+            {"name": "Emily Watson", "hours": 20, "subjects": ["Chemistry"]},
+            # Biology teachers (2 teachers)
+            {"name": "David Lee", "hours": 18, "subjects": ["Biology", "Chemistry"]},
+            # Computer Science teachers (2 teachers)
             {"name": "Bob Johnson", "hours": 22, "subjects": ["Computer Science", "Mathematics"]},
+            {"name": "Alex Turner", "hours": 20, "subjects": ["Computer Science"]},
+            # English teachers (3 teachers)
             {"name": "Alice Williams", "hours": 20, "subjects": ["English", "History"]},
+            {"name": "Emma Thompson", "hours": 18, "subjects": ["English"]},
+            {"name": "James Wilson", "hours": 20, "subjects": ["English", "History"]},
+            # History teachers (2 teachers)
             {"name": "Charlie Brown", "hours": 16, "subjects": ["Geography", "History"]},
+            {"name": "Olivia Martinez", "hours": 18, "subjects": ["History", "Geography"]},
+            # Geography teachers (2 teachers)
+            {"name": "Thomas Anderson", "hours": 16, "subjects": ["Geography"]},
+            # Physical Education teachers (2 teachers)
             {"name": "Diana Prince", "hours": 18, "subjects": ["Physical Education"]},
+            {"name": "Mark Taylor", "hours": 20, "subjects": ["Physical Education"]},
+            # Art teachers (2 teachers)
             {"name": "Edward Norton", "hours": 20, "subjects": ["Art", "English"]},
+            {"name": "Sophie Green", "hours": 18, "subjects": ["Art"]},
         ]
         teachers = {}
         for teacher_data in teachers_data:
@@ -157,7 +185,7 @@ async def create_test_data():
         
         await db.commit()
         
-        # Create Teacher Capabilities
+        # Create Teacher Capabilities (general capabilities for all grade levels)
         print("\n🎯 Creating Teacher Capabilities...")
         for teacher_name, teacher in teachers.items():
             teacher_data = next(t for t in teachers_data if t["name"] == teacher_name)
@@ -167,24 +195,142 @@ async def create_test_data():
                     teacher_id=teacher.id,
                     subject_id=subject.id,
                     grade_level_id=None,
-                    class_group_id=None
+                    class_group_id=None,
+                    is_primary=0  # Will be set as primary for specific classes below
                 )
                 db.add(capability)
-            print(f"  ✓ Added capabilities for {teacher_name}")
+            print(f"  ✓ Added general capabilities for {teacher_name}")
         
         await db.commit()
+        
+        # Assign primary teachers to specific class-subject combinations
+        print("\n⭐ Assigning Primary Teachers to Classes...")
+        primary_assignments = [
+            # 1st Grade - 1.A
+            {"class": "1.A", "subject": "Mathematics", "teacher": "John Smith"},
+            {"class": "1.A", "subject": "English", "teacher": "Alice Williams"},
+            {"class": "1.A", "subject": "History", "teacher": "Charlie Brown"},
+            {"class": "1.A", "subject": "Geography", "teacher": "Charlie Brown"},
+            {"class": "1.A", "subject": "Physical Education", "teacher": "Diana Prince"},
+            {"class": "1.A", "subject": "Art", "teacher": "Edward Norton"},
+            # 1st Grade - 1.B
+            {"class": "1.B", "subject": "Mathematics", "teacher": "Robert Miller"},
+            {"class": "1.B", "subject": "English", "teacher": "Emma Thompson"},
+            {"class": "1.B", "subject": "History", "teacher": "Olivia Martinez"},
+            {"class": "1.B", "subject": "Geography", "teacher": "Thomas Anderson"},
+            {"class": "1.B", "subject": "Physical Education", "teacher": "Mark Taylor"},
+            {"class": "1.B", "subject": "Art", "teacher": "Sophie Green"},
+            # 1st Grade - 1.C
+            {"class": "1.C", "subject": "Mathematics", "teacher": "Sarah Johnson"},
+            {"class": "1.C", "subject": "English", "teacher": "James Wilson"},
+            {"class": "1.C", "subject": "History", "teacher": "Olivia Martinez"},
+            {"class": "1.C", "subject": "Geography", "teacher": "Thomas Anderson"},
+            {"class": "1.C", "subject": "Physical Education", "teacher": "Diana Prince"},
+            {"class": "1.C", "subject": "Art", "teacher": "Edward Norton"},
+            # 2nd Grade - 2.A
+            {"class": "2.A", "subject": "Mathematics", "teacher": "John Smith"},
+            {"class": "2.A", "subject": "Physics", "teacher": "John Smith"},
+            {"class": "2.A", "subject": "Chemistry", "teacher": "Jane Doe"},
+            {"class": "2.A", "subject": "English", "teacher": "Alice Williams"},
+            {"class": "2.A", "subject": "History", "teacher": "Charlie Brown"},
+            {"class": "2.A", "subject": "Geography", "teacher": "Charlie Brown"},
+            {"class": "2.A", "subject": "Physical Education", "teacher": "Diana Prince"},
+            # 2nd Grade - 2.B
+            {"class": "2.B", "subject": "Mathematics", "teacher": "Robert Miller"},
+            {"class": "2.B", "subject": "Physics", "teacher": "Michael Chen"},
+            {"class": "2.B", "subject": "Chemistry", "teacher": "Emily Watson"},
+            {"class": "2.B", "subject": "English", "teacher": "Emma Thompson"},
+            {"class": "2.B", "subject": "History", "teacher": "Olivia Martinez"},
+            {"class": "2.B", "subject": "Geography", "teacher": "Thomas Anderson"},
+            {"class": "2.B", "subject": "Physical Education", "teacher": "Mark Taylor"},
+            # 2nd Grade - 2.C
+            {"class": "2.C", "subject": "Mathematics", "teacher": "Sarah Johnson"},
+            {"class": "2.C", "subject": "Physics", "teacher": "Sarah Johnson"},
+            {"class": "2.C", "subject": "Chemistry", "teacher": "Jane Doe"},
+            {"class": "2.C", "subject": "English", "teacher": "James Wilson"},
+            {"class": "2.C", "subject": "History", "teacher": "Charlie Brown"},
+            {"class": "2.C", "subject": "Geography", "teacher": "Thomas Anderson"},
+            {"class": "2.C", "subject": "Physical Education", "teacher": "Diana Prince"},
+            # 3rd Grade - 3.A
+            {"class": "3.A", "subject": "Mathematics", "teacher": "John Smith"},
+            {"class": "3.A", "subject": "Physics", "teacher": "Michael Chen"},
+            {"class": "3.A", "subject": "Chemistry", "teacher": "Jane Doe"},
+            {"class": "3.A", "subject": "Biology", "teacher": "Jane Doe"},
+            {"class": "3.A", "subject": "Computer Science", "teacher": "Bob Johnson"},
+            {"class": "3.A", "subject": "English", "teacher": "Alice Williams"},
+            {"class": "3.A", "subject": "History", "teacher": "Charlie Brown"},
+            {"class": "3.A", "subject": "Geography", "teacher": "Charlie Brown"},
+            {"class": "3.A", "subject": "Physical Education", "teacher": "Diana Prince"},
+            # 3rd Grade - 3.B
+            {"class": "3.B", "subject": "Mathematics", "teacher": "Robert Miller"},
+            {"class": "3.B", "subject": "Physics", "teacher": "Sarah Johnson"},
+            {"class": "3.B", "subject": "Chemistry", "teacher": "Emily Watson"},
+            {"class": "3.B", "subject": "Biology", "teacher": "David Lee"},
+            {"class": "3.B", "subject": "Computer Science", "teacher": "Alex Turner"},
+            {"class": "3.B", "subject": "English", "teacher": "Emma Thompson"},
+            {"class": "3.B", "subject": "History", "teacher": "Olivia Martinez"},
+            {"class": "3.B", "subject": "Geography", "teacher": "Thomas Anderson"},
+            {"class": "3.B", "subject": "Physical Education", "teacher": "Mark Taylor"},
+            # 4th Grade - 4.A
+            {"class": "4.A", "subject": "Mathematics", "teacher": "Sarah Johnson"},
+            {"class": "4.A", "subject": "Physics", "teacher": "Michael Chen"},
+            {"class": "4.A", "subject": "Chemistry", "teacher": "Emily Watson"},
+            {"class": "4.A", "subject": "Biology", "teacher": "David Lee"},
+            {"class": "4.A", "subject": "Computer Science", "teacher": "Bob Johnson"},
+            {"class": "4.A", "subject": "English", "teacher": "James Wilson"},
+            {"class": "4.A", "subject": "History", "teacher": "Olivia Martinez"},
+            {"class": "4.A", "subject": "Geography", "teacher": "Thomas Anderson"},
+            {"class": "4.A", "subject": "Physical Education", "teacher": "Diana Prince"},
+            # 4th Grade - 4.B
+            {"class": "4.B", "subject": "Mathematics", "teacher": "Robert Miller"},
+            {"class": "4.B", "subject": "Physics", "teacher": "John Smith"},
+            {"class": "4.B", "subject": "Chemistry", "teacher": "Jane Doe"},
+            {"class": "4.B", "subject": "Biology", "teacher": "Jane Doe"},
+            {"class": "4.B", "subject": "Computer Science", "teacher": "Alex Turner"},
+            {"class": "4.B", "subject": "English", "teacher": "Alice Williams"},
+            {"class": "4.B", "subject": "History", "teacher": "Charlie Brown"},
+            {"class": "4.B", "subject": "Geography", "teacher": "Charlie Brown"},
+            {"class": "4.B", "subject": "Physical Education", "teacher": "Mark Taylor"},
+        ]
+        
+        for assignment in primary_assignments:
+            class_group = class_groups[assignment["class"]]
+            subject = subjects[assignment["subject"]]
+            teacher = teachers[assignment["teacher"]]
+            
+            # Create primary capability for this specific class-subject
+            primary_capability = TeacherSubjectCapability(
+                teacher_id=teacher.id,
+                subject_id=subject.id,
+                grade_level_id=None,
+                class_group_id=class_group.id,
+                is_primary=1  # This is the primary teacher
+            )
+            db.add(primary_capability)
+        
+        await db.commit()
+        print(f"  ✓ Assigned {len(primary_assignments)} primary teachers to class-subject combinations")
         
         # Create Classrooms
         print("\n🏫 Creating Classrooms...")
         classrooms_data = [
             {"name": "Room 101", "capacity": 30, "specializations": []},
             {"name": "Room 102", "capacity": 30, "specializations": []},
-            {"name": "Physics Lab", "capacity": 20, "specializations": ["Physics"]},
-            {"name": "Chemistry Lab", "capacity": 20, "specializations": ["Chemistry"]},
-            {"name": "Biology Lab", "capacity": 20, "specializations": ["Biology"]},
-            {"name": "Computer Lab", "capacity": 25, "specializations": ["Computer Science"]},
+            {"name": "Room 103", "capacity": 30, "specializations": []},
+            {"name": "Room 104", "capacity": 30, "specializations": []},
+            {"name": "Room 201", "capacity": 30, "specializations": []},
+            {"name": "Room 202", "capacity": 30, "specializations": []},
+            {"name": "Physics Lab 1", "capacity": 20, "specializations": ["Physics"]},
+            {"name": "Physics Lab 2", "capacity": 20, "specializations": ["Physics"]},
+            {"name": "Chemistry Lab 1", "capacity": 20, "specializations": ["Chemistry"]},
+            {"name": "Chemistry Lab 2", "capacity": 20, "specializations": ["Chemistry"]},
+            {"name": "Biology Lab 1", "capacity": 20, "specializations": ["Biology"]},
+            {"name": "Biology Lab 2", "capacity": 20, "specializations": ["Biology"]},
+            {"name": "Computer Lab 1", "capacity": 25, "specializations": ["Computer Science"]},
+            {"name": "Computer Lab 2", "capacity": 25, "specializations": ["Computer Science"]},
             {"name": "Gym", "capacity": 40, "specializations": []},
-            {"name": "Art Room", "capacity": 25, "specializations": []},
+            {"name": "Art Room 1", "capacity": 25, "specializations": []},
+            {"name": "Art Room 2", "capacity": 25, "specializations": []},
         ]
         classrooms = {}
         for room_data in classrooms_data:
@@ -221,6 +367,12 @@ async def create_test_data():
             {"class": "1.B", "subject": "Geography", "hours": 2},
             {"class": "1.B", "subject": "Physical Education", "hours": 2},
             {"class": "1.B", "subject": "Art", "hours": 2},
+            {"class": "1.C", "subject": "Mathematics", "hours": 4},
+            {"class": "1.C", "subject": "English", "hours": 4},
+            {"class": "1.C", "subject": "History", "hours": 2},
+            {"class": "1.C", "subject": "Geography", "hours": 2},
+            {"class": "1.C", "subject": "Physical Education", "hours": 2},
+            {"class": "1.C", "subject": "Art", "hours": 2},
             # 2nd Grade classes
             {"class": "2.A", "subject": "Mathematics", "hours": 5},
             {"class": "2.A", "subject": "Physics", "hours": 3},
@@ -236,6 +388,13 @@ async def create_test_data():
             {"class": "2.B", "subject": "History", "hours": 2},
             {"class": "2.B", "subject": "Geography", "hours": 2},
             {"class": "2.B", "subject": "Physical Education", "hours": 2},
+            {"class": "2.C", "subject": "Mathematics", "hours": 5},
+            {"class": "2.C", "subject": "Physics", "hours": 3},
+            {"class": "2.C", "subject": "Chemistry", "hours": 2},
+            {"class": "2.C", "subject": "English", "hours": 4},
+            {"class": "2.C", "subject": "History", "hours": 2},
+            {"class": "2.C", "subject": "Geography", "hours": 2},
+            {"class": "2.C", "subject": "Physical Education", "hours": 2},
             # 3rd Grade classes
             {"class": "3.A", "subject": "Mathematics", "hours": 5},
             {"class": "3.A", "subject": "Physics", "hours": 4},
@@ -246,6 +405,34 @@ async def create_test_data():
             {"class": "3.A", "subject": "History", "hours": 2},
             {"class": "3.A", "subject": "Geography", "hours": 2},
             {"class": "3.A", "subject": "Physical Education", "hours": 2},
+            {"class": "3.B", "subject": "Mathematics", "hours": 5},
+            {"class": "3.B", "subject": "Physics", "hours": 4},
+            {"class": "3.B", "subject": "Chemistry", "hours": 3},
+            {"class": "3.B", "subject": "Biology", "hours": 3},
+            {"class": "3.B", "subject": "Computer Science", "hours": 3},
+            {"class": "3.B", "subject": "English", "hours": 4},
+            {"class": "3.B", "subject": "History", "hours": 2},
+            {"class": "3.B", "subject": "Geography", "hours": 2},
+            {"class": "3.B", "subject": "Physical Education", "hours": 2},
+            # 4th Grade classes
+            {"class": "4.A", "subject": "Mathematics", "hours": 5},
+            {"class": "4.A", "subject": "Physics", "hours": 4},
+            {"class": "4.A", "subject": "Chemistry", "hours": 3},
+            {"class": "4.A", "subject": "Biology", "hours": 3},
+            {"class": "4.A", "subject": "Computer Science", "hours": 3},
+            {"class": "4.A", "subject": "English", "hours": 4},
+            {"class": "4.A", "subject": "History", "hours": 2},
+            {"class": "4.A", "subject": "Geography", "hours": 2},
+            {"class": "4.A", "subject": "Physical Education", "hours": 2},
+            {"class": "4.B", "subject": "Mathematics", "hours": 5},
+            {"class": "4.B", "subject": "Physics", "hours": 4},
+            {"class": "4.B", "subject": "Chemistry", "hours": 3},
+            {"class": "4.B", "subject": "Biology", "hours": 3},
+            {"class": "4.B", "subject": "Computer Science", "hours": 3},
+            {"class": "4.B", "subject": "English", "hours": 4},
+            {"class": "4.B", "subject": "History", "hours": 2},
+            {"class": "4.B", "subject": "Geography", "hours": 2},
+            {"class": "4.B", "subject": "Physical Education", "hours": 2},
         ]
         
         for alloc_data in allocations_data:

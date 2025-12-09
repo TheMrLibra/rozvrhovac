@@ -37,6 +37,7 @@ class TeacherSubjectCapability(Base):
     subject_id = Column(Integer, ForeignKey("subjects.id"), nullable=False)
     grade_level_id = Column(Integer, ForeignKey("grade_levels.id"), nullable=True)
     class_group_id = Column(Integer, ForeignKey("class_groups.id"), nullable=True)
+    is_primary = Column(Integer, nullable=False, default=0)  # 0 = not primary, 1 = primary teacher for this class-subject
     
     teacher = relationship("Teacher", back_populates="capabilities")
     subject = relationship("Subject", back_populates="teacher_capabilities")

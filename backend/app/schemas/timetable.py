@@ -44,6 +44,9 @@ class TimetableResponse(BaseModel):
     name: str
     valid_from: Optional[date]
     valid_to: Optional[date]
+    is_primary: Optional[int] = 1
+    substitute_for_date: Optional[date] = None
+    base_timetable_id: Optional[int] = None
     entries: list[TimetableEntryResponse] = []
     
     class Config:

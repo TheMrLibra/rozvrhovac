@@ -10,9 +10,13 @@ class Timetable(Base):
     name = Column(String, nullable=False)  # e.g., "Basic Timetable 2025/2026"
     valid_from = Column(Date, nullable=True)
     valid_to = Column(Date, nullable=True)
+    is_primary = Column(Integer, nullable=False, default=1)  # 1 = primary timetable, 0 = substitute timetable
+    substitute_for_date = Column(Date, nullable=True)  # For substitute timetables: the date this applies to
+    base_timetable_id = Column(Integer, ForeignKey("timetables.id"), nullable=True)  # For substitute timetables: reference to primary timetable
     
     school = relationship("School", back_populates="timetables")
-    entries = relationship("TimetableEntry", back_populates="timetable", cascade="all, delete-orphan")
+    entries = relationship("TimetableEntry", back_populates="timetable", cascade="all, delete-orphan", foreign_keys="TimetableEntry.timetable_id")
+    base_timetable = relationship("Timetable", remote_side=[id], foreign_keys=[base_timetable_id])
 
 class TimetableEntry(Base):
     __tablename__ = "timetable_entries"
