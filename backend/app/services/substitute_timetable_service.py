@@ -1,14 +1,19 @@
-from typing import List, Optional
+from typing import List, Optional, Dict
 from datetime import date
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from app.models.timetable import Timetable, TimetableEntry
 from app.models.absence import TeacherAbsence
 from app.models.teacher import Teacher
+from app.models.subject import Subject
+from app.models.class_group import ClassGroup
+from app.models.classroom import Classroom
 from app.repositories.timetable_repository import TimetableRepository, TimetableEntryRepository
 from app.repositories.teacher_repository import TeacherRepository
 from app.repositories.classroom_repository import ClassroomRepository
 from app.repositories.absence_repository import TeacherAbsenceRepository
+from app.repositories.class_group_repository import ClassGroupRepository
+from app.repositories.subject_repository import SubjectRepository
 
 class SubstituteTimetableService:
     def __init__(self, db: AsyncSession):
@@ -18,6 +23,8 @@ class SubstituteTimetableService:
         self.teacher_repo = TeacherRepository(db)
         self.classroom_repo = ClassroomRepository(db)
         self.absence_repo = TeacherAbsenceRepository(db)
+        self.class_repo = ClassGroupRepository(db)
+        self.subject_repo = SubjectRepository(db)
     
     def _date_to_day_of_week(self, target_date: date) -> int:
         """Convert a date to day of week (0=Monday, 4=Friday)"""
@@ -64,12 +71,29 @@ class SubstituteTimetableService:
         )
         substitute_timetable = await self.timetable_repo.create(substitute_timetable)
         
+        # Get all classes and subjects for constraint checking
+        classes = await self.class_repo.get_by_school_id(school_id)
+        classes_dict = {c.id: c for c in classes}
+        subjects = await self.subject_repo.get_by_school_id(school_id)
+        subjects_dict = {s.id: s for s in subjects}
+        
+        # Track teacher hours for weekly limit checking
+        teacher_hours: Dict[int, int] = {}
+        for teacher in teachers:
+            teacher_hours[teacher.id] = 0
+        
         # Copy entries from base timetable, replacing teachers/classrooms where needed
         entries: List[TimetableEntry] = []
         
         for base_entry in base_timetable.entries:
             # Only process entries for the day of week that matches the substitute date
             if base_entry.day_of_week != day_of_week:
+                continue
+            
+            # Get subject and class for constraint checking
+            subject = subjects_dict.get(base_entry.subject_id)
+            class_group = classes_dict.get(base_entry.class_group_id)
+            if not subject or not class_group:
                 continue
             
             # Check if the original teacher is absent
@@ -85,13 +109,59 @@ class SubstituteTimetableService:
             
             if absent_teacher_id:
                 substitute_teacher = await self._find_substitute_teacher(
-                    base_entry, absent_teacher_id, teachers, substitute_date, entries
+                    base_entry, absent_teacher_id, teachers, substitute_date, entries, teacher_hours
                 )
                 if substitute_teacher:
                     teacher_id = substitute_teacher.id
+                    teacher_hours[teacher_id] += 1
                 else:
-                    # No substitute found, skip this entry or keep original (admin can fix manually)
-                    teacher_id = base_entry.teacher_id
+                    # No substitute found, skip this entry (admin can fix manually)
+                    continue
+            
+            # Check subject constraints (consecutive hours, multiple in day, etc.)
+            if not self._check_subject_constraints(
+                subject, class_group.id, day_of_week, base_entry.lesson_index, entries
+            ):
+                # Skip entry if constraints violated
+                continue
+            
+            # Find suitable classroom (check availability, capacity, specializations)
+            # Always check classroom availability, even if teacher is not absent
+            classroom = await self._find_suitable_classroom(
+                subject, class_group, day_of_week, base_entry.lesson_index, classrooms, entries
+            )
+            if classroom:
+                classroom_id = classroom.id
+            elif base_entry.classroom_id:
+                # Check if original classroom is still available
+                original_classroom = next((c for c in classrooms if c.id == base_entry.classroom_id), None)
+                if original_classroom:
+                    # Check if classroom is free at this time
+                    original_classroom_available = not any(
+                        e.classroom_id == base_entry.classroom_id and 
+                        e.day_of_week == day_of_week and 
+                        e.lesson_index == base_entry.lesson_index 
+                        for e in entries
+                    )
+                    if original_classroom_available:
+                        # Check if classroom still fits capacity and specializations
+                        class_size = class_group.number_of_students
+                        capacity_ok = True
+                        if class_size is not None and original_classroom.capacity is not None:
+                            capacity_ok = class_size <= original_classroom.capacity
+                        
+                        specialization_ok = True
+                        if (subject.requires_specialized_classroom or subject.is_laboratory) and original_classroom.specializations:
+                            specialization_ok = subject.id in original_classroom.specializations
+                        
+                        if capacity_ok and specialization_ok:
+                            classroom_id = base_entry.classroom_id
+                        else:
+                            classroom_id = None  # Classroom doesn't meet requirements
+                    else:
+                        classroom_id = None  # Classroom is occupied
+                else:
+                    classroom_id = None  # Original classroom not found
             
             # Create entry for substitute timetable
             entry = TimetableEntry(
@@ -159,9 +229,10 @@ class SubstituteTimetableService:
         absent_teacher_id: int,
         teachers: List[Teacher],
         target_date: date,
-        existing_entries: List[TimetableEntry]
+        existing_entries: List[TimetableEntry],
+        teacher_hours: Dict[int, int]
     ) -> Optional[Teacher]:
-        """Find a substitute teacher for an entry"""
+        """Find a substitute teacher for an entry, following all rules except primary teacher assignment"""
         day_names = ["monday", "tuesday", "wednesday", "thursday", "friday"]
         day_name = day_names[entry.day_of_week]
         
@@ -195,7 +266,116 @@ class SubstituteTimetableService:
             if any(a.teacher_id == teacher.id for a in teacher_absences):
                 continue
             
+            # Check weekly hours limit
+            current_hours = teacher_hours.get(teacher.id, 0)
+            if current_hours >= teacher.max_weekly_hours:
+                continue
+            
             return teacher
         
         return None
+    
+    async def _find_suitable_classroom(
+        self,
+        subject: Subject,
+        class_group: ClassGroup,
+        day: int,
+        lesson_index: int,
+        classrooms: List[Classroom],
+        placed_entries: List[TimetableEntry]
+    ) -> Optional[Classroom]:
+        """Find a suitable classroom, preferring ones where the class fits"""
+        # Classroom is optional, so return None if no classrooms available
+        if not classrooms:
+            return None
+        
+        # Get class size for capacity checking
+        class_size = class_group.number_of_students
+        
+        # Separate classrooms into those that fit and those that don't
+        fitting_classrooms = []
+        other_classrooms = []
+        
+        for classroom in classrooms:
+            # Check if available (across ALL classes)
+            if any(e.classroom_id == classroom.id and e.day_of_week == day 
+                  and e.lesson_index == lesson_index for e in placed_entries):
+                continue  # Skip occupied classrooms
+            
+            # Check if class fits (if both capacity and class_size are set)
+            fits = True
+            if class_size is not None and classroom.capacity is not None:
+                fits = class_size <= classroom.capacity
+            
+            if fits:
+                fitting_classrooms.append(classroom)
+            else:
+                other_classrooms.append(classroom)
+        
+        # If subject requires specialized classroom
+        if subject.requires_specialized_classroom or subject.is_laboratory:
+            # First try specialized classrooms that fit
+            for classroom in fitting_classrooms:
+                if classroom.specializations:
+                    # Check if this classroom specializes in this subject (subject ID in specializations list)
+                    if subject.id in classroom.specializations:
+                        return classroom
+            
+            # Then try specialized classrooms that don't fit (as fallback)
+            for classroom in other_classrooms:
+                if classroom.specializations:
+                    if subject.id in classroom.specializations:
+                        return classroom
+        
+        # Prefer classrooms where class fits
+        if fitting_classrooms:
+            return fitting_classrooms[0]
+        
+        # Fallback to any available classroom
+        if other_classrooms:
+            return other_classrooms[0]
+        
+        return None
+    
+    def _check_subject_constraints(
+        self,
+        subject: Subject,
+        class_group_id: int,
+        day: int,
+        lesson_index: int,
+        placed_entries: List[TimetableEntry]
+    ) -> bool:
+        """Check if placing subject at this position violates constraints"""
+        class_entries = [e for e in placed_entries 
+                        if e.class_group_id == class_group_id and e.day_of_week == day]
+        
+        # Check consecutive hours
+        if not subject.allow_consecutive_hours:
+            if any(abs(e.lesson_index - lesson_index) == 1 and e.subject_id == subject.id 
+                   for e in class_entries):
+                return False
+        
+        # Check multiple in day
+        if not subject.allow_multiple_in_one_day:
+            if any(e.subject_id == subject.id for e in class_entries):
+                return False
+        
+        # Check max consecutive hours
+        if subject.max_consecutive_hours:
+            # Count consecutive hours for this subject on this day
+            same_day_subject_entries = sorted(
+                [e for e in class_entries if e.subject_id == subject.id],
+                key=lambda e: e.lesson_index
+            )
+            if same_day_subject_entries:
+                # Check if adding this would exceed max consecutive
+                # This is simplified - would need more complex logic for full validation
+                pass
+        
+        # Check required block length (simplified)
+        if subject.required_block_length:
+            # This would need more complex logic to ensure blocks are placed correctly
+            pass
+        
+        return True
 

@@ -107,7 +107,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, computed } from 'vue'
+import { ref, onMounted, computed, onActivated } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import { useI18nStore } from '@/stores/i18n'
@@ -249,14 +249,23 @@ function calculateCurrentLesson(): { type: 'lesson' | 'break', lessonIndex: numb
   if (currentDayOfWeek > 4) return null
 
   const startTime = schoolSettings.value.start_time || '08:00'
+  const endTime = schoolSettings.value.end_time || '16:00'
   const classHourLength = schoolSettings.value.class_hour_length_minutes || 45
   const defaultBreakDuration = schoolSettings.value.break_duration_minutes || 10
   const breakDurations = schoolSettings.value.break_durations || null
 
-  // Parse start time
+  // Parse start and end times
   const [startHours, startMinutes] = startTime.split(':').map(Number)
+  const [endHours, endMinutes] = endTime.split(':').map(Number)
   const schoolStart = new Date()
   schoolStart.setHours(startHours, startMinutes, 0, 0)
+  const schoolEnd = new Date()
+  schoolEnd.setHours(endHours, endMinutes, 0, 0)
+
+  // Check if we're before school starts or after school ends
+  if (now < schoolStart || now >= schoolEnd) {
+    return null
+  }
 
   // Calculate lesson times
   let currentTime = new Date(schoolStart)
@@ -266,6 +275,11 @@ function calculateCurrentLesson(): { type: 'lesson' | 'break', lessonIndex: numb
     const lessonStart = new Date(currentTime)
     const lessonEnd = new Date(currentTime.getTime() + classHourLength * 60000)
 
+    // Check if we've passed the school end time
+    if (lessonStart >= schoolEnd) {
+      return null
+    }
+
     // Check if current time is within this lesson
     if (now >= lessonStart && now < lessonEnd) {
       return { type: 'lesson', lessonIndex, breakIndex: null }
@@ -273,18 +287,28 @@ function calculateCurrentLesson(): { type: 'lesson' | 'break', lessonIndex: numb
 
     // Check if current time is within the break after this lesson
     const breakDuration = getBreakDuration(lessonIndex - 1, breakDurations, defaultBreakDuration)
+    const breakStart = new Date(lessonEnd)
     const breakEnd = new Date(lessonEnd.getTime() + breakDuration * 60000)
     
-    if (now >= lessonEnd && now < breakEnd) {
+    // Check if break end is past school end time
+    if (breakEnd > schoolEnd) {
+      // If we're past the lesson but before school end, and break would extend past school end,
+      // we're not in a break - school has ended
+      if (now >= lessonEnd) {
+        return null
+      }
+    }
+    
+    if (now >= breakStart && now < breakEnd) {
       return { type: 'break', lessonIndex: null, breakIndex: lessonIndex - 1 }
     }
 
     // Move to next lesson
     currentTime = new Date(breakEnd)
 
-    // If we've passed the current time, no lesson or break is running
-    if (currentTime > now) {
-      break
+    // If we've passed the current time and there are no more lessons, return null
+    if (currentTime > now || currentTime >= schoolEnd) {
+      return null
     }
   }
 
@@ -484,6 +508,18 @@ onMounted(() => {
   if (authStore.user?.role === 'ADMIN') {
     loadAbsences()
     loadCurrentLessons()
+    
+    // Refresh absences every 5 minutes
+    setInterval(() => {
+      loadAbsences()
+    }, 300000) // 5 minutes
+  }
+})
+
+// Refresh absences when component becomes visible (user navigates back to dashboard)
+onActivated(() => {
+  if (authStore.user?.role === 'ADMIN') {
+    loadAbsences()
   }
 })
 </script>
