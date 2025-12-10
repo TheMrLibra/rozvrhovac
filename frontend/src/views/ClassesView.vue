@@ -64,6 +64,24 @@
           <div v-else class="classes-view__empty">No subjects allocated to this class</div>
         </div>
 
+        <!-- Class Info Section -->
+        <div v-if="authStore.user?.role === 'ADMIN'" class="classes-view__section">
+          <h2>Class Information</h2>
+          <div v-if="selectedClass" class="classes-view__class-info">
+            <div class="classes-view__info-item">
+              <label class="classes-view__info-label">Number of Students:</label>
+              <input
+                v-model.number="selectedClass.number_of_students"
+                type="number"
+                min="1"
+                class="classes-view__input classes-view__input--inline"
+                @blur="updateClassInfo"
+                placeholder="Enter number of students"
+              />
+            </div>
+          </div>
+        </div>
+
         <!-- Management Section (Admin only) -->
         <div v-if="authStore.user?.role === 'ADMIN'" class="classes-view__section">
           <h2>Manage Class</h2>
@@ -234,6 +252,7 @@ interface ClassGroup {
   name: string
   grade_level_id: number
   school_id: number
+  number_of_students?: number | null
 }
 
 interface Subject {
@@ -280,6 +299,10 @@ const classAllocations = ref<SubjectAllocation[]>([])
 const editingAllocation = ref<SubjectAllocation | null>(null)
 const primaryTimetable = ref<Timetable | null>(null)
 const schoolSettings = ref<any>(null)
+
+const selectedClass = computed(() => {
+  return classes.value.find(c => c.id === selectedClassId.value) || null
+})
 
 const newAllocation = ref({
   subject_id: null as number | null,
@@ -426,6 +449,25 @@ async function onClassChange() {
   } else {
     classAllocations.value = []
     primaryTimetable.value = null
+  }
+}
+
+async function updateClassInfo() {
+  if (!selectedClass.value) return
+  
+  loading.value = true
+  try {
+    await api.put(`/class-groups/${selectedClass.value.id}`, {
+      number_of_students: selectedClass.value.number_of_students || null
+    })
+    // Reload classes to ensure sync
+    await loadClasses()
+  } catch (err: any) {
+    console.error('Failed to update class info:', err)
+    // Reload to revert changes
+    await loadClasses()
+  } finally {
+    loading.value = false
   }
 }
 
@@ -640,6 +682,29 @@ onMounted(async () => {
     padding: 0.75rem;
     border-radius: 12px;
     font-size: 1rem;
+
+    &--inline {
+      flex: 0 0 auto;
+      min-width: 150px;
+      max-width: 200px;
+    }
+  }
+
+  &__class-info {
+    @extend %neo-panel;
+    padding: 1.5rem;
+  }
+
+  &__info-item {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+  }
+
+  &__info-label {
+    font-weight: 600;
+    color: $neo-text;
+    min-width: 150px;
   }
 
   &__button {

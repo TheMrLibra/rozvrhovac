@@ -163,19 +163,31 @@ const schoolSettings = ref<any>(null)
 const loadingLessons = ref(false)
 const currentLessons = ref<CurrentLesson[]>([])
 
-const today = new Date()
-today.setHours(0, 0, 0, 0)
-const todayStr = today.toISOString().split('T')[0]
+// Helper function to get today's date string in YYYY-MM-DD format
+function getTodayDateString(): string {
+  const today = new Date()
+  const year = today.getFullYear()
+  const month = String(today.getMonth() + 1).padStart(2, '0')
+  const day = String(today.getDate()).padStart(2, '0')
+  return `${year}-${month}-${day}`
+}
+
+// Helper function to compare date strings (YYYY-MM-DD format)
+function compareDateStrings(date1: string, date2: string): number {
+  if (date1 < date2) return -1
+  if (date1 > date2) return 1
+  return 0
+}
 
 const todayAbsences = computed(() => {
+  const todayStr = getTodayDateString()
   return absences.value.filter(absence => {
-    const dateFrom = new Date(absence.date_from)
-    const dateTo = new Date(absence.date_to)
-    dateFrom.setHours(0, 0, 0, 0)
-    dateTo.setHours(0, 0, 0, 0)
-    const todayDate = new Date(todayStr)
-    todayDate.setHours(0, 0, 0, 0)
-    return todayDate >= dateFrom && todayDate <= dateTo
+    // Parse date strings (assuming format YYYY-MM-DD)
+    const dateFrom = absence.date_from.split('T')[0] // Handle ISO datetime strings
+    const dateTo = absence.date_to.split('T')[0]
+    
+    // Check if today is within the absence range (inclusive)
+    return compareDateStrings(todayStr, dateFrom) >= 0 && compareDateStrings(todayStr, dateTo) <= 0
   })
 })
 
@@ -334,9 +346,7 @@ function updateCurrentLessons() {
   }
 
   // Find valid timetable for today
-  const today = new Date()
-  today.setHours(0, 0, 0, 0)
-  const todayStr = today.toISOString().split('T')[0]
+  const todayStr = getTodayDateString()
 
   let validTimetable: any = null
   for (const timetable of timetables.value) {

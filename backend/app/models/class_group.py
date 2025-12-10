@@ -9,6 +9,7 @@ class ClassGroup(Base):
     school_id = Column(Integer, ForeignKey("schools.id"), nullable=False, index=True)
     grade_level_id = Column(Integer, ForeignKey("grade_levels.id"), nullable=False)
     name = Column(String, nullable=False)  # e.g., "1.A"
+    number_of_students = Column(Integer, nullable=True)  # Number of students in this class
     
     school = relationship("School", back_populates="classes")
     grade_level = relationship("GradeLevel", back_populates="classes")

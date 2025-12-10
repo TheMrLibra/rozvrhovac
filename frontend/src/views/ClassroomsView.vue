@@ -62,8 +62,13 @@
             <div class="classrooms-view__item-info">
               <span class="classrooms-view__item-name">{{ classroom.name }}</span>
               <span class="classrooms-view__item-details">
-                <span v-if="classroom.capacity">Capacity: {{ classroom.capacity }}</span>
-                <span v-if="classroom.specializations && classroom.specializations.length > 0">
+                <span v-if="classroom.capacity" class="classrooms-view__capacity">
+                  Capacity: {{ classroom.capacity }} students
+                </span>
+                <span v-else class="classrooms-view__capacity classrooms-view__capacity--none">
+                  Capacity: Not set
+                </span>
+                <span v-if="classroom.specializations && classroom.specializations.length > 0" class="classrooms-view__specializations">
                   Specializations: {{ getSpecializationNames(classroom.specializations) }}
                 </span>
                 <span v-else class="classrooms-view__item-no-specializations">
@@ -496,6 +501,20 @@ onMounted(() => {
       font-style: italic;
       font-size: 0.875rem;
     }
+  }
+
+  &__capacity {
+    font-weight: 600;
+    color: $neo-text;
+
+    &--none {
+      color: $neo-text-muted;
+      font-weight: normal;
+    }
+  }
+
+  &__specializations {
+    margin-left: 1rem;
   }
 
   &__item-actions {

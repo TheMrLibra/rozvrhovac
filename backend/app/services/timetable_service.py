@@ -264,7 +264,7 @@ class TimetableService:
                     
                     # Find suitable classroom
                     classroom = await self._find_suitable_classroom(
-                        subject, day, lesson_index, classrooms, existing_entries + entries
+                        subject, class_group, day, lesson_index, classrooms, existing_entries + entries
                     )
                     
                     # Check subject constraints
@@ -338,7 +338,7 @@ class TimetableService:
                 
                 # Find suitable classroom
                 classroom = await self._find_suitable_classroom(
-                    subject, day, lesson_index, classrooms, existing_entries + entries
+                    subject, class_group, day, lesson_index, classrooms, existing_entries + entries
                 )
                 
                 # Check subject constraints
@@ -509,32 +509,62 @@ class TimetableService:
     async def _find_suitable_classroom(
         self,
         subject: Subject,
+        class_group: ClassGroup,
         day: int,
         lesson_index: int,
         classrooms: List[Classroom],
         placed_entries: List[TimetableEntry]
     ) -> Optional[Classroom]:
-        """Find a suitable classroom"""
+        """Find a suitable classroom, preferring ones where the class fits"""
         # Classroom is optional, so return None if no classrooms available
         if not classrooms:
             return None
         
+        # Get class size for capacity checking
+        class_size = class_group.number_of_students
+        
+        # Separate classrooms into those that fit and those that don't
+        fitting_classrooms = []
+        other_classrooms = []
+        
+        for classroom in classrooms:
+            # Check if available (across ALL classes)
+            if any(e.classroom_id == classroom.id and e.day_of_week == day 
+                  and e.lesson_index == lesson_index for e in placed_entries):
+                continue  # Skip occupied classrooms
+            
+            # Check if class fits (if both capacity and class_size are set)
+            fits = True
+            if class_size is not None and classroom.capacity is not None:
+                fits = class_size <= classroom.capacity
+            
+            if fits:
+                fitting_classrooms.append(classroom)
+            else:
+                other_classrooms.append(classroom)
+        
         # If subject requires specialized classroom
         if subject.requires_specialized_classroom or subject.is_laboratory:
-            for classroom in classrooms:
+            # First try specialized classrooms that fit
+            for classroom in fitting_classrooms:
                 if classroom.specializations:
                     # Check if this classroom specializes in this subject (subject ID in specializations list)
                     if subject.id in classroom.specializations:
-                        # Check if available (across ALL classes)
-                        if not any(e.classroom_id == classroom.id and e.day_of_week == day 
-                                 and e.lesson_index == lesson_index for e in placed_entries):
-                            return classroom
+                        return classroom
+            
+            # Then try specialized classrooms that don't fit (as fallback)
+            for classroom in other_classrooms:
+                if classroom.specializations:
+                    if subject.id in classroom.specializations:
+                        return classroom
         
-        # Find any available classroom (checking across ALL classes)
-        for classroom in classrooms:
-            if not any(e.classroom_id == classroom.id and e.day_of_week == day 
-                      and e.lesson_index == lesson_index for e in placed_entries):
-                return classroom
+        # Prefer classrooms where class fits
+        if fitting_classrooms:
+            return fitting_classrooms[0]
+        
+        # Fallback to any available classroom
+        if other_classrooms:
+            return other_classrooms[0]
         
         return None
     

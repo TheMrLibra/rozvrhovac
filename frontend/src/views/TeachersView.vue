@@ -55,6 +55,29 @@
         </select>
       </div>
 
+      <!-- Selected Teacher's Today's Timetable -->
+      <div v-if="selectedTeacherId" class="teachers-view__section">
+        <h2>{{ t('teachers.todaysTimetableFor') }} {{ getSelectedTeacherName() }}</h2>
+        <div v-if="loadingTimetable" class="teachers-view__loading">{{ t('teachers.loadingTimetable') }}</div>
+        <div v-else-if="todaysTimetableEntries.length > 0" class="teachers-view__timetable-list">
+          <div
+            v-for="entry in sortedTimetableEntries"
+            :key="`${entry.lesson_index}-${entry.class_group?.id || 'no-class'}`"
+            class="teachers-view__timetable-item"
+          >
+            <div class="teachers-view__timetable-time">
+              {{ getLessonTime(entry.lesson_index) }}
+            </div>
+            <div class="teachers-view__timetable-details">
+              <span class="teachers-view__timetable-subject">{{ entry.subject?.name || 'Unknown Subject' }}</span>
+              <span class="teachers-view__timetable-class">{{ entry.class_group?.name || 'Unknown Class' }}</span>
+              <span v-if="entry.classroom" class="teachers-view__timetable-classroom">{{ entry.classroom?.name }}</span>
+            </div>
+          </div>
+        </div>
+        <div v-else class="teachers-view__empty">{{ t('teachers.noLessonsToday') }}</div>
+      </div>
+
       <!-- Selected Teacher's Absences -->
       <div v-if="selectedTeacherId" class="teachers-view__section">
         <h2>{{ t('teachers.absencesFor') }} {{ getSelectedTeacherName() }}</h2>
@@ -359,6 +382,9 @@ const reportingAbsence = ref<Teacher | null>(null)
 const selectedTeacherId = ref<number | null>(null)
 const teacherAbsences = ref<any[]>([])
 const loadingAbsences = ref(false)
+const todaysTimetableEntries = ref<any[]>([])
+const loadingTimetable = ref(false)
+const schoolSettings = ref<any>(null)
 const newAbsence = ref({
   date_from: '',
   date_to: '',
@@ -672,9 +698,86 @@ async function loadTeacherAbsences(teacherId: number) {
 async function onTeacherChange() {
   if (selectedTeacherId.value) {
     await loadTeacherAbsences(selectedTeacherId.value)
+    await loadTodaysTimetable(selectedTeacherId.value)
   } else {
     teacherAbsences.value = []
+    todaysTimetableEntries.value = []
   }
+}
+
+async function loadTodaysTimetable(teacherId: number) {
+  if (!selectedTeacherId.value) return
+  
+  loadingTimetable.value = true
+  try {
+    const schoolId = authStore.user?.school_id
+    if (!schoolId) return
+    
+    // Get today's day of week (0 = Monday, 4 = Friday)
+    const today = new Date()
+    const dayOfWeek = (today.getDay() + 6) % 7 // Convert Sunday=0 to Monday=0
+    
+    const response = await api.get(`/teachers/schools/${schoolId}/teachers/${teacherId}/timetable?day_of_week=${dayOfWeek}`)
+    todaysTimetableEntries.value = response.data
+    
+    // Load school settings if not already loaded
+    if (!schoolSettings.value) {
+      await loadSchoolSettings()
+    }
+  } catch (err: any) {
+    console.error('Failed to load timetable:', err)
+    todaysTimetableEntries.value = []
+  } finally {
+    loadingTimetable.value = false
+  }
+}
+
+async function loadSchoolSettings() {
+  try {
+    const schoolId = authStore.user?.school_id
+    if (!schoolId) return
+    
+    const response = await api.get(`/schools/${schoolId}/settings`)
+    schoolSettings.value = response.data
+  } catch (err: any) {
+    console.error('Failed to load school settings:', err)
+  }
+}
+
+const sortedTimetableEntries = computed(() => {
+  return [...todaysTimetableEntries.value].sort((a, b) => a.lesson_index - b.lesson_index)
+})
+
+function getLessonTime(lessonIndex: number): string {
+  if (!schoolSettings.value) return `Lesson ${lessonIndex}`
+  
+  const startTime = new Date(`2000-01-01T${schoolSettings.value.start_time}`)
+  const classHourLength = schoolSettings.value.class_hour_length_minutes || 45
+  const breakDurations = schoolSettings.value.break_durations || []
+  
+  // Calculate total minutes from start
+  let totalMinutes = 0
+  
+  // Add time for previous lessons
+  for (let i = 1; i < lessonIndex; i++) {
+    totalMinutes += classHourLength
+    // Add break duration after each lesson (except the last one)
+    if (i < lessonIndex) {
+      const breakIndex = i - 1
+      const breakDuration = breakDurations[breakIndex] || breakDurations[breakDurations.length - 1] || schoolSettings.value.break_duration_minutes || 10
+      totalMinutes += breakDuration
+    }
+  }
+  
+  // Calculate start time for this lesson
+  const lessonStart = new Date(startTime.getTime() + totalMinutes * 60000)
+  const lessonEnd = new Date(lessonStart.getTime() + classHourLength * 60000)
+  
+  const formatTime = (date: Date) => {
+    return date.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false })
+  }
+  
+  return `${formatTime(lessonStart)} - ${formatTime(lessonEnd)}`
 }
 
 async function deleteAbsence(absenceId: number) {
@@ -731,10 +834,17 @@ async function deleteTeacher(teacherId: number) {
   }
 }
 
-onMounted(() => {
-  loadTeachers()
-  loadSubjects()
-  loadClasses()
+onMounted(async () => {
+  await loadTeachers()
+  await loadSubjects()
+  await loadClasses()
+  await loadSchoolSettings()
+  
+  // If user is a teacher, automatically select their own teacher ID
+  if (authStore.user?.role === 'TEACHER' && authStore.user?.teacher_id) {
+    selectedTeacherId.value = authStore.user.teacher_id
+    await onTeacherChange()
+  }
 })
 </script>
 
@@ -984,6 +1094,51 @@ onMounted(() => {
     text-align: center;
     padding: 2rem;
     color: $neo-text-light;
+  }
+
+  &__timetable-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+  }
+
+  &__timetable-item {
+    @extend %neo-list-item;
+    display: flex;
+    gap: 1rem;
+    padding: 1rem;
+    align-items: center;
+  }
+
+  &__timetable-time {
+    font-weight: 600;
+    color: $neo-text;
+    min-width: 140px;
+    font-size: 0.9rem;
+  }
+
+  &__timetable-details {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+    flex: 1;
+  }
+
+  &__timetable-subject {
+    font-weight: 600;
+    color: $neo-text;
+    font-size: 1rem;
+  }
+
+  &__timetable-class {
+    color: $neo-text-light;
+    font-size: 0.9rem;
+  }
+
+  &__timetable-classroom {
+    color: $neo-text-muted;
+    font-size: 0.85rem;
+    font-style: italic;
   }
 
   &__absences-list {

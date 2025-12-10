@@ -1,6 +1,6 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, Query
 from sqlalchemy.ext.asyncio import AsyncSession
-from typing import List
+from typing import List, Optional
 from app.core.database import get_db
 from app.core.dependencies import get_current_active_user, require_role
 from app.models.user import User, UserRole
@@ -11,6 +11,7 @@ from app.schemas.teacher import (
 from app.repositories.teacher_repository import TeacherRepository
 from app.repositories.timetable_repository import TimetableEntryRepository, TimetableRepository
 from app.models.teacher import Teacher, TeacherSubjectCapability
+from app.schemas.timetable import TimetableEntryResponse
 
 router = APIRouter()
 
@@ -138,10 +139,11 @@ async def delete_teacher(
     
     await repo.delete(teacher_id)
 
-@router.get("/schools/{school_id}/teachers/{teacher_id}/timetable")
+@router.get("/schools/{school_id}/teachers/{teacher_id}/timetable", response_model=List[TimetableEntryResponse])
 async def get_teacher_timetable(
     school_id: int,
     teacher_id: int,
+    day_of_week: Optional[int] = Query(None, description="Filter by day of week (0-4, Monday-Friday). If not provided, returns all days."),
     current_user: User = Depends(get_current_active_user),
     db: AsyncSession = Depends(get_db)
 ):
@@ -159,7 +161,10 @@ async def get_teacher_timetable(
     teacher_entries = []
     for timetable in timetables:
         entries = await entry_repo.get_by_timetable_id(timetable.id)
-        teacher_entries.extend([e for e in entries if e.teacher_id == teacher_id])
+        filtered_entries = [e for e in entries if e.teacher_id == teacher_id]
+        if day_of_week is not None:
+            filtered_entries = [e for e in filtered_entries if e.day_of_week == day_of_week]
+        teacher_entries.extend(filtered_entries)
     
     return teacher_entries
 

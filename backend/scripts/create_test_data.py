@@ -83,23 +83,24 @@ async def create_test_data():
         # Create Class Groups
         print("\n👥 Creating Class Groups...")
         class_groups_data = [
-            {"name": "1.A", "grade_level": 1},
-            {"name": "1.B", "grade_level": 1},
-            {"name": "1.C", "grade_level": 1},
-            {"name": "2.A", "grade_level": 2},
-            {"name": "2.B", "grade_level": 2},
-            {"name": "2.C", "grade_level": 2},
-            {"name": "3.A", "grade_level": 3},
-            {"name": "3.B", "grade_level": 3},
-            {"name": "4.A", "grade_level": 4},
-            {"name": "4.B", "grade_level": 4},
+            {"name": "1.A", "grade_level": 1, "number_of_students": 28},
+            {"name": "1.B", "grade_level": 1, "number_of_students": 25},
+            {"name": "1.C", "grade_level": 1, "number_of_students": 30},
+            {"name": "2.A", "grade_level": 2, "number_of_students": 27},
+            {"name": "2.B", "grade_level": 2, "number_of_students": 24},
+            {"name": "2.C", "grade_level": 2, "number_of_students": 29},
+            {"name": "3.A", "grade_level": 3, "number_of_students": 26},
+            {"name": "3.B", "grade_level": 3, "number_of_students": 28},
+            {"name": "4.A", "grade_level": 4, "number_of_students": 25},
+            {"name": "4.B", "grade_level": 4, "number_of_students": 27},
         ]
         class_groups = {}
         for cg_data in class_groups_data:
             class_group = ClassGroup(
                 school_id=school_id,
                 grade_level_id=grade_levels[cg_data["grade_level"]].id,
-                name=cg_data["name"]
+                name=cg_data["name"],
+                number_of_students=cg_data.get("number_of_students")
             )
             db.add(class_group)
             await db.flush()

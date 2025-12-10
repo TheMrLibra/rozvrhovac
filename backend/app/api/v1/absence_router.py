@@ -40,7 +40,15 @@ async def create_absence(
         school_id=school_id,
         **absence_data.model_dump()
     )
-    return await repo.create(absence)
+    created_absence = await repo.create(absence)
+    
+    # Reload with teacher relationship eagerly loaded
+    result = await db.execute(
+        select(TeacherAbsence)
+        .options(selectinload(TeacherAbsence.teacher))
+        .where(TeacherAbsence.id == created_absence.id)
+    )
+    return result.scalar_one()
 
 @router.get("/schools/{school_id}/absences", response_model=List[TeacherAbsenceResponse])
 async def list_absences(

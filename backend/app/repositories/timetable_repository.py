@@ -44,7 +44,7 @@ class TimetableEntryRepository(BaseRepository[TimetableEntry]):
             select(TimetableEntry)
             .where(TimetableEntry.timetable_id == timetable_id)
             .options(
-                selectinload(TimetableEntry.timetable),
+                # Don't load timetable relationship to avoid circular references
                 selectinload(TimetableEntry.class_group),
                 selectinload(TimetableEntry.subject),
                 selectinload(TimetableEntry.teacher),
