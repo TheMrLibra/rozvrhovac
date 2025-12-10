@@ -24,6 +24,12 @@
             {{ t('dashboard.currentlyRunningLessons') }}
           </h2>
           <div v-if="loadingLessons" class="dashboard-view__loading">{{ t('common.loading') }}</div>
+          <div v-else-if="isBreak" class="dashboard-view__break-item">
+            <div class="dashboard-view__break-header">
+              <span class="dashboard-view__break-label">{{ t('dashboard.break') }}</span>
+              <span class="dashboard-view__break-time">{{ breakTimeRange }}</span>
+            </div>
+          </div>
           <div v-else-if="currentLessons.length === 0" class="dashboard-view__empty">
             {{ t('dashboard.noLessonsRunning') }}
           </div>
@@ -162,6 +168,8 @@ const timetables = ref<any[]>([])
 const schoolSettings = ref<any>(null)
 const loadingLessons = ref(false)
 const currentLessons = ref<CurrentLesson[]>([])
+const isBreak = ref(false)
+const breakTimeRange = ref('')
 
 // Helper function to get today's date string in YYYY-MM-DD format
 function getTodayDateString(): string {
@@ -231,7 +239,7 @@ function getBreakDuration(breakIndex: number, breakDurations: number[] | null, d
   return defaultBreak
 }
 
-function calculateCurrentLesson(): number | null {
+function calculateCurrentLesson(): { type: 'lesson' | 'break', lessonIndex: number | null, breakIndex: number | null } | null {
   if (!schoolSettings.value) return null
 
   const now = new Date()
@@ -260,14 +268,21 @@ function calculateCurrentLesson(): number | null {
 
     // Check if current time is within this lesson
     if (now >= lessonStart && now < lessonEnd) {
-      return lessonIndex
+      return { type: 'lesson', lessonIndex, breakIndex: null }
     }
 
-    // Move to next lesson (add break after this lesson)
+    // Check if current time is within the break after this lesson
     const breakDuration = getBreakDuration(lessonIndex - 1, breakDurations, defaultBreakDuration)
-    currentTime = new Date(lessonEnd.getTime() + breakDuration * 60000)
+    const breakEnd = new Date(lessonEnd.getTime() + breakDuration * 60000)
+    
+    if (now >= lessonEnd && now < breakEnd) {
+      return { type: 'break', lessonIndex: null, breakIndex: lessonIndex - 1 }
+    }
 
-    // If we've passed the current time, no lesson is running
+    // Move to next lesson
+    currentTime = new Date(breakEnd)
+
+    // If we've passed the current time, no lesson or break is running
     if (currentTime > now) {
       break
     }
@@ -327,23 +342,77 @@ async function loadTimetables() {
   }
 }
 
+function formatBreakTimeRange(breakIndex: number): string {
+  if (!schoolSettings.value) return ''
+
+  const startTime = schoolSettings.value.start_time || '08:00'
+  const classHourLength = schoolSettings.value.class_hour_length_minutes || 45
+  const defaultBreakDuration = schoolSettings.value.break_duration_minutes || 10
+  const breakDurations = schoolSettings.value.break_durations || null
+
+  const [startHours, startMinutes] = startTime.split(':').map(Number)
+  const schoolStart = new Date()
+  schoolStart.setHours(startHours, startMinutes, 0, 0)
+
+  let currentTime = new Date(schoolStart)
+
+  // Calculate time up to the end of the lesson before this break
+  for (let i = 1; i <= breakIndex + 1; i++) {
+    if (i <= breakIndex) {
+      const breakDuration = getBreakDuration(i - 1, breakDurations, defaultBreakDuration)
+      currentTime = new Date(currentTime.getTime() + classHourLength * 60000 + breakDuration * 60000)
+    } else {
+      currentTime = new Date(currentTime.getTime() + classHourLength * 60000)
+    }
+  }
+
+  const breakStart = new Date(currentTime.getTime() - classHourLength * 60000)
+  const breakDuration = getBreakDuration(breakIndex, breakDurations, defaultBreakDuration)
+  const breakEnd = new Date(breakStart.getTime() + breakDuration * 60000)
+
+  const formatTime = (date: Date) => {
+    return date.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false })
+  }
+
+  return `${formatTime(breakStart)} - ${formatTime(breakEnd)}`
+}
+
 function updateCurrentLessons() {
   if (!schoolSettings.value || !timetables.value.length) {
     currentLessons.value = []
+    isBreak.value = false
+    breakTimeRange.value = ''
     return
   }
 
   const currentDayOfWeek = (new Date().getDay() + 6) % 7 // Monday = 0
   if (currentDayOfWeek > 4) {
     currentLessons.value = []
+    isBreak.value = false
+    breakTimeRange.value = ''
     return
   }
 
-  const currentLessonIndex = calculateCurrentLesson()
-  if (!currentLessonIndex) {
+  const currentStatus = calculateCurrentLesson()
+  if (!currentStatus) {
+    currentLessons.value = []
+    isBreak.value = false
+    breakTimeRange.value = ''
+    return
+  }
+
+  // Handle break time
+  if (currentStatus.type === 'break') {
+    isBreak.value = true
+    breakTimeRange.value = formatBreakTimeRange(currentStatus.breakIndex!)
     currentLessons.value = []
     return
   }
+
+  // Handle lesson time
+  isBreak.value = false
+  breakTimeRange.value = ''
+  const currentLessonIndex = currentStatus.lessonIndex!
 
   // Find valid timetable for today
   const todayStr = getTodayDateString()
@@ -553,6 +622,32 @@ onMounted(() => {
     margin-top: 0.5rem;
     padding-top: 0.5rem;
     border-top: 1px solid rgba(0, 0, 0, 0.05);
+  }
+
+  &__break-item {
+    @include neo-surface(12px, 0.6);
+    padding: 1.5rem;
+    background: $neo-bg-light;
+    border-radius: 12px;
+    text-align: center;
+  }
+
+  &__break-header {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.5rem;
+  }
+
+  &__break-label {
+    font-weight: 700;
+    color: $neo-text;
+    font-size: 1.25rem;
+  }
+
+  &__break-time {
+    color: $neo-text-light;
+    font-size: 1rem;
   }
 
   &__lessons-list {
