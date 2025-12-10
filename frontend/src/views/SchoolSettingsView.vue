@@ -14,169 +14,177 @@
         </div>
         
         <form @submit.prevent="saveSettings" class="school-settings-view__form">
-          <!-- Time Settings Section -->
-          <div class="school-settings-view__section">
-            <h3 class="school-settings-view__section-title">
-              <span class="school-settings-view__section-icon">🕐</span>
-              {{ t('schoolSettings.timeSettings') }}
-            </h3>
-            <div class="school-settings-view__fields-grid">
-              <div class="school-settings-view__field">
-                <label class="school-settings-view__label">
-                  {{ t('schoolSettings.startTime') }}
-                  <span class="school-settings-view__required">*</span>
-                </label>
-                <input
-                  v-model="settings.start_time"
-                  type="time"
-                  class="school-settings-view__input"
-                  required
-                />
-                <small class="school-settings-view__hint">{{ t('schoolSettings.schoolDayStart') }}</small>
-              </div>
-              <div class="school-settings-view__field">
-                <label class="school-settings-view__label">
-                  {{ t('schoolSettings.endTime') }}
-                  <span class="school-settings-view__required">*</span>
-                </label>
-                <input
-                  v-model="settings.end_time"
-                  type="time"
-                  class="school-settings-view__input"
-                  required
-                />
-                <small class="school-settings-view__hint">{{ t('schoolSettings.schoolDayEnd') }}</small>
-              </div>
-            </div>
-          </div>
-
-          <!-- Class Hour Settings Section -->
-          <div class="school-settings-view__section">
-            <h3 class="school-settings-view__section-title">
-              <span class="school-settings-view__section-icon">📚</span>
-              {{ t('schoolSettings.classHourSettings') }}
-            </h3>
-            <div class="school-settings-view__fields-grid">
-              <div class="school-settings-view__field">
-                <label class="school-settings-view__label">
-                  {{ t('schoolSettings.classHourLength') }}
-                  <span class="school-settings-view__required">*</span>
-                </label>
-                <input
-                  v-model.number="settings.class_hour_length_minutes"
-                  type="number"
-                  min="1"
-                  class="school-settings-view__input"
-                  required
-                />
-                <small class="school-settings-view__hint">{{ t('schoolSettings.durationOfPeriod') }}</small>
-              </div>
-            </div>
-          </div>
-
-          <!-- Break Settings Section -->
-          <div class="school-settings-view__section">
-            <h3 class="school-settings-view__section-title">
-              <span class="school-settings-view__section-icon">☕</span>
-              {{ t('schoolSettings.breakSettings') }}
-            </h3>
-            <div class="school-settings-view__fields-grid">
-              <div class="school-settings-view__field school-settings-view__field--full">
-                <label class="school-settings-view__label">
-                  {{ t('schoolSettings.breakDurations') }}
-                </label>
-                <div class="school-settings-view__break-durations">
-                  <div
-                    v-for="(_, index) in breakDurationsList"
-                    :key="index"
-                    class="school-settings-view__break-item"
-                  >
-                    <div class="school-settings-view__break-label">
-                      <span class="school-settings-view__break-number">{{ t('commonPhrases.back') }} {{ index + 1 }}</span>
-                      <span class="school-settings-view__break-description">{{ t('schoolSettings.breakAfterLesson') }} {{ index + 1 }}</span>
-                    </div>
+          <div class="school-settings-view__sections-grid">
+            <!-- Left Column -->
+            <div class="school-settings-view__column">
+              <!-- Time Settings Section -->
+              <div class="school-settings-view__section">
+                <h3 class="school-settings-view__section-title">
+                  <span class="school-settings-view__section-icon">🕐</span>
+                  {{ t('schoolSettings.timeSettings') }}
+                </h3>
+                <div class="school-settings-view__fields-grid">
+                  <div class="school-settings-view__field">
+                    <label class="school-settings-view__label">
+                      {{ t('schoolSettings.startTime') }}
+                      <span class="school-settings-view__required">*</span>
+                    </label>
                     <input
-                      v-model.number="breakDurationsList[index]"
+                      v-model="settings.start_time"
+                      type="time"
+                      class="school-settings-view__input"
+                      required
+                    />
+                    <small class="school-settings-view__hint">{{ t('schoolSettings.schoolDayStart') }}</small>
+                  </div>
+                  <div class="school-settings-view__field">
+                    <label class="school-settings-view__label">
+                      {{ t('schoolSettings.endTime') }}
+                      <span class="school-settings-view__required">*</span>
+                    </label>
+                    <input
+                      v-model="settings.end_time"
+                      type="time"
+                      class="school-settings-view__input"
+                      required
+                    />
+                    <small class="school-settings-view__hint">{{ t('schoolSettings.schoolDayEnd') }}</small>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Class Hour Settings Section -->
+              <div class="school-settings-view__section">
+                <h3 class="school-settings-view__section-title">
+                  <span class="school-settings-view__section-icon">📚</span>
+                  {{ t('schoolSettings.classHourSettings') }}
+                </h3>
+                <div class="school-settings-view__fields-grid">
+                  <div class="school-settings-view__field">
+                    <label class="school-settings-view__label">
+                      {{ t('schoolSettings.classHourLength') }}
+                      <span class="school-settings-view__required">*</span>
+                    </label>
+                    <input
+                      v-model.number="settings.class_hour_length_minutes"
+                      type="number"
+                      min="1"
+                      class="school-settings-view__input"
+                      required
+                    />
+                    <small class="school-settings-view__hint">{{ t('schoolSettings.durationOfPeriod') }}</small>
+                  </div>
+                </div>
+              </div>
+
+                            <!-- Lunch Settings Section -->
+                            <div class="school-settings-view__section">
+                <h3 class="school-settings-view__section-title">
+                  <span class="school-settings-view__section-icon">🍽️</span>
+                  {{ t('schoolSettings.lunchSettings') }}
+                </h3>
+                <div class="school-settings-view__fields-grid">
+                  <div class="school-settings-view__field">
+                    <label class="school-settings-view__label">
+                      {{ t('schoolSettings.lunchDuration') }}
+                      <span class="school-settings-view__required">*</span>
+                    </label>
+                    <input
+                      v-model.number="settings.lunch_duration_minutes"
                       type="number"
                       min="0"
-                      class="school-settings-view__input school-settings-view__input--break"
-                      placeholder="10"
-                      @input="updateBreakDurations"
+                      class="school-settings-view__input"
+                      required
                     />
-                    <span class="school-settings-view__break-unit">min</span>
-                    <button
-                      v-if="breakDurationsList.length > 1"
-                      type="button"
-                      @click="removeBreak(index)"
-                      class="school-settings-view__break-remove"
-                      :title="t('schoolSettings.removeBreak')"
-                    >
-                      ×
-                    </button>
+                    <small class="school-settings-view__hint">Duration of lunch break</small>
                   </div>
-                  <button
-                    type="button"
-                    @click="addBreak"
-                    class="school-settings-view__break-add"
-                  >
-                    + {{ t('schoolSettings.addBreak') }}
-                  </button>
+                  <div class="school-settings-view__field school-settings-view__field--full">
+                    <label class="school-settings-view__label">
+                      {{ t('schoolSettings.possibleLunchHours') }}
+                    </label>
+                    <input
+                      v-model="lunchHoursInput"
+                      type="text"
+                      placeholder="3,4,5"
+                      class="school-settings-view__input"
+                    />
+                    <small class="school-settings-view__hint">
+                      {{ t('schoolSettings.commaSeparatedHours') }}
+                    </small>
+                  </div>
                 </div>
-                <small class="school-settings-view__hint">
-                  {{ t('schoolSettings.setBreakDurations') }}
-                </small>
-              </div>
-              <div class="school-settings-view__field">
-                <label class="school-settings-view__label">
-                  {{ t('schoolSettings.defaultBreakDuration') }}
-                  <span class="school-settings-view__required">*</span>
-                </label>
-                <input
-                  v-model.number="settings.break_duration_minutes"
-                  type="number"
-                  min="0"
-                  class="school-settings-view__input"
-                  required
-                />
-                <small class="school-settings-view__hint">{{ t('schoolSettings.fallbackDuration') }}</small>
               </div>
             </div>
-          </div>
 
-          <!-- Lunch Settings Section -->
-          <div class="school-settings-view__section">
-            <h3 class="school-settings-view__section-title">
-              <span class="school-settings-view__section-icon">🍽️</span>
-              {{ t('schoolSettings.lunchSettings') }}
-            </h3>
-            <div class="school-settings-view__fields-grid">
-              <div class="school-settings-view__field">
-                <label class="school-settings-view__label">
-                  {{ t('schoolSettings.lunchDuration') }}
-                  <span class="school-settings-view__required">*</span>
-                </label>
-                <input
-                  v-model.number="settings.lunch_duration_minutes"
-                  type="number"
-                  min="0"
-                  class="school-settings-view__input"
-                  required
-                />
-                <small class="school-settings-view__hint">Duration of lunch break</small>
-              </div>
-              <div class="school-settings-view__field school-settings-view__field--full">
-                <label class="school-settings-view__label">
-                  {{ t('schoolSettings.possibleLunchHours') }}
-                </label>
-                <input
-                  v-model="lunchHoursInput"
-                  type="text"
-                  placeholder="3,4,5"
-                  class="school-settings-view__input"
-                />
-                <small class="school-settings-view__hint">
-                  {{ t('schoolSettings.commaSeparatedHours') }}
-                </small>
+            <!-- Right Column -->
+            <div class="school-settings-view__column">
+              <!-- Break Settings Section -->
+              <div class="school-settings-view__section">
+                <h3 class="school-settings-view__section-title">
+                  <span class="school-settings-view__section-icon">☕</span>
+                  {{ t('schoolSettings.breakSettings') }}
+                </h3>
+                <div class="school-settings-view__fields-grid">
+                  <div class="school-settings-view__field school-settings-view__field--full">
+                    <label class="school-settings-view__label">
+                      {{ t('schoolSettings.breakDurations') }}
+                    </label>
+                    <div class="school-settings-view__break-durations">
+                      <div
+                        v-for="(_, index) in breakDurationsList"
+                        :key="index"
+                        class="school-settings-view__break-item"
+                      >
+                        <div class="school-settings-view__break-label">
+                          <span class="school-settings-view__break-number">{{ t('commonPhrases.back') }} {{ index + 1 }}</span>
+                          <span class="school-settings-view__break-description">{{ t('schoolSettings.breakAfterLesson') }} {{ index + 1 }}</span>
+                        </div>
+                        <input
+                          v-model.number="breakDurationsList[index]"
+                          type="number"
+                          min="0"
+                          class="school-settings-view__input school-settings-view__input--break"
+                          placeholder="10"
+                          @input="updateBreakDurations"
+                        />
+                        <span class="school-settings-view__break-unit">min</span>
+                        <button
+                          v-if="breakDurationsList.length > 1"
+                          type="button"
+                          @click="removeBreak(index)"
+                          class="school-settings-view__break-remove"
+                          :title="t('schoolSettings.removeBreak')"
+                        >
+                          ×
+                        </button>
+                      </div>
+                      <button
+                        type="button"
+                        @click="addBreak"
+                        class="school-settings-view__break-add"
+                      >
+                        + {{ t('schoolSettings.addBreak') }}
+                      </button>
+                    </div>
+                    <small class="school-settings-view__hint">
+                      {{ t('schoolSettings.setBreakDurations') }}
+                    </small>
+                  </div>
+                  <div class="school-settings-view__field">
+                    <label class="school-settings-view__label">
+                      {{ t('schoolSettings.defaultBreakDuration') }}
+                      <span class="school-settings-view__required">*</span>
+                    </label>
+                    <input
+                      v-model.number="settings.break_duration_minutes"
+                      type="number"
+                      min="0"
+                      class="school-settings-view__input"
+                      required
+                    />
+                    <small class="school-settings-view__hint">{{ t('schoolSettings.fallbackDuration') }}</small>
+                  </div>
+                </div>
               </div>
             </div>
           </div>
@@ -354,7 +362,7 @@ onMounted(() => {
 
   &__content {
     padding: 2rem;
-    max-width: 900px;
+    max-width: 1600px;
     margin: 0 auto;
     position: relative;
     z-index: 1;
@@ -386,6 +394,22 @@ onMounted(() => {
   }
 
   &__form {
+    display: flex;
+    flex-direction: column;
+    gap: 2rem;
+  }
+
+  &__sections-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 2rem;
+
+    @media (max-width: 1024px) {
+      grid-template-columns: 1fr;
+    }
+  }
+
+  &__column {
     display: flex;
     flex-direction: column;
     gap: 2rem;

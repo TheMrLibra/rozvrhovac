@@ -1,19 +1,13 @@
 <template>
   <div class="classes-view">
     <header class="classes-view__header">
-      <h1 class="classes-view__title">Classes</h1>
-      <router-link to="/dashboard" class="classes-view__back">Dashboard</router-link>
-    </header>
-    <main class="classes-view__content">
-      <!-- Class Filter -->
-      <div class="classes-view__section">
-        <h2>Select Class</h2>
-        <select
+      <h1 class="classes-view__title">{{ t('classes.title') }}</h1>
+      <select
           v-model="selectedClassId"
           class="classes-view__filter"
           @change="onClassChange"
         >
-          <option :value="null">Select a class...</option>
+          <option :value="null">{{ t('classes.selectAClass') }}</option>
           <option
             v-for="classItem in classes"
             :key="classItem.id"
@@ -22,76 +16,78 @@
             {{ classItem.name }}
           </option>
         </select>
-      </div>
-
+      <router-link to="/dashboard" class="classes-view__back">{{ t('classes.back') }}</router-link>
+    </header>
+    <main class="classes-view__content">
+        
       <!-- Class Details -->
       <div v-if="selectedClassId" class="classes-view__details">
         <!-- Timetable Section -->
         <div class="classes-view__section">
-          <h2>Timetable</h2>
-          <div v-if="loadingTimetable" class="classes-view__loading">Loading timetable...</div>
+          <h2>{{ t('classes.timetable') }}</h2>
+          <div v-if="loadingTimetable" class="classes-view__loading">{{ t('classes.loadingTimetable') }}</div>
           <div v-else-if="primaryTimetable && classTimetableEntries.length > 0" class="classes-view__timetable-wrapper">
             <TimetableGrid
               :timetable="{ ...primaryTimetable, entries: classTimetableEntries }"
               :lunch-hours="actualLunchHours"
             />
           </div>
-          <div v-else class="classes-view__empty">No timetable available for this class</div>
+          <div v-else class="classes-view__empty">{{ t('classes.noTimetableAvailable') }}</div>
         </div>
 
         <!-- Subjects Section -->
         <div class="classes-view__section">
-          <h2>Subjects</h2>
-          <div v-if="classAllocations.length > 0" class="classes-view__subjects-list">
+          <h2>{{ t('classes.subjects') }}</h2>
+          <div v-if="sortedClassAllocations.length > 0" class="classes-view__subjects-list">
             <div
-              v-for="allocation in classAllocations"
+              v-for="allocation in sortedClassAllocations"
               :key="allocation.id"
               class="classes-view__subject-item"
             >
               <div class="classes-view__subject-info">
                 <span class="classes-view__subject-name">{{ getSubjectName(allocation.subject_id) }}</span>
-                <span class="classes-view__subject-hours">{{ allocation.weekly_hours }} hours/week</span>
-              </div>
-              <div class="classes-view__subject-teachers">
-                <strong>Teachers:</strong>
-                <span v-if="getTeachersForSubject(allocation.subject_id).length > 0">
-                  {{ getTeachersForSubject(allocation.subject_id).map((t: Teacher) => t.full_name).join(', ') }}
+                <span class="classes-view__subject-teacher">
+                  <span v-if="allocation.primary_teacher">
+                    {{ allocation.primary_teacher.full_name }}
+                  </span>
+                  <span v-else class="classes-view__no-teacher">{{ t('classes.noPrimaryTeacher') }}</span>
                 </span>
-                <span v-else class="classes-view__no-teachers">No teachers assigned</span>
+                <span class="classes-view__subject-hours">{{ allocation.weekly_hours }} {{ t('classes.hoursPerWeek') }}</span>
               </div>
+              <button
+                @click="editAllocation(allocation)"
+                class="classes-view__button classes-view__button--edit"
+              >
+                {{ t('common.edit') }}
+              </button>
             </div>
           </div>
-          <div v-else class="classes-view__empty">No subjects allocated to this class</div>
+          <div v-else class="classes-view__empty">{{ t('classes.noSubjectsAllocated') }}</div>
+
+           <button
+              v-if="authStore.user?.role === 'ADMIN'"
+              @click="showSubjectModal = true"
+              class="classes-view__button"
+            >
+              {{ t('classes.manageSubjects') }}
+          </button>
         </div>
 
         <!-- Class Info Section -->
         <div v-if="authStore.user?.role === 'ADMIN'" class="classes-view__section">
-          <h2>Class Information</h2>
+          <h2>{{ t('classes.classInformation') }}</h2>
           <div v-if="selectedClass" class="classes-view__class-info">
             <div class="classes-view__info-item">
-              <label class="classes-view__info-label">Number of Students:</label>
+              <label class="classes-view__info-label">{{ t('classes.numberOfStudents') }}:</label>
               <input
                 v-model.number="selectedClass.number_of_students"
                 type="number"
                 min="1"
                 class="classes-view__input classes-view__input--inline"
                 @blur="updateClassInfo"
-                placeholder="Enter number of students"
+                :placeholder="t('classes.enterNumberOfStudents')"
               />
             </div>
-          </div>
-        </div>
-
-        <!-- Management Section (Admin only) -->
-        <div v-if="authStore.user?.role === 'ADMIN'" class="classes-view__section">
-          <h2>Manage Class</h2>
-          <div class="classes-view__management-actions">
-            <button
-              @click="showSubjectModal = true"
-              class="classes-view__button"
-            >
-              Manage Subjects
-            </button>
           </div>
         </div>
       </div>
@@ -99,16 +95,16 @@
       <!-- Subject Management Modal -->
       <div v-if="showSubjectModal && selectedClassId" class="classes-view__modal">
         <div class="classes-view__modal-content classes-view__modal-content--large">
-          <h3>Manage Subject Allocations for {{ getSelectedClassName() }}</h3>
+          <h3>{{ t('classes.manageSubjectAllocations') }} {{ getSelectedClassName() }}</h3>
           <div class="classes-view__allocations-section">
-            <h4>Add Subject Allocation</h4>
+            <h4>{{ t('classes.addSubjectAllocation') }}</h4>
             <form @submit.prevent="addAllocation" class="classes-view__form">
               <select
                 v-model="newAllocation.subject_id"
                 class="classes-view__input"
                 required
               >
-                <option value="">Select Subject</option>
+                <option value="">{{ t('classes.selectSubject') }}</option>
                 <option
                   v-for="subject in subjects"
                   :key="subject.id"
@@ -120,7 +116,7 @@
               <input
                 v-model.number="newAllocation.weekly_hours"
                 type="number"
-                placeholder="Hours per week"
+                :placeholder="t('classes.hoursPerWeekPlaceholder')"
                 min="1"
                 class="classes-view__input"
                 required
@@ -129,7 +125,7 @@
                 v-model="newAllocation.primary_teacher_id"
                 class="classes-view__input"
               >
-                <option :value="null">Select Primary Teacher (optional)</option>
+                <option :value="null">{{ t('classes.selectPrimaryTeacher') }}</option>
                 <option
                   v-for="teacher in getTeachersForSubject(newAllocation.subject_id || 0)"
                   :key="teacher.id"
@@ -139,15 +135,15 @@
                 </option>
               </select>
               <button type="submit" class="classes-view__button" :disabled="loading">
-                Add Allocation
+                {{ t('classes.addAllocation') }}
               </button>
             </form>
           </div>
           <div class="classes-view__allocations-section">
-            <h4>Current Subject Allocations</h4>
-            <div v-if="classAllocations.length > 0" class="classes-view__allocations-list">
+            <h4>{{ t('classes.currentSubjectAllocations') }}</h4>
+            <div v-if="sortedClassAllocations.length > 0" class="classes-view__allocations-list">
               <div
-                v-for="allocation in classAllocations"
+                v-for="allocation in sortedClassAllocations"
                 :key="allocation.id"
                 class="classes-view__allocation-item"
               >
@@ -155,31 +151,31 @@
                   {{ getSubjectName(allocation.subject_id) }}
                 </span>
                 <span class="classes-view__allocation-hours">
-                  {{ allocation.weekly_hours }} hours/week
+                  {{ allocation.weekly_hours }} {{ t('classes.hoursPerWeek') }}
                 </span>
                 <span v-if="allocation.primary_teacher" class="classes-view__allocation-teacher">
-                  Primary: {{ allocation.primary_teacher.full_name }}
+                  {{ t('classes.primary') }}: {{ allocation.primary_teacher.full_name }}
                 </span>
                 <span v-else class="classes-view__allocation-teacher classes-view__allocation-teacher--none">
-                  No primary teacher
+                  {{ t('classes.noPrimaryTeacher') }}
                 </span>
                 <button
                   @click="editAllocation(allocation)"
                   class="classes-view__allocation-edit"
                   :disabled="loading"
                 >
-                  Edit
+                  {{ t('common.edit') }}
                 </button>
                 <button
                   @click="removeAllocation(allocation.id)"
                   class="classes-view__allocation-remove"
                   :disabled="loading"
                 >
-                  Remove
+                  {{ t('classes.removeAllocation') }}
                 </button>
               </div>
             </div>
-            <div v-else class="classes-view__empty">No subject allocations yet</div>
+            <div v-else class="classes-view__empty">{{ t('classes.noSubjectAllocationsYet') }}</div>
           </div>
           <div class="classes-view__modal-actions">
             <button
@@ -187,7 +183,7 @@
               @click="showSubjectModal = false"
               class="classes-view__button classes-view__button--secondary"
             >
-              Close
+              {{ t('common.close') }}
             </button>
           </div>
         </div>
@@ -196,12 +192,12 @@
       <!-- Edit Allocation Modal -->
       <div v-if="editingAllocation" class="classes-view__modal">
         <div class="classes-view__modal-content">
-          <h3>Edit Subject Allocation</h3>
+          <h3>{{ t('classes.editSubjectAllocation') }}</h3>
           <form @submit.prevent="updateAllocation" class="classes-view__form">
             <input
               v-model.number="editingAllocation.weekly_hours"
               type="number"
-              placeholder="Hours per week"
+              :placeholder="t('classes.hoursPerWeekPlaceholder')"
               min="1"
               class="classes-view__input"
               required
@@ -210,7 +206,7 @@
               v-model="editingAllocation.primary_teacher_id"
               class="classes-view__input"
             >
-              <option :value="null">Select Primary Teacher (optional)</option>
+              <option :value="null">{{ t('classes.selectPrimaryTeacher') }}</option>
               <option
                 v-for="teacher in getTeachersForSubject(editingAllocation.subject_id)"
                 :key="teacher.id"
@@ -221,14 +217,14 @@
             </select>
             <div class="classes-view__modal-actions">
               <button type="submit" class="classes-view__button" :disabled="loading">
-                Save
+                {{ t('common.save') }}
               </button>
               <button
                 type="button"
                 @click="editingAllocation = null"
                 class="classes-view__button classes-view__button--secondary"
               >
-                Cancel
+                {{ t('common.cancel') }}
               </button>
             </div>
           </form>
@@ -244,8 +240,13 @@
 <script setup lang="ts">
 import { ref, onMounted, computed } from 'vue'
 import { useAuthStore } from '@/stores/auth'
+import { useI18nStore } from '@/stores/i18n'
 import api from '@/services/api'
 import TimetableGrid from '@/components/TimetableGrid.vue'
+
+const authStore = useAuthStore()
+const i18nStore = useI18nStore()
+const t = i18nStore.t
 
 interface ClassGroup {
   id: number
@@ -285,7 +286,6 @@ interface Timetable {
   is_primary?: number
 }
 
-const authStore = useAuthStore()
 const classes = ref<ClassGroup[]>([])
 const subjects = ref<Subject[]>([])
 const teachers = ref<Teacher[]>([])
@@ -302,6 +302,14 @@ const schoolSettings = ref<any>(null)
 
 const selectedClass = computed(() => {
   return classes.value.find(c => c.id === selectedClassId.value) || null
+})
+
+const sortedClassAllocations = computed(() => {
+  return [...classAllocations.value].sort((a, b) => {
+    const nameA = getSubjectName(a.subject_id).toLowerCase()
+    const nameB = getSubjectName(b.subject_id).toLowerCase()
+    return nameA.localeCompare(nameB)
+  })
 })
 
 const newAllocation = ref({
@@ -631,15 +639,19 @@ onMounted(async () => {
 
   &__subject-item {
     @extend %neo-list-item;
-    padding: 1rem;
+    padding: 1rem 1.5rem;
     margin-bottom: 0.5rem;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 1rem;
   }
 
   &__subject-info {
     display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 0.5rem;
+    flex-direction: column;
+    gap: 0.5rem;
+    flex: 1;
   }
 
   &__subject-name {
@@ -648,19 +660,20 @@ onMounted(async () => {
     font-size: 1.1rem;
   }
 
-  &__subject-hours {
-    color: $neo-text;
-    font-weight: 600;
-  }
-
-  &__subject-teachers {
+  &__subject-teacher {
     color: $neo-text-light;
-    font-size: 0.9rem;
+    font-size: 0.95rem;
   }
 
-  &__no-teachers {
+  &__no-teacher {
     color: $neo-text-muted;
     font-style: italic;
+  }
+
+  &__subject-hours {
+    color: $neo-text;
+    font-weight: 500;
+    font-size: 0.95rem;
   }
 
   &__management-actions {
@@ -719,6 +732,11 @@ onMounted(async () => {
     &:disabled {
       opacity: 0.5;
       cursor: not-allowed;
+    }
+
+    &--edit {
+      padding: 0.5rem 1rem;
+      font-size: 0.9rem;
     }
 
     &--secondary {
