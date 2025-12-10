@@ -1,5 +1,6 @@
 import axios from 'axios'
 import { useAuthStore } from '@/stores/auth'
+import { useAlertStore } from '@/stores/alert'
 
 const api = axios.create({
   baseURL: '/api/v1',
@@ -23,6 +24,11 @@ api.interceptors.response.use(
       const authStore = useAuthStore()
       authStore.logout()
       window.location.href = '/login'
+    } else if (error.response?.status && error.response.status >= 400) {
+      // Show alert for API errors (except 401 which redirects)
+      const alertStore = useAlertStore()
+      const message = error.response?.data?.detail || error.response?.data?.message || error.message || 'An error occurred'
+      alertStore.error(message)
     }
     return Promise.reject(error)
   }

@@ -49,8 +49,6 @@
             {{ loading ? 'Generating...' : 'Generate' }}
           </button>
         </form>
-        <div v-if="error" class="timetables-list-view__error">{{ error }}</div>
-        <div v-if="success" class="timetables-list-view__success">{{ success }}</div>
       </div>
 
       <!-- Calendar View -->
@@ -191,24 +189,6 @@
         </form>
       </div>
 
-      <!-- Validation Results -->
-      <div v-if="validationResult" class="timetables-list-view__section">
-        <h2>Validation Results</h2>
-        <div v-if="validationResult.is_valid" class="timetables-list-view__valid">
-          ✓ Timetable is valid!
-        </div>
-        <div v-else>
-          <div class="timetables-list-view__errors">
-            <div
-              v-for="(err, index) in validationResult.errors"
-              :key="index"
-              class="timetables-list-view__error-item"
-            >
-              {{ err.message }}
-            </div>
-          </div>
-        </div>
-      </div>
     </main>
   </div>
 </template>
@@ -217,8 +197,11 @@
 import { ref, onMounted, computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
+import { useAlert } from '@/composables/useAlert'
 import api from '@/services/api'
 import TimetableCalendar from '@/components/TimetableCalendar.vue'
+
+const alert = useAlert()
 
 interface Timetable {
   id: number
@@ -235,13 +218,10 @@ const router = useRouter()
 const authStore = useAuthStore()
 const timetables = ref<Timetable[]>([])
 const loading = ref(false)
-const error = ref('')
-const success = ref('')
 const showGenerateForm = ref(false)
 const timetableName = ref('')
 const timetableValidFrom = ref('')
 const timetableValidTo = ref('')
-const validationResult = ref<any>(null)
 const substituteForm = ref({
   base_timetable_id: null as number | null,
   substitute_date: ''
@@ -263,7 +243,6 @@ function formatDate(dateString: string): string {
 
 async function loadTimetables() {
   loading.value = true
-  error.value = ''
   try {
     const schoolId = authStore.user?.school_id
     if (schoolId) {
@@ -271,7 +250,8 @@ async function loadTimetables() {
       timetables.value = response.data
     }
   } catch (err: any) {
-    error.value = err.response?.data?.detail || 'Failed to load timetables'
+    // Error will be shown via API interceptor
+    console.error('Failed to load timetables:', err)
   } finally {
     loading.value = false
   }
@@ -279,9 +259,6 @@ async function loadTimetables() {
 
 async function generateTimetable() {
   loading.value = true
-  error.value = ''
-  success.value = ''
-  validationResult.value = null
   
   try {
     const schoolId = authStore.user?.school_id
@@ -290,13 +267,13 @@ async function generateTimetable() {
     }
     
     if (!timetableValidFrom.value || !timetableValidTo.value) {
-      error.value = 'Please select both valid from and valid to dates'
+      alert.error('Please select both valid from and valid to dates')
       loading.value = false
       return
     }
     
     if (new Date(timetableValidFrom.value) > new Date(timetableValidTo.value)) {
-      error.value = 'Valid from date must be before valid to date'
+      alert.error('Valid from date must be before valid to date')
       loading.value = false
       return
     }
@@ -307,7 +284,7 @@ async function generateTimetable() {
       valid_to: timetableValidTo.value
     })
     
-    success.value = 'Timetable generated successfully!'
+    alert.success('Timetable generated successfully!')
     timetableName.value = ''
     timetableValidFrom.value = ''
     timetableValidTo.value = ''
@@ -321,7 +298,10 @@ async function generateTimetable() {
       await validateTimetable(response.data.id)
     }
   } catch (err: any) {
-    error.value = err.response?.data?.detail || 'Failed to generate timetable'
+    // Error will be shown via API interceptor, but we can add a custom message if needed
+    if (!err.response) {
+      alert.error('Failed to generate timetable')
+    }
   } finally {
     loading.value = false
   }
@@ -355,7 +335,6 @@ function onDateSelected(date: Date) {
 
 async function validateTimetable(timetableId: number) {
   loading.value = true
-  validationResult.value = null
   
   try {
     const schoolId = authStore.user?.school_id
@@ -366,9 +345,26 @@ async function validateTimetable(timetableId: number) {
     const response = await api.post(
       `/timetables/schools/${schoolId}/timetables/${timetableId}/validate`
     )
-    validationResult.value = response.data
+    const validationResult = response.data
+    
+    if (validationResult.is_valid) {
+      alert.success('Timetable is valid!')
+    } else {
+      // Show each validation error as a separate alert
+      if (validationResult.errors && validationResult.errors.length > 0) {
+        validationResult.errors.forEach((err: any, index: number) => {
+          // Stagger the alerts slightly so they don't all appear at once
+          setTimeout(() => {
+            alert.error(err.message || 'Validation error', 8000) // Show errors for 8 seconds
+          }, index * 200)
+        })
+      } else {
+        alert.error('Timetable validation failed')
+      }
+    }
   } catch (err: any) {
-    error.value = err.response?.data?.detail || 'Failed to validate timetable'
+    // Error will be shown via API interceptor
+    console.error('Failed to validate timetable:', err)
   } finally {
     loading.value = false
   }
@@ -380,8 +376,6 @@ async function deleteTimetable(timetableId: number) {
   }
   
   loading.value = true
-  error.value = ''
-  success.value = ''
   
   try {
     const schoolId = authStore.user?.school_id
@@ -390,10 +384,12 @@ async function deleteTimetable(timetableId: number) {
     }
     
     await api.delete(`/timetables/schools/${schoolId}/timetables/${timetableId}`)
-    success.value = 'Timetable deleted successfully'
+    alert.success('Timetable deleted successfully')
     await loadTimetables()
   } catch (err: any) {
-    error.value = err.response?.data?.detail || 'Failed to delete timetable'
+    if (!err.response) {
+      alert.error('Failed to delete timetable')
+    }
   } finally {
     loading.value = false
   }
@@ -401,13 +397,11 @@ async function deleteTimetable(timetableId: number) {
 
 async function generateSubstituteTimetable() {
   if (!substituteForm.value.base_timetable_id || !substituteForm.value.substitute_date) {
-    error.value = 'Please select a base timetable and date'
+    alert.error('Please select a base timetable and date')
     return
   }
   
   loading.value = true
-  error.value = ''
-  success.value = ''
   
   try {
     const schoolId = authStore.user?.school_id
@@ -422,11 +416,13 @@ async function generateSubstituteTimetable() {
       }
     )
     
-    success.value = 'Substitute timetable generated successfully!'
+    alert.success('Substitute timetable generated successfully!')
     substituteForm.value = { base_timetable_id: null, substitute_date: '' }
     await loadTimetables()
   } catch (err: any) {
-    error.value = err.response?.data?.detail || 'Failed to generate substitute timetable'
+    if (!err.response) {
+      alert.error('Failed to generate substitute timetable')
+    }
   } finally {
     loading.value = false
   }

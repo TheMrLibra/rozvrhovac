@@ -1,10 +1,12 @@
 <template>
   <div id="app" class="app">
     <router-view />
+    <AlertPopup />
   </div>
 </template>
 
 <script setup lang="ts">
+import AlertPopup from '@/components/AlertPopup.vue'
 </script>
 
 <style lang="scss">

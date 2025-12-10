@@ -232,8 +232,6 @@
         </div>
       </div>
 
-      <div v-if="error" class="subjects-view__error">{{ error }}</div>
-      <div v-if="success" class="subjects-view__success">{{ success }}</div>
     </main>
   </div>
 </template>
@@ -241,7 +239,10 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
 import { useAuthStore } from '@/stores/auth'
+import { useAlert } from '@/composables/useAlert'
 import api from '@/services/api'
+
+const alert = useAlert()
 
 interface GradeLevel {
   id: number
@@ -265,8 +266,6 @@ const authStore = useAuthStore()
 const subjects = ref<Subject[]>([])
 const gradeLevels = ref<GradeLevel[]>([])
 const loading = ref(false)
-const error = ref('')
-const success = ref('')
 const editingSubject = ref<Subject | null>(null)
 
 const newSubject = ref({
@@ -302,14 +301,13 @@ async function loadSubjects() {
     const response = await api.get(`/subjects/schools/${schoolId}/subjects`)
     subjects.value = response.data
   } catch (err: any) {
-    error.value = err.response?.data?.detail || 'Failed to load subjects'
+    // Error will be shown via API interceptor
+    console.error('Failed to load subjects:', err)
   }
 }
 
 async function createSubject() {
   loading.value = true
-  error.value = ''
-  success.value = ''
   
   try {
     const schoolId = authStore.user?.school_id
@@ -323,7 +321,7 @@ async function createSubject() {
     }
     
     await api.post(`/subjects/schools/${schoolId}/subjects`, subjectData)
-    success.value = 'Subject created successfully'
+    alert.success('Subject created successfully')
     newSubject.value = {
       name: '',
       grade_level_id: null,
@@ -336,7 +334,10 @@ async function createSubject() {
     }
     await loadSubjects()
   } catch (err: any) {
-    error.value = err.response?.data?.detail || 'Failed to create subject'
+    // Error will be shown via API interceptor, but we can add a custom message if needed
+    if (!err.response) {
+      alert.error('Failed to create subject')
+    }
   } finally {
     loading.value = false
   }
@@ -350,8 +351,6 @@ async function updateSubject() {
   if (!editingSubject.value) return
   
   loading.value = true
-  error.value = ''
-  success.value = ''
   
   try {
     const schoolId = authStore.user?.school_id
@@ -370,11 +369,13 @@ async function updateSubject() {
     updateData.requires_specialized_classroom = editingSubject.value.requires_specialized_classroom
     
     await api.put(`/subjects/schools/${schoolId}/subjects/${editingSubject.value.id}`, updateData)
-    success.value = 'Subject updated successfully'
+    alert.success('Subject updated successfully')
     editingSubject.value = null
     await loadSubjects()
   } catch (err: any) {
-    error.value = err.response?.data?.detail || 'Failed to update subject'
+    if (!err.response) {
+      alert.error('Failed to update subject')
+    }
   } finally {
     loading.value = false
   }
@@ -386,8 +387,6 @@ async function deleteSubject(subjectId: number) {
   }
   
   loading.value = true
-  error.value = ''
-  success.value = ''
   
   try {
     const schoolId = authStore.user?.school_id
@@ -396,10 +395,12 @@ async function deleteSubject(subjectId: number) {
     }
     
     await api.delete(`/subjects/schools/${schoolId}/subjects/${subjectId}`)
-    success.value = 'Subject deleted successfully'
+    alert.success('Subject deleted successfully')
     await loadSubjects()
   } catch (err: any) {
-    error.value = err.response?.data?.detail || 'Failed to delete subject'
+    if (!err.response) {
+      alert.error('Failed to delete subject')
+    }
   } finally {
     loading.value = false
   }
