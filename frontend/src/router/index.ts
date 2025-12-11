@@ -97,6 +97,12 @@ const router = createRouter({
       name: 'TeacherAbsence',
       component: () => import('@/views/TeacherAbsenceView.vue'),
       meta: { requiresAuth: true, requiresRole: 'TEACHER' }
+    },
+    {
+      path: '/documentation',
+      name: 'Documentation',
+      component: () => import('@/views/DocumentationView.vue'),
+      meta: { requiresAuth: true }
     }
   ]
 })

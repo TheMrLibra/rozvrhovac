@@ -243,6 +243,101 @@ const translations: Record<Language, Translations> = {
       friday: 'Friday',
       lunchBreak: 'Lunch Break'
     },
+    documentation: {
+      title: 'Documentation',
+      back: 'Dashboard',
+      admin: {
+        title: 'Admin Features',
+        schoolSettings: {
+          title: 'School Settings',
+          configureTimes: 'Configure school start and end times',
+          configureClassHours: 'Set class hour length',
+          configureBreaks: 'Configure break durations (variable breaks supported)',
+          configureLunch: 'Set lunch duration and possible lunch hours'
+        },
+        classes: {
+          title: 'Classes Management',
+          viewTimetables: 'View timetables for each class',
+          manageSubjects: 'Manage subject allocations for classes',
+          assignPrimaryTeachers: 'Assign primary teachers for each subject per class',
+          setStudentCount: 'Set number of students per class'
+        },
+        teachers: {
+          title: 'Teachers Management',
+          addEditTeachers: 'Add and edit teacher information',
+          manageCapabilities: 'Manage teacher subject capabilities and class assignments',
+          viewAbsences: 'View teacher absences and filter by date',
+          viewTimetables: 'View daily timetables for teachers'
+        },
+        subjects: {
+          title: 'Subjects Management',
+          addEditSubjects: 'Add and edit subjects',
+          configureConstraints: 'Configure subject constraints (consecutive hours, multiple per day, etc.)',
+          manageAllocations: 'Manage class-subject allocations and weekly hours'
+        },
+        classrooms: {
+          title: 'Classrooms Management',
+          addEditClassrooms: 'Add and edit classroom information',
+          setCapacity: 'Set maximum capacity for each classroom',
+          assignSpecializations: 'Assign subject specializations to classrooms'
+        },
+        timetables: {
+          title: 'Timetables Management',
+          generateFixed: 'Generate fixed (primary) timetables for a specific period',
+          generateSubstitute: 'Generate substitute timetables for days with teacher/classroom absences',
+          validateTimetables: 'Validate timetables for conflicts and constraint violations',
+          viewCalendar: 'View timetables in calendar format (month and day views)',
+          deleteTimetables: 'Delete timetables (both fixed and substitute)'
+        },
+        dashboard: {
+          title: 'Dashboard',
+          viewRunningLessons: 'View currently running lessons across all classes',
+          viewAbsentTeachers: 'View today\'s absent teachers'
+        },
+        howTo: {
+          generateTimetable: {
+            title: 'How to Generate a Fixed Timetable',
+            step1: 'Navigate to the Timetables page from the dashboard',
+            step2: 'Click "Generate New Fixed Timetable" button',
+            step3: 'Enter a name for the timetable (e.g., "Spring 2025")',
+            step4: 'Select the validity period (Valid From and Valid To dates)',
+            step5: 'Click "Generate" and wait for the timetable to be created. It will be automatically validated after generation.'
+          },
+          assignPrimaryTeacher: {
+            title: 'How to Assign a Primary Teacher to a Class Subject',
+            step1: 'Navigate to the Classes page from the dashboard',
+            step2: 'Select a class from the dropdown',
+            step3: 'Click "Manage Subjects" button',
+            step4: 'When adding or editing a subject allocation, select a primary teacher from the dropdown. The primary teacher will be used when generating fixed timetables.'
+          },
+          generateSubstitute: {
+            title: 'How to Generate a Substitute Timetable',
+            step1: 'Ensure you have at least one fixed (primary) timetable created',
+            step2: 'Navigate to the Timetables page and scroll to "Generate Substitute Timetable" section',
+            step3: 'Select the base timetable and choose the date for which you need a substitute',
+            step4: 'Click "Generate Substitute". The system will create a new timetable accounting for teacher and classroom absences for that specific date.'
+          }
+        }
+      },
+      teacher: {
+        title: 'Teacher Features',
+        timetable: {
+          title: 'Timetable',
+          viewDailyTimetable: 'View your daily timetable with lesson times, subjects, classes, and classrooms',
+          viewWeeklySchedule: 'View your weekly schedule'
+        },
+        absences: {
+          title: 'Absences',
+          reportAbsence: 'Report absences for specific dates and hours',
+          viewAbsences: 'View your reported absences'
+        },
+        dashboard: {
+          title: 'Dashboard',
+          viewTodaysSchedule: 'View today\'s schedule and upcoming lessons',
+          quickActions: 'Access quick actions and navigation'
+        }
+      }
+    },
     subjects: {
       title: 'Subjects',
       back: 'Dashboard',
@@ -567,6 +662,116 @@ const translations: Record<Language, Translations> = {
       thursday: 'Čtvrtek',
       friday: 'Pátek',
       lunchBreak: 'Oběd'
+    },
+    documentation: {
+      title: 'Dokumentace',
+      back: 'Nástěnka',
+      admin: {
+        title: 'Funkce správce',
+        schoolSettings: {
+          title: 'Nastavení školy',
+          configureTimes: 'Konfigurovat začátek a konec školního dne',
+          configureClassHours: 'Nastavit délku vyučovací hodiny',
+          configureBreaks: 'Konfigurovat délky přestávek (podporovány proměnné přestávky)',
+          configureLunch: 'Nastavit délku oběda a možné hodiny oběda'
+        },
+        classes: {
+          title: 'Správa tříd',
+          viewTimetables: 'Zobrazit rozvrhy pro každou třídu',
+          manageSubjects: 'Spravovat přidělení předmětů třídám',
+          assignPrimaryTeachers: 'Přiřadit hlavní učitele pro každý předmět u třídy',
+          setStudentCount: 'Nastavit počet studentů na třídu'
+        },
+        teachers: {
+          title: 'Správa učitelů',
+          addEditTeachers: 'Přidávat a upravovat informace o učitelích',
+          manageCapabilities: 'Spravovat schopnosti učitelů v předmětech a přiřazení tříd',
+          viewAbsences: 'Zobrazit nepřítomnosti učitelů a filtrovat podle data',
+          viewTimetables: 'Zobrazit denní rozvrhy učitelů'
+        },
+        subjects: {
+          title: 'Správa předmětů',
+          addEditSubjects: 'Přidávat a upravovat předměty',
+          configureConstraints: 'Konfigurovat omezení předmětů (po sobě jdoucí hodiny, vícekrát denně atd.)',
+          manageAllocations: 'Spravovat přidělení předmětů třídám a týdenní hodiny'
+        },
+        classrooms: {
+          title: 'Správa učeben',
+          addEditClassrooms: 'Přidávat a upravovat informace o učebnách',
+          setCapacity: 'Nastavit maximální kapacitu pro každou učebnu',
+          assignSpecializations: 'Přiřadit specializace předmětů učebnám'
+        },
+        timetables: {
+          title: 'Správa rozvrhů',
+          generateFixed: 'Generovat pevné (hlavní) rozvrhy pro konkrétní období',
+          generateSubstitute: 'Generovat náhradní rozvrhy pro dny s nepřítomností učitelů/učeben',
+          validateTimetables: 'Ověřovat rozvrhy na konflikty a porušení omezení',
+          viewCalendar: 'Zobrazit rozvrhy v kalendářním formátu (měsíční a denní zobrazení)',
+          deleteTimetables: 'Mazat rozvrhy (pevné i náhradní)'
+        },
+        dashboard: {
+          title: 'Nástěnka',
+          viewRunningLessons: 'Zobrazit právě probíhající hodiny ve všech třídách',
+          viewAbsentTeachers: 'Zobrazit dnes nepřítomné učitele'
+        },
+        howTo: {
+          generateTimetable: {
+            title: 'Jak vygenerovat pevný rozvrh',
+            step1: 'Přejděte na stránku Rozvrhy z nástěnky',
+            step2: 'Klikněte na tlačítko "Vygenerovat nový pevný rozvrh"',
+            step3: 'Zadejte název rozvrhu (např. "Jaro 2025")',
+            step4: 'Vyberte období platnosti (datum "Platný od" a "Platný do")',
+            step5: 'Klikněte na "Vygenerovat" a počkejte na vytvoření rozvrhu. Po vygenerování bude automaticky ověřen.'
+          },
+          assignPrimaryTeacher: {
+            title: 'Jak přiřadit hlavního učitele k předmětu třídy',
+            step1: 'Přejděte na stránku Třídy z nástěnky',
+            step2: 'Vyberte třídu z rozbalovacího menu',
+            step3: 'Klikněte na tlačítko "Spravovat předměty"',
+            step4: 'Při přidávání nebo úpravě přidělení předmětu vyberte hlavního učitele z rozbalovacího menu. Hlavní učitel bude použit při generování pevných rozvrhů.'
+          },
+          generateSubstitute: {
+            title: 'Jak vygenerovat náhradní rozvrh',
+            step1: 'Ujistěte se, že máte vytvořený alespoň jeden pevný (hlavní) rozvrh',
+            step2: 'Přejděte na stránku Rozvrhy a přejděte do sekce "Vygenerovat náhradní rozvrh"',
+            step3: 'Vyberte základní rozvrh a zvolte datum, pro které potřebujete náhradu',
+            step4: 'Klikněte na "Vygenerovat náhradu". Systém vytvoří nový rozvrh s ohledem na nepřítomnosti učitelů a učeben pro konkrétní datum.'
+          }
+        }
+      },
+      teacher: {
+        title: 'Funkce učitele',
+        timetable: {
+          title: 'Rozvrh',
+          viewDailyTimetable: 'Zobrazit svůj denní rozvrh s časy hodin, předměty, třídami a učebnami',
+          viewWeeklySchedule: 'Zobrazit svůj týdenní rozvrh'
+        },
+        absences: {
+          title: 'Nepřítomnosti',
+          reportAbsence: 'Nahlásit nepřítomnosti pro konkrétní data a hodiny',
+          viewAbsences: 'Zobrazit své nahlášené nepřítomnosti'
+        },
+        dashboard: {
+          title: 'Nástěnka',
+          viewTodaysSchedule: 'Zobrazit dnešní rozvrh a nadcházející hodiny',
+          quickActions: 'Přístup k rychlým akcím a navigaci'
+        },
+        howTo: {
+          viewTimetable: {
+            title: 'Jak zobrazit svůj rozvrh',
+            step1: 'Přejděte na stránku Učitelé z nástěnky',
+            step2: 'Vyberte sebe z rozbalovacího menu učitelů',
+            step3: 'V sekci "Rozvrh na dnes" uvidíte všechny své hodiny pro dnešní den s časy, předměty, třídami a učebnami.'
+          },
+          reportAbsence: {
+            title: 'Jak nahlásit nepřítomnost',
+            step1: 'Přejděte na stránku "Nahlásit nepřítomnost" z nástěnky',
+            step2: 'Vyberte datum od a datum do pro vaši nepřítomnost',
+            step3: 'Volitelně zadejte důvod nepřítomnosti',
+            step4: 'Klikněte na "Nahlásit nepřítomnost". Po nahlášení může administrátor vygenerovat náhradní rozvrh.'
+          }
+        }
+      }
     },
     subjects: {
       title: 'Předměty',

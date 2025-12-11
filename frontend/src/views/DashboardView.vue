@@ -11,6 +11,7 @@
           <router-link to="/timetables" class="dashboard-view__link">{{ t('navigation.timetables') }}</router-link>
         </div>
       <div class="dashboard-view__header-actions">
+        <router-link to="/documentation" class="dashboard-view__link dashboard-view__link--help">{{ t('documentation.title') }}</router-link>
         <LanguageSwitcher />
         <button @click="handleLogout" class="dashboard-view__logout">{{ t('common.logout') }}</button>
       </div>
