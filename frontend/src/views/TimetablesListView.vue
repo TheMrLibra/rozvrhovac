@@ -1,33 +1,33 @@
 <template>
   <div class="timetables-list-view">
     <header class="timetables-list-view__header">
-      <h1 class="timetables-list-view__title">Timetables</h1>
+      <h1 class="timetables-list-view__title">{{ t('timetables.title') }}</h1>
       <div class="timetables-list-view__controls">
         <button
           v-if="authStore.user?.role === 'ADMIN'"
           @click="showGenerateForm = !showGenerateForm"
           class="timetables-list-view__button"
         >
-          Generate New Fixed Timetable
+          {{ t('timetables.generateNewFixedTimetable') }}
         </button>
-        <router-link to="/dashboard" class="timetables-list-view__back">Dashboard</router-link>
+        <router-link to="/dashboard" class="timetables-list-view__back">{{ t('timetables.back') }}</router-link>
       </div>
     </header>
     <main class="timetables-list-view__content">
       <!-- Generate Form -->
       <div v-if="showGenerateForm && authStore.user?.role === 'ADMIN'" class="timetables-list-view__section">
-        <h2>Generate New Fixed Timetable</h2>
+        <h2>{{ t('timetables.generateNewFixedTimetable') }}</h2>
         <form @submit.prevent="generateTimetable" class="timetables-list-view__form">
           <input
             v-model="timetableName"
             type="text"
-            placeholder="Timetable name (e.g., Spring 2025)"
+            :placeholder="t('timetables.timetableNamePlaceholder')"
             class="timetables-list-view__input"
             required
           />
           <div class="timetables-list-view__form-row">
             <div class="timetables-list-view__form-group">
-              <label class="timetables-list-view__label">Valid From</label>
+              <label class="timetables-list-view__label">{{ t('timetables.validFrom') }}</label>
               <input
                 v-model="timetableValidFrom"
                 type="date"
@@ -36,7 +36,7 @@
               />
             </div>
             <div class="timetables-list-view__form-group">
-              <label class="timetables-list-view__label">Valid To</label>
+              <label class="timetables-list-view__label">{{ t('timetables.validTo') }}</label>
               <input
                 v-model="timetableValidTo"
                 type="date"
@@ -46,14 +46,14 @@
             </div>
           </div>
           <button type="submit" class="timetables-list-view__button" :disabled="loading">
-            {{ loading ? 'Generating...' : 'Generate' }}
+            {{ loading ? t('timetables.generating') : t('timetables.generate') }}
           </button>
         </form>
       </div>
 
       <!-- Calendar View -->
       <div class="timetables-list-view__section">
-        <h2>Class Timetable Calendar</h2>
+        <h2>{{ t('timetables.classTimetableCalendar') }}</h2>
         <TimetableCalendar
           :timetables="timetables"
           @date-selected="onDateSelected"
@@ -62,8 +62,8 @@
 
       <!-- Fixed (Primary) Timetables -->
       <div class="timetables-list-view__section">
-        <h2>Fixed Timetables</h2>
-        <div v-if="loading" class="timetables-list-view__loading">Loading timetables...</div>
+        <h2>{{ t('timetables.fixedTimetables') }}</h2>
+        <div v-if="loading" class="timetables-list-view__loading">{{ t('timetables.loadingTimetables') }}</div>
         <div v-else-if="primaryTimetables.length > 0" class="timetables-list-view__list">
           <div
             v-for="timetable in primaryTimetables"
@@ -74,14 +74,14 @@
               <h3 class="timetables-list-view__item-name">{{ timetable.name }}</h3>
               <div class="timetables-list-view__item-details">
                 <span v-if="timetable.valid_from || timetable.valid_to">
-                  Valid: 
-                  {{ timetable.valid_from ? formatDate(timetable.valid_from) : 'N/A' }} - 
-                  {{ timetable.valid_to ? formatDate(timetable.valid_to) : 'N/A' }}
+                  {{ t('timetables.valid') }}: 
+                  {{ timetable.valid_from ? formatDate(timetable.valid_from) : t('timetables.notAvailable') }} - 
+                  {{ timetable.valid_to ? formatDate(timetable.valid_to) : t('timetables.notAvailable') }}
                 </span>
-                <span v-else>No validity period set</span>
+                <span v-else>{{ t('timetables.noValidityPeriodSet') }}</span>
               </div>
               <div class="timetables-list-view__item-stats">
-                <span>{{ timetable.entries?.length || 0 }} entries</span>
+                <span>{{ timetable.entries?.length || 0 }} {{ t('timetables.entries') }}</span>
               </div>
             </div>
             <div class="timetables-list-view__item-actions">
@@ -90,34 +90,34 @@
                 class="timetables-list-view__view"
                 :disabled="loading"
               >
-                View
+                {{ t('timetables.view') }}
               </button>
               <button
                 @click="validateTimetable(timetable.id)"
                 class="timetables-list-view__validate"
                 :disabled="loading"
               >
-                Validate
+                {{ t('timetables.validate') }}
               </button>
               <button
                 @click="deleteTimetable(timetable.id)"
                 class="timetables-list-view__delete"
                 :disabled="loading"
               >
-                Delete
+                {{ t('timetables.delete') }}
               </button>
             </div>
           </div>
         </div>
         <div v-else class="timetables-list-view__empty">
-          No fixed timetables found. Generate one to get started.
+          {{ t('timetables.noFixedTimetablesFound') }}
         </div>
       </div>
 
       <!-- Substitute Timetables -->
       <div class="timetables-list-view__section">
-        <h2>Substitute Timetables</h2>
-        <div v-if="loading" class="timetables-list-view__loading">Loading timetables...</div>
+        <h2>{{ t('timetables.substituteTimetables') }}</h2>
+        <div v-if="loading" class="timetables-list-view__loading">{{ t('timetables.loadingTimetables') }}</div>
         <div v-else-if="substituteTimetables.length > 0" class="timetables-list-view__list">
           <div
             v-for="timetable in substituteTimetables"
@@ -128,12 +128,12 @@
               <h3 class="timetables-list-view__item-name">{{ timetable.name }}</h3>
               <div class="timetables-list-view__item-details">
                 <span v-if="timetable.substitute_for_date">
-                  For Date: {{ formatDate(timetable.substitute_for_date) }}
+                  {{ t('timetables.forDate') }}: {{ formatDate(timetable.substitute_for_date) }}
                 </span>
-                <span v-else>No date specified</span>
+                <span v-else>{{ t('timetables.noDateSpecified') }}</span>
               </div>
               <div class="timetables-list-view__item-stats">
-                <span>{{ timetable.entries?.length || 0 }} entries</span>
+                <span>{{ timetable.entries?.length || 0 }} {{ t('timetables.entries') }}</span>
               </div>
             </div>
             <div class="timetables-list-view__item-actions">
@@ -142,33 +142,33 @@
                 class="timetables-list-view__view"
                 :disabled="loading"
               >
-                View
+                {{ t('timetables.view') }}
               </button>
               <button
                 @click="deleteTimetable(timetable.id)"
                 class="timetables-list-view__delete"
                 :disabled="loading"
               >
-                Delete
+                {{ t('timetables.delete') }}
               </button>
             </div>
           </div>
         </div>
         <div v-else class="timetables-list-view__empty">
-          No substitute timetables found.
+          {{ t('timetables.noSubstituteTimetablesFound') }}
         </div>
       </div>
 
       <!-- Generate Substitute Timetable -->
       <div v-if="authStore.user?.role === 'ADMIN' && primaryTimetables.length > 0" class="timetables-list-view__section">
-        <h2>Generate Substitute Timetable</h2>
+        <h2>{{ t('timetables.generateSubstituteTimetable') }}</h2>
         <form @submit.prevent="generateSubstituteTimetable" class="timetables-list-view__form">
           <select
             v-model="substituteForm.base_timetable_id"
             class="timetables-list-view__input"
             required
           >
-            <option value="">Select Base Timetable</option>
+            <option value="">{{ t('timetables.selectBaseTimetable') }}</option>
             <option
               v-for="timetable in primaryTimetables"
               :key="timetable.id"
@@ -184,7 +184,7 @@
             required
           />
           <button type="submit" class="timetables-list-view__button" :disabled="loading">
-            {{ loading ? 'Generating...' : 'Generate Substitute' }}
+            {{ loading ? t('timetables.generating') : t('timetables.generateSubstitute') }}
           </button>
         </form>
       </div>
@@ -197,11 +197,14 @@
 import { ref, onMounted, computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
+import { useI18nStore } from '@/stores/i18n'
 import { useAlert } from '@/composables/useAlert'
 import api from '@/services/api'
 import TimetableCalendar from '@/components/TimetableCalendar.vue'
 
 const alert = useAlert()
+const i18nStore = useI18nStore()
+const t = i18nStore.t
 
 interface Timetable {
   id: number
@@ -267,13 +270,13 @@ async function generateTimetable() {
     }
     
     if (!timetableValidFrom.value || !timetableValidTo.value) {
-      alert.error('Please select both valid from and valid to dates')
+      alert.error(t('timetables.pleaseSelectBothDates'))
       loading.value = false
       return
     }
     
     if (new Date(timetableValidFrom.value) > new Date(timetableValidTo.value)) {
-      alert.error('Valid from date must be before valid to date')
+      alert.error(t('timetables.validFromMustBeBeforeValidTo'))
       loading.value = false
       return
     }
@@ -284,7 +287,7 @@ async function generateTimetable() {
       valid_to: timetableValidTo.value
     })
     
-    alert.success('Timetable generated successfully!')
+    alert.success(t('timetables.timetableGeneratedSuccessfully'))
     timetableName.value = ''
     timetableValidFrom.value = ''
     timetableValidTo.value = ''
@@ -300,7 +303,7 @@ async function generateTimetable() {
   } catch (err: any) {
     // Error will be shown via API interceptor, but we can add a custom message if needed
     if (!err.response) {
-      alert.error('Failed to generate timetable')
+      alert.error(t('timetables.failedToGenerateTimetable'))
     }
   } finally {
     loading.value = false
@@ -348,18 +351,18 @@ async function validateTimetable(timetableId: number) {
     const validationResult = response.data
     
     if (validationResult.is_valid) {
-      alert.success('Timetable is valid!')
+      alert.success(t('timetables.timetableValid'))
     } else {
       // Show each validation error as a separate alert
       if (validationResult.errors && validationResult.errors.length > 0) {
         validationResult.errors.forEach((err: any, index: number) => {
           // Stagger the alerts slightly so they don't all appear at once
           setTimeout(() => {
-            alert.error(err.message || 'Validation error', 8000) // Show errors for 8 seconds
+            alert.error(err.message || t('timetables.validationError'), 8000) // Show errors for 8 seconds
           }, index * 200)
         })
       } else {
-        alert.error('Timetable validation failed')
+        alert.error(t('timetables.timetableValidationFailed'))
       }
     }
   } catch (err: any) {
@@ -371,7 +374,7 @@ async function validateTimetable(timetableId: number) {
 }
 
 async function deleteTimetable(timetableId: number) {
-  if (!confirm('Are you sure you want to delete this timetable?')) {
+  if (!confirm(t('timetables.confirmDeleteTimetable'))) {
     return
   }
   

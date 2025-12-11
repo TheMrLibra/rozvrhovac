@@ -28,8 +28,15 @@ class TimetableValidationService:
         if not entries:
             return errors
         
-        # Get school settings
-        school_id = entries[0].timetable.school_id
+        # Get school_id from timetable directly
+        from sqlalchemy import select
+        from app.models.timetable import Timetable
+        result = await self.db.execute(select(Timetable).where(Timetable.id == timetable_id))
+        timetable = result.scalar_one_or_none()
+        if not timetable:
+            return errors
+        
+        school_id = timetable.school_id
         settings = await self.settings_repo.get_by_school_id(school_id)
         
         # Group entries by various dimensions for validation
