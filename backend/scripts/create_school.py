@@ -5,7 +5,7 @@ Usage: python -m scripts.create_school --name "School Name" --code "SCHOOL001" [
 import asyncio
 import argparse
 import sys
-from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
+from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession, async_sessionmaker
 from sqlalchemy import text
 from datetime import time
 from app.core.config import settings
