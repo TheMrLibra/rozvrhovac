@@ -6,7 +6,7 @@ import asyncio
 import argparse
 import sys
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession, async_sessionmaker
-from sqlalchemy import text
+from sqlalchemy import text, create_engine
 from datetime import time
 from app.core.config import settings
 from app.core.database_manager import RegistrySessionLocal, build_database_url
@@ -64,6 +64,19 @@ async def run_migrations(database_url: str):
         
         # Run migrations using subprocess to avoid asyncio.run() nesting
         print(f"Running migrations on database...")
+        print(f"Database URL: {sync_url}")
+        
+        # First check current revision
+        check_result = subprocess.run(
+            ['python', '-m', 'alembic', 'current'],
+            env=env,
+            cwd=backend_dir,
+            capture_output=True,
+            text=True
+        )
+        print(f"Current revision: {check_result.stdout.strip() if check_result.stdout else 'None (fresh database)'}")
+        
+        # Run migrations
         result = subprocess.run(
             ['python', '-m', 'alembic', 'upgrade', 'head'],
             env=env,
@@ -79,6 +92,54 @@ async def run_migrations(database_url: str):
         print(f"✅ Migrations completed")
         if result.stdout:
             print(result.stdout)
+        
+        # Verify migrations actually ran by checking revision again
+        verify_result = subprocess.run(
+            ['python', '-m', 'alembic', 'current'],
+            env=env,
+            cwd=backend_dir,
+            capture_output=True,
+            text=True
+        )
+        print(f"Revision after migration: {verify_result.stdout.strip() if verify_result.stdout else 'None'}")
+        
+        # Verify tables were created by checking if schools table exists
+        from sqlalchemy import create_engine as create_sync_engine
+        from sqlalchemy import inspect as sql_inspect
+        sync_engine = create_sync_engine(sync_url)
+        inspector = sql_inspect(sync_engine)
+        tables = inspector.get_table_names()
+        sync_engine.dispose()
+        
+        if 'schools' not in tables:
+            print(f"⚠️  Warning: 'schools' table not found after migrations!")
+            print(f"   Found tables: {tables}")
+            print(f"   This might mean migrations didn't run properly.")
+            print(f"   Trying to force migrations...")
+            
+            # Try stamping to base and upgrading again
+            stamp_result = subprocess.run(
+                ['python', '-m', 'alembic', 'stamp', 'base'],
+                env=env,
+                cwd=backend_dir,
+                capture_output=True,
+                text=True
+            )
+            
+            upgrade_result = subprocess.run(
+                ['python', '-m', 'alembic', 'upgrade', 'head'],
+                env=env,
+                cwd=backend_dir,
+                capture_output=True,
+                text=True
+            )
+            
+            if upgrade_result.returncode != 0:
+                raise RuntimeError(f"Force migration failed: {upgrade_result.stderr}")
+            
+            print(f"✅ Force migrations completed")
+        else:
+            print(f"✅ Verified: 'schools' table exists")
     finally:
         os.chdir(original_dir)
 
