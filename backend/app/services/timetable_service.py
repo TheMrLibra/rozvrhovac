@@ -191,9 +191,17 @@ class TimetableService:
                 lunch_hours_count=lunch_hours_count  # Pass lunch hours count for adjustment
             )
             entries.extend(class_entries)
+        
+        # After all lessons are placed, adjust lunch breaks for all classes
+        # Check each day for each class: if there are no lessons after lunch, and there's a gap,
+        # move lunch directly after the last lesson
+        for class_group in classes:
+            if class_group.id not in class_subjects:
+                continue
             
-            # After placing lessons, adjust lunch breaks if they're after all lessons
-            # If lunch is after the last lesson, place it directly after (no gap)
+            # Get all entries for this class
+            class_entries = [e for e in entries if e.class_group_id == class_group.id]
+            
             for day in range(5):
                 day_class_entries = [e for e in class_entries if e.day_of_week == day]
                 if not day_class_entries:
@@ -207,18 +215,24 @@ class TimetableService:
                 if not lunch_slots:
                     continue
                 
-                # Check if lunch is after all lessons
                 lunch_start = min(lunch_slots)
-                if lunch_start > last_lesson_index:
-                    # Lunch is after all lessons - adjust it to be directly after the last lesson
-                    # Calculate how many consecutive slots we need
-                    new_lunch_start = last_lesson_index + 1
-                    new_lunch_slots = []
-                    for i in range(lunch_hours_count):
-                        new_lunch_slots.append(new_lunch_start + i)
-                    
-                    # Update the lunch hours for this day
-                    class_lunch_hours[class_group.id][day] = new_lunch_slots
+                lunch_end = max(lunch_slots)
+                
+                # Check if there are any teaching hours (lessons) after the lunch break
+                lessons_after_lunch = [e for e in day_class_entries if e.lesson_index > lunch_end]
+                
+                # If there are no lessons after lunch, check if there's a gap between last lesson and lunch
+                if not lessons_after_lunch:
+                    # Check if there's a gap (lunch starts after the last lesson)
+                    if lunch_start > last_lesson_index:
+                        # There's a gap - move lunch to be directly after the last lesson
+                        new_lunch_start = last_lesson_index + 1
+                        new_lunch_slots = []
+                        for i in range(lunch_hours_count):
+                            new_lunch_slots.append(new_lunch_start + i)
+                        
+                        # Update the lunch hours for this day
+                        class_lunch_hours[class_group.id][day] = new_lunch_slots
         
         # Save all entries
         for entry in entries:

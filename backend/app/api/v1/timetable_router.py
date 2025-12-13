@@ -1,9 +1,15 @@
+from sqlalchemy import select
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.database import get_db
 from app.core.dependencies import get_current_active_user, require_role
 from app.models.user import User, UserRole
 from app.schemas.timetable import TimetableCreate, TimetableResponse, ValidationResponse, ValidationErrorResponse
+from app.repositories.school_repository import SchoolSettingsRepository
+from app.repositories.class_group_repository import ClassGroupRepository
+from app.repositories.timetable_repository import TimetableEntryRepository, TimetableRepository
+from app.models.timetable import TimetableEntry, Timetable
+
 from pydantic import BaseModel
 from app.services.timetable_service import TimetableService
 from app.services.timetable_validation_service import TimetableValidationService, ValidationError
@@ -19,12 +25,12 @@ async def calculate_class_lunch_hours(
     school_id: int,
     timetable_id: int
 ) -> Dict[int, Dict[int, List[int]]]:
-    """Calculate lunch hours for each class per day in a timetable, matching the generation logic"""
-    from app.repositories.school_repository import SchoolSettingsRepository
-    from app.repositories.class_group_repository import ClassGroupRepository
+    """Calculate lunch hours for each class per day in a timetable, matching the generation logic
+    and applying adjustments: if there are no lessons after lunch and there's a gap, move lunch after last lesson"""
     
     settings_repo = SchoolSettingsRepository(db)
     class_repo = ClassGroupRepository(db)
+    entry_repo = TimetableEntryRepository(db)
     
     settings = await settings_repo.get_by_school_id(school_id)
     if not settings or not settings.possible_lunch_hours or settings.lunch_duration_minutes <= 0:
@@ -33,6 +39,9 @@ async def calculate_class_lunch_hours(
     classes = await class_repo.get_by_school_id(school_id)
     if not classes:
         return {}
+    
+    # Get all entries for this timetable
+    entries = await entry_repo.get_by_timetable_id(timetable_id)
     
     # Calculate lunch hours count
     lunch_hours_count = math.ceil(settings.lunch_duration_minutes / settings.class_hour_length_minutes)
@@ -84,6 +93,45 @@ async def calculate_class_lunch_hours(
             
             class_lunch_hours[class_group.id][day] = class_lunch_slots
     
+    # After calculating initial lunch hours, apply adjustments based on actual entries
+    # Check each day for each class: if there are no lessons after lunch and there's a gap,
+    # move lunch directly after the last lesson
+    for class_group in sorted_classes:
+        # Get all entries for this class
+        class_entries = [e for e in entries if e.class_group_id == class_group.id]
+        
+        for day in range(5):
+            day_class_entries = [e for e in class_entries if e.day_of_week == day]
+            if not day_class_entries:
+                continue
+            
+            # Get the last lesson index for this day and class
+            last_lesson_index = max(e.lesson_index for e in day_class_entries)
+            
+            # Get lunch hours for this day
+            lunch_slots = class_lunch_hours.get(class_group.id, {}).get(day, [])
+            if not lunch_slots:
+                continue
+            
+            lunch_start = min(lunch_slots)
+            lunch_end = max(lunch_slots)
+            
+            # Check if there are any teaching hours (lessons) after the lunch break
+            lessons_after_lunch = [e for e in day_class_entries if e.lesson_index > lunch_end]
+            
+            # If there are no lessons after lunch, check if there's a gap between last lesson and lunch
+            if not lessons_after_lunch:
+                # Check if there's a gap (lunch starts after the last lesson)
+                if lunch_start > last_lesson_index:
+                    # There's a gap - move lunch to be directly after the last lesson
+                    new_lunch_start = last_lesson_index + 1
+                    new_lunch_slots = []
+                    for i in range(lunch_hours_count):
+                        new_lunch_slots.append(new_lunch_start + i)
+                    
+                    # Update the lunch hours for this day
+                    class_lunch_hours[class_group.id][day] = new_lunch_slots
+    
     return class_lunch_hours
 
 @router.post("/schools/{school_id}/timetables/generate", response_model=TimetableResponse)
@@ -106,7 +154,6 @@ async def generate_timetable(
         )
         
         # Get full timetable with entries
-        from app.repositories.timetable_repository import TimetableRepository
         repo = TimetableRepository(db)
         full_timetable = await repo.get_by_id_with_entries(timetable.id)
         if not full_timetable:
@@ -157,7 +204,6 @@ async def list_timetables(
     if current_user.school_id != school_id:
         raise HTTPException(status_code=403, detail="Access denied")
     
-    from app.repositories.timetable_repository import TimetableRepository
     repo = TimetableRepository(db)
     timetables = await repo.get_by_school_id(school_id)
     
@@ -192,7 +238,6 @@ async def get_timetable(
     if current_user.school_id != school_id:
         raise HTTPException(status_code=403, detail="Access denied")
     
-    from app.repositories.timetable_repository import TimetableRepository
     repo = TimetableRepository(db)
     timetable = await repo.get_by_id_with_entries(timetable_id)
     if not timetable:
@@ -225,10 +270,6 @@ async def delete_timetable(
 ):
     if current_user.school_id != school_id:
         raise HTTPException(status_code=403, detail="Access denied")
-    
-    from app.repositories.timetable_repository import TimetableRepository, TimetableEntryRepository
-    from sqlalchemy import select
-    from app.models.timetable import TimetableEntry, Timetable
     
     repo = TimetableRepository(db)
     timetable = await repo.get_by_id(timetable_id)
