@@ -181,48 +181,85 @@ async def run_migrations(database_url: str):
         tables = inspector.get_table_names()
         sync_engine.dispose()
         
+        # Check for missing critical tables and create them
+        missing_tables = []
         if 'schools' not in tables:
-            print(f"⚠️  Warning: 'schools' table not found after migrations!")
+            missing_tables.append('schools')
+        if 'school_settings' not in tables:
+            missing_tables.append('school_settings')
+        
+        if missing_tables:
+            print(f"⚠️  Warning: Missing tables after migrations: {missing_tables}")
             print(f"   Found tables: {tables}")
             print(f"   Database appears to be in inconsistent state.")
-            print(f"   Creating missing 'schools' table manually...")
+            print(f"   Creating missing tables manually...")
             
-            # Create schools table manually since migrations think they're done
-            from sqlalchemy import MetaData, Table, Column, Integer, String, Index
+            from sqlalchemy import MetaData, Table, Column, Integer, String, Time, JSON, ForeignKey, Index
             sync_engine = create_engine(sync_url)
             metadata = MetaData()
             
-            # Create schools table (from initial migration)
-            schools_table = Table(
-                'schools',
-                metadata,
-                Column('id', Integer, primary_key=True),
-                Column('name', String, nullable=False),
-                Column('code', String, nullable=False),
-                Index('ix_schools_id', 'id'),
-                Index('ix_schools_code', 'code', unique=True)
-            )
+            # Create schools table if missing
+            if 'schools' in missing_tables:
+                schools_table = Table(
+                    'schools',
+                    metadata,
+                    Column('id', Integer, primary_key=True),
+                    Column('name', String, nullable=False),
+                    Column('code', String, nullable=False),
+                    Index('ix_schools_id', 'id'),
+                    Index('ix_schools_code', 'code', unique=True)
+                )
+                try:
+                    schools_table.create(sync_engine, checkfirst=True)
+                    print(f"✅ Created 'schools' table")
+                except Exception as e:
+                    print(f"⚠️  Could not create schools table: {e}")
             
-            try:
-                schools_table.create(sync_engine, checkfirst=True)
-                print(f"✅ Created 'schools' table")
-            except Exception as e:
-                print(f"⚠️  Could not create schools table: {e}")
-                # Try to continue anyway - maybe it exists now
-            finally:
-                sync_engine.dispose()
+            # Create school_settings table if missing (depends on schools)
+            if 'school_settings' in missing_tables:
+                # Verify schools exists (should be created above if it was missing)
+                inspector_check = sql_inspect(sync_engine)
+                tables_check = inspector_check.get_table_names()
+                if 'schools' not in tables_check:
+                    print(f"⚠️  Cannot create school_settings: schools table still missing")
+                else:
+                    school_settings_table = Table(
+                        'school_settings',
+                        metadata,
+                        Column('id', Integer, primary_key=True),
+                        Column('school_id', Integer, ForeignKey('schools.id'), nullable=False),
+                        Column('start_time', Time, nullable=False),
+                        Column('end_time', Time, nullable=False),
+                        Column('class_hour_length_minutes', Integer, nullable=False),
+                        Column('break_duration_minutes', Integer, nullable=False),
+                        Column('break_durations', JSON, nullable=True),
+                        Column('possible_lunch_hours', JSON, nullable=True),
+                        Column('lunch_duration_minutes', Integer, nullable=False),
+                        Index('ix_school_settings_id', 'id'),
+                        Index('ix_school_settings_school_id', 'school_id', unique=True)
+                    )
+                    try:
+                        school_settings_table.create(sync_engine, checkfirst=True)
+                        print(f"✅ Created 'school_settings' table")
+                    except Exception as e:
+                        print(f"⚠️  Could not create school_settings table: {e}")
             
-            # Verify schools table exists now
+            sync_engine.dispose()
+            
+            # Verify tables exist now
             sync_engine = create_engine(sync_url)
             inspector = sql_inspect(sync_engine)
             tables_after = inspector.get_table_names()
             sync_engine.dispose()
             
+            # Check if critical tables exist
             if 'schools' not in tables_after:
                 raise RuntimeError("Failed to create 'schools' table. Database is in inconsistent state.")
-            print(f"✅ Verified: 'schools' table now exists")
+            if 'school_settings' not in tables_after:
+                raise RuntimeError("Failed to create 'school_settings' table. Database is in inconsistent state.")
+            print(f"✅ Verified: Required tables exist")
         else:
-            print(f"✅ Verified: 'schools' table exists")
+            print(f"✅ Verified: Required tables exist")
     finally:
         os.chdir(original_dir)
 
