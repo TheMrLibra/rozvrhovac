@@ -55,9 +55,12 @@ async def run_migrations(database_url: str):
         # Use sync URL for alembic (remove +asyncpg)
         sync_url = database_url.replace("+asyncpg", "")
         
-        # Set DATABASE_URL environment variable for alembic
+        # Set ALEMBIC_DATABASE_URL for alembic (keep DATABASE_URL as async for app imports)
         env = os.environ.copy()
-        env['DATABASE_URL'] = sync_url
+        env['ALEMBIC_DATABASE_URL'] = sync_url
+        # Keep original DATABASE_URL so database.py imports work correctly
+        if 'DATABASE_URL' not in env:
+            env['DATABASE_URL'] = database_url
         
         # Run migrations using subprocess to avoid asyncio.run() nesting
         print(f"Running migrations on database...")

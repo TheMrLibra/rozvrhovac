@@ -28,9 +28,13 @@ target_metadata = Base.metadata
 
 def get_url():
     # Alembic needs a sync URL (postgresql://) not async (postgresql+asyncpg://)
-    url = settings.DATABASE_URL
-    if url.startswith("postgresql+asyncpg://"):
-        url = url.replace("postgresql+asyncpg://", "postgresql://")
+    # Check for ALEMBIC_DATABASE_URL first (set by migration scripts)
+    import os
+    url = os.environ.get('ALEMBIC_DATABASE_URL')
+    if not url:
+        url = settings.DATABASE_URL
+        if url.startswith("postgresql+asyncpg://"):
+            url = url.replace("postgresql+asyncpg://", "postgresql://")
     return url
 
 def run_migrations_offline() -> None:
