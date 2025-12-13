@@ -114,30 +114,43 @@ async def run_migrations(database_url: str):
         if 'schools' not in tables:
             print(f"⚠️  Warning: 'schools' table not found after migrations!")
             print(f"   Found tables: {tables}")
-            print(f"   This might mean migrations didn't run properly.")
-            print(f"   Trying to force migrations...")
+            print(f"   Database appears to be in inconsistent state.")
+            print(f"   Creating missing 'schools' table manually...")
             
-            # Try stamping to base and upgrading again
-            stamp_result = subprocess.run(
-                ['python', '-m', 'alembic', 'stamp', 'base'],
-                env=env,
-                cwd=backend_dir,
-                capture_output=True,
-                text=True
+            # Create schools table manually since migrations think they're done
+            from sqlalchemy import MetaData, Table, Column, Integer, String, Index
+            sync_engine = create_engine(sync_url)
+            metadata = MetaData()
+            
+            # Create schools table (from initial migration)
+            schools_table = Table(
+                'schools',
+                metadata,
+                Column('id', Integer, primary_key=True),
+                Column('name', String, nullable=False),
+                Column('code', String, nullable=False),
+                Index('ix_schools_id', 'id'),
+                Index('ix_schools_code', 'code', unique=True)
             )
             
-            upgrade_result = subprocess.run(
-                ['python', '-m', 'alembic', 'upgrade', 'head'],
-                env=env,
-                cwd=backend_dir,
-                capture_output=True,
-                text=True
-            )
+            try:
+                schools_table.create(sync_engine, checkfirst=True)
+                print(f"✅ Created 'schools' table")
+            except Exception as e:
+                print(f"⚠️  Could not create schools table: {e}")
+                # Try to continue anyway - maybe it exists now
+            finally:
+                sync_engine.dispose()
             
-            if upgrade_result.returncode != 0:
-                raise RuntimeError(f"Force migration failed: {upgrade_result.stderr}")
+            # Verify schools table exists now
+            sync_engine = create_engine(sync_url)
+            inspector = sql_inspect(sync_engine)
+            tables_after = inspector.get_table_names()
+            sync_engine.dispose()
             
-            print(f"✅ Force migrations completed")
+            if 'schools' not in tables_after:
+                raise RuntimeError("Failed to create 'schools' table. Database is in inconsistent state.")
+            print(f"✅ Verified: 'schools' table now exists")
         else:
             print(f"✅ Verified: 'schools' table exists")
     finally:
