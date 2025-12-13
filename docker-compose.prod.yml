@@ -1,5 +1,9 @@
 version: '3.8'
 
+# Production Docker Compose for Application VM
+# This VM runs the application services (backend, frontend, databases)
+# Nginx reverse proxy runs on a separate VM
+
 services:
   # Registry Database - stores school metadata
   postgres-registry:
@@ -20,12 +24,11 @@ services:
     restart: unless-stopped
     networks:
       - rozvrhovac-network
-    # Uncomment to expose port in production (not recommended for security)
-    # ports:
-    #   - "5433:5432"
+    # Expose port only to internal network (not to host)
+    expose:
+      - "5432"
 
   # Main PostgreSQL instance for school databases
-  # In production, you might want separate instances or managed databases
   postgres:
     image: postgres:15-alpine
     container_name: rozvrhovac-postgres
@@ -37,8 +40,6 @@ services:
       POSTGRES_HOST_AUTH_METHOD: md5
     volumes:
       - postgres_data:/var/lib/postgresql/data
-      # Optional: mount init scripts for initial setup
-      # - ./scripts/init-db.sql:/docker-entrypoint-initdb.d/init.sql
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-postgres}"]
       interval: 10s
@@ -47,9 +48,9 @@ services:
     restart: unless-stopped
     networks:
       - rozvrhovac-network
-    # Uncomment to expose port in production (not recommended for security)
-    # ports:
-    #   - "5432:5432"
+    # Expose port only to internal network (not to host)
+    expose:
+      - "5432"
 
   # Backend API
   backend:
@@ -93,6 +94,9 @@ services:
     restart: unless-stopped
     networks:
       - rozvrhovac-network
+    # Expose backend on internal port (nginx on other VM will proxy to this)
+    expose:
+      - "8000"
     # Health check
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"]
@@ -101,20 +105,6 @@ services:
       retries: 3
       start_period: 40s
 
-  # Nginx Reverse Proxy for Backend
-  nginx-backend:
-    image: nginx:alpine
-    container_name: rozvrhovac-nginx-backend
-    volumes:
-      - ./nginx/backend.conf:/etc/nginx/conf.d/default.conf:ro
-    ports:
-      - "${BACKEND_PORT:-8000}:80"
-    depends_on:
-      - backend
-    restart: unless-stopped
-    networks:
-      - rozvrhovac-network
-
   # Frontend
   frontend:
     build:
@@ -122,31 +112,20 @@ services:
       dockerfile: Dockerfile
     container_name: rozvrhovac-frontend
     environment:
-      # Frontend environment variables (if needed)
-      VITE_API_URL: ${VITE_API_URL:-http://localhost:8000}
+      # Frontend environment variables
+      VITE_API_URL: ${VITE_API_URL:-http://api.yourdomain.com}
     restart: unless-stopped
     networks:
       - rozvrhovac-network
-    # Health check - check if nginx process is running
+    # Expose frontend on internal port (nginx on other VM will proxy to this)
+    expose:
+      - "80"
+    # Health check
     healthcheck:
       test: ["CMD", "sh", "-c", "pgrep nginx || exit 1"]
       interval: 30s
       timeout: 10s
       retries: 3
-
-  # Nginx Reverse Proxy for Frontend
-  nginx-frontend:
-    image: nginx:alpine
-    container_name: rozvrhovac-nginx-frontend
-    volumes:
-      - ./nginx/frontend.conf:/etc/nginx/conf.d/default.conf:ro
-    ports:
-      - "${FRONTEND_PORT:-3000}:80"
-    depends_on:
-      - frontend
-    restart: unless-stopped
-    networks:
-      - rozvrhovac-network
 
 volumes:
   registry_db_data:
@@ -157,3 +136,4 @@ volumes:
 networks:
   rozvrhovac-network:
     driver: bridge
+
