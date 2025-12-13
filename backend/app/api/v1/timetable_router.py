@@ -104,7 +104,7 @@ async def delete_timetable(
     
     from app.repositories.timetable_repository import TimetableRepository, TimetableEntryRepository
     from sqlalchemy import select
-    from app.models.timetable import TimetableEntry
+    from app.models.timetable import TimetableEntry, Timetable
     
     repo = TimetableRepository(db)
     timetable = await repo.get_by_id(timetable_id)
@@ -113,8 +113,28 @@ async def delete_timetable(
     if timetable.school_id != school_id:
         raise HTTPException(status_code=403, detail="Access denied")
     
-    # Delete all timetable entries first
+    # First, find and delete all substitute timetables that reference this timetable as their base
+    substitute_result = await db.execute(
+        select(Timetable).where(Timetable.base_timetable_id == timetable_id)
+    )
+    substitute_timetables = substitute_result.scalars().all()
+    
     entry_repo = TimetableEntryRepository(db)
+    
+    # Delete entries and timetables for each substitute timetable
+    for substitute_timetable in substitute_timetables:
+        # Delete entries for this substitute timetable
+        substitute_entries_result = await db.execute(
+            select(TimetableEntry).where(TimetableEntry.timetable_id == substitute_timetable.id)
+        )
+        substitute_entries = substitute_entries_result.scalars().all()
+        for entry in substitute_entries:
+            await entry_repo.delete(entry.id)
+        
+        # Delete the substitute timetable
+        await repo.delete(substitute_timetable.id)
+    
+    # Delete all timetable entries for the base timetable
     result = await db.execute(
         select(TimetableEntry).where(TimetableEntry.timetable_id == timetable_id)
     )
@@ -122,7 +142,7 @@ async def delete_timetable(
     for entry in entries:
         await entry_repo.delete(entry.id)
     
-    # Now delete the timetable
+    # Now delete the base timetable
     await repo.delete(timetable_id)
 
 class SubstituteTimetableCreate(BaseModel):
