@@ -17,6 +17,11 @@ AsyncSessionLocal = async_sessionmaker(
 Base = declarative_base()
 
 async def get_db():
+    """
+    Legacy database dependency. 
+    For multi-tenant support, use get_db_for_school from dependencies instead.
+    This is kept for backward compatibility.
+    """
     async with AsyncSessionLocal() as session:
         try:
             yield session

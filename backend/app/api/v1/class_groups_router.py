@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from typing import List
-from app.core.database import get_db
+from app.core.dependencies import get_db_for_school
 from app.core.dependencies import get_current_active_user, require_role
 from app.models.user import User, UserRole
 from app.schemas.class_group import ClassGroupCreate, ClassGroupUpdate, ClassGroupResponse, GradeLevelCreate, GradeLevelResponse
@@ -15,7 +15,7 @@ router = APIRouter()
 async def create_class_group(
     class_group_data: ClassGroupCreate,
     current_user: User = Depends(require_role([UserRole.ADMIN])),
-    db: AsyncSession = Depends(get_db)
+    db: AsyncSession = Depends(get_db_for_school)
 ):
     service = ClassGroupService(db)
     try:
@@ -28,7 +28,7 @@ async def create_class_group(
 @router.get("/", response_model=List[ClassGroupResponse])
 async def get_class_groups(
     current_user: User = Depends(get_current_active_user),
-    db: AsyncSession = Depends(get_db)
+    db: AsyncSession = Depends(get_db_for_school)
 ):
     service = ClassGroupService(db)
     class_groups = await service.get_class_groups_by_school(current_user.school_id)
@@ -38,7 +38,7 @@ async def get_class_groups(
 async def get_class_group(
     class_group_id: int,
     current_user: User = Depends(get_current_active_user),
-    db: AsyncSession = Depends(get_db)
+    db: AsyncSession = Depends(get_db_for_school)
 ):
     service = ClassGroupService(db)
     class_group = await service.get_class_group_by_id(class_group_id, current_user.school_id)
@@ -51,7 +51,7 @@ async def update_class_group(
     class_group_id: int,
     update_data: ClassGroupUpdate,
     current_user: User = Depends(require_role([UserRole.ADMIN])),
-    db: AsyncSession = Depends(get_db)
+    db: AsyncSession = Depends(get_db_for_school)
 ):
     service = ClassGroupService(db)
     try:
@@ -66,7 +66,7 @@ async def update_class_group(
 async def delete_class_group(
     class_group_id: int,
     current_user: User = Depends(require_role([UserRole.ADMIN])),
-    db: AsyncSession = Depends(get_db)
+    db: AsyncSession = Depends(get_db_for_school)
 ):
     service = ClassGroupService(db)
     deleted = await service.delete_class_group(class_group_id, current_user.school_id)
@@ -78,7 +78,7 @@ async def delete_class_group(
 async def create_grade_level(
     grade_level_data: GradeLevelCreate,
     current_user: User = Depends(require_role([UserRole.ADMIN])),
-    db: AsyncSession = Depends(get_db)
+    db: AsyncSession = Depends(get_db_for_school)
 ):
     grade_level_repo = BaseRepository(db, GradeLevel)
     grade_level = GradeLevel(
@@ -91,7 +91,7 @@ async def create_grade_level(
 @router.get("/grade-levels/", response_model=List[GradeLevelResponse])
 async def get_grade_levels(
     current_user: User = Depends(get_current_active_user),
-    db: AsyncSession = Depends(get_db)
+    db: AsyncSession = Depends(get_db_for_school)
 ):
     grade_level_repo = BaseRepository(db, GradeLevel)
     from sqlalchemy import select

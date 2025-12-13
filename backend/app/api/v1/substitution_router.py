@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from typing import List
-from app.core.database import get_db
+from app.core.dependencies import get_db_for_school
 from app.core.dependencies import get_current_active_user, require_role
 from app.models.user import User, UserRole
 from app.models.absence import SubstitutionStatus
@@ -16,7 +16,7 @@ async def generate_substitutions(
     school_id: int,
     absence_id: int,
     current_user: User = Depends(require_role([UserRole.ADMIN])),
-    db: AsyncSession = Depends(get_db)
+    db: AsyncSession = Depends(get_db_for_school)
 ):
     if current_user.school_id != school_id:
         raise HTTPException(status_code=403, detail="Access denied")
@@ -32,7 +32,7 @@ async def generate_substitutions(
 async def list_substitutions(
     school_id: int,
     current_user: User = Depends(get_current_active_user),
-    db: AsyncSession = Depends(get_db)
+    db: AsyncSession = Depends(get_db_for_school)
 ):
     if current_user.school_id != school_id:
         raise HTTPException(status_code=403, detail="Access denied")
@@ -47,7 +47,7 @@ async def update_substitution(
     substitution_id: int,
     substitution_data: SubstitutionUpdate,
     current_user: User = Depends(require_role([UserRole.ADMIN])),
-    db: AsyncSession = Depends(get_db)
+    db: AsyncSession = Depends(get_db_for_school)
 ):
     if current_user.school_id != school_id:
         raise HTTPException(status_code=403, detail="Access denied")

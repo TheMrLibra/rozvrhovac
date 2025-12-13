@@ -7,6 +7,7 @@ from app.models.classroom import Classroom
 from app.models.user import User, UserRole
 from app.models.timetable import Timetable, TimetableEntry
 from app.models.absence import TeacherAbsence, Substitution
+from app.models.registry import SchoolRegistry
 
 __all__ = [
     "School",
@@ -24,5 +25,6 @@ __all__ = [
     "TimetableEntry",
     "TeacherAbsence",
     "Substitution",
+    "SchoolRegistry",
 ]
 

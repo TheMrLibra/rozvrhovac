@@ -9,6 +9,15 @@ class Settings(BaseSettings):
     # Database
     DATABASE_URL: str = "postgresql+asyncpg://postgres:postgres@localhost:5432/rozvrhovac"
     
+    # Registry Database (for multi-tenant setup)
+    REGISTRY_DATABASE_URL: str = "postgresql+asyncpg://postgres:postgres@localhost:5432/rozvrhovac_registry"
+    
+    # Database connection defaults (used when creating new school databases)
+    DEFAULT_DB_HOST: str = "localhost"
+    DEFAULT_DB_PORT: int = 5432
+    DEFAULT_DB_USER: str = "postgres"
+    DEFAULT_DB_PASSWORD: str = "postgres"  # Should be set via environment variable in production
+    
     # JWT
     SECRET_KEY: str = "your-secret-key-change-in-production"
     ALGORITHM: str = "HS256"

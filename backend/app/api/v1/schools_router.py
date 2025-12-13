@@ -1,7 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
-from app.core.database import get_db
-from app.core.dependencies import get_current_active_user, require_role
+from app.core.dependencies import get_current_active_user, require_role, get_db_for_school
 from app.models.user import User, UserRole
 from app.schemas.school import SchoolSettingsUpdate, SchoolSettingsResponse
 from app.services.school_service import SchoolService
@@ -12,7 +11,7 @@ router = APIRouter()
 async def get_school(
     school_id: int,
     current_user: User = Depends(get_current_active_user),
-    db: AsyncSession = Depends(get_db)
+    db: AsyncSession = Depends(get_db_for_school)
 ):
     # Verify user belongs to this school
     if current_user.school_id != school_id:
@@ -28,7 +27,7 @@ async def get_school(
 async def get_school_settings(
     school_id: int,
     current_user: User = Depends(get_current_active_user),
-    db: AsyncSession = Depends(get_db)
+    db: AsyncSession = Depends(get_db_for_school)
 ):
     if current_user.school_id != school_id:
         raise HTTPException(status_code=403, detail="Access denied")
@@ -44,7 +43,7 @@ async def update_school_settings(
     school_id: int,
     settings_data: SchoolSettingsUpdate,
     current_user: User = Depends(require_role([UserRole.ADMIN])),
-    db: AsyncSession = Depends(get_db)
+    db: AsyncSession = Depends(get_db_for_school)
 ):
     if current_user.school_id != school_id:
         raise HTTPException(status_code=403, detail="Access denied")

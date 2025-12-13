@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException, status, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 from typing import List, Optional
-from app.core.database import get_db
+from app.core.dependencies import get_db_for_school
 from app.core.dependencies import get_current_active_user, require_role
 from app.models.user import User, UserRole
 from app.schemas.teacher import (
@@ -20,7 +20,7 @@ async def create_teacher(
     school_id: int,
     teacher_data: TeacherCreate,
     current_user: User = Depends(require_role([UserRole.ADMIN])),
-    db: AsyncSession = Depends(get_db)
+    db: AsyncSession = Depends(get_db_for_school)
 ):
     if current_user.school_id != school_id:
         raise HTTPException(status_code=403, detail="Access denied")
@@ -49,7 +49,7 @@ async def create_teacher(
 async def list_teachers(
     school_id: int,
     current_user: User = Depends(get_current_active_user),
-    db: AsyncSession = Depends(get_db)
+    db: AsyncSession = Depends(get_db_for_school)
 ):
     if current_user.school_id != school_id:
         raise HTTPException(status_code=403, detail="Access denied")
@@ -71,7 +71,7 @@ async def get_teacher(
     school_id: int,
     teacher_id: int,
     current_user: User = Depends(get_current_active_user),
-    db: AsyncSession = Depends(get_db)
+    db: AsyncSession = Depends(get_db_for_school)
 ):
     if current_user.school_id != school_id:
         raise HTTPException(status_code=403, detail="Access denied")
@@ -96,7 +96,7 @@ async def update_teacher(
     teacher_id: int,
     teacher_data: TeacherUpdate,
     current_user: User = Depends(require_role([UserRole.ADMIN])),
-    db: AsyncSession = Depends(get_db)
+    db: AsyncSession = Depends(get_db_for_school)
 ):
     if current_user.school_id != school_id:
         raise HTTPException(status_code=403, detail="Access denied")
@@ -127,7 +127,7 @@ async def delete_teacher(
     school_id: int,
     teacher_id: int,
     current_user: User = Depends(require_role([UserRole.ADMIN])),
-    db: AsyncSession = Depends(get_db)
+    db: AsyncSession = Depends(get_db_for_school)
 ):
     if current_user.school_id != school_id:
         raise HTTPException(status_code=403, detail="Access denied")
@@ -145,7 +145,7 @@ async def get_teacher_timetable(
     teacher_id: int,
     day_of_week: Optional[int] = Query(None, description="Filter by day of week (0-4, Monday-Friday). If not provided, returns all days."),
     current_user: User = Depends(get_current_active_user),
-    db: AsyncSession = Depends(get_db)
+    db: AsyncSession = Depends(get_db_for_school)
 ):
     if current_user.school_id != school_id:
         raise HTTPException(status_code=403, detail="Access denied")
@@ -175,7 +175,7 @@ async def create_teacher_capability(
     teacher_id: int,
     capability_data: TeacherSubjectCapabilityCreate,
     current_user: User = Depends(require_role([UserRole.ADMIN])),
-    db: AsyncSession = Depends(get_db)
+    db: AsyncSession = Depends(get_db_for_school)
 ):
     if current_user.school_id != school_id:
         raise HTTPException(status_code=403, detail="Access denied")
@@ -224,7 +224,7 @@ async def get_teacher_capabilities(
     school_id: int,
     teacher_id: int,
     current_user: User = Depends(get_current_active_user),
-    db: AsyncSession = Depends(get_db)
+    db: AsyncSession = Depends(get_db_for_school)
 ):
     if current_user.school_id != school_id:
         raise HTTPException(status_code=403, detail="Access denied")
@@ -250,7 +250,7 @@ async def delete_teacher_capability(
     teacher_id: int,
     capability_id: int,
     current_user: User = Depends(require_role([UserRole.ADMIN])),
-    db: AsyncSession = Depends(get_db)
+    db: AsyncSession = Depends(get_db_for_school)
 ):
     if current_user.school_id != school_id:
         raise HTTPException(status_code=403, detail="Access denied")

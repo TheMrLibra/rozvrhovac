@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from typing import List
-from app.core.database import get_db
+from app.core.dependencies import get_db_for_school
 from app.core.dependencies import get_current_active_user, require_role
 from app.models.user import User, UserRole
 from app.schemas.subject import SubjectCreate, SubjectUpdate, SubjectResponse, ClassSubjectAllocationCreate, ClassSubjectAllocationUpdate, ClassSubjectAllocationResponse
@@ -16,7 +16,7 @@ async def create_subject(
     school_id: int,
     subject_data: SubjectCreate,
     current_user: User = Depends(require_role([UserRole.ADMIN])),
-    db: AsyncSession = Depends(get_db)
+    db: AsyncSession = Depends(get_db_for_school)
 ):
     if current_user.school_id != school_id:
         raise HTTPException(status_code=403, detail="Access denied")
@@ -33,7 +33,7 @@ async def create_subject(
 async def list_subjects(
     school_id: int,
     current_user: User = Depends(get_current_active_user),
-    db: AsyncSession = Depends(get_db)
+    db: AsyncSession = Depends(get_db_for_school)
 ):
     if current_user.school_id != school_id:
         raise HTTPException(status_code=403, detail="Access denied")
@@ -47,7 +47,7 @@ async def get_subject(
     school_id: int,
     subject_id: int,
     current_user: User = Depends(get_current_active_user),
-    db: AsyncSession = Depends(get_db)
+    db: AsyncSession = Depends(get_db_for_school)
 ):
     if current_user.school_id != school_id:
         raise HTTPException(status_code=403, detail="Access denied")
@@ -64,7 +64,7 @@ async def update_subject(
     subject_id: int,
     subject_data: SubjectUpdate,
     current_user: User = Depends(require_role([UserRole.ADMIN])),
-    db: AsyncSession = Depends(get_db)
+    db: AsyncSession = Depends(get_db_for_school)
 ):
     if current_user.school_id != school_id:
         raise HTTPException(status_code=403, detail="Access denied")
@@ -83,7 +83,7 @@ async def delete_subject(
     school_id: int,
     subject_id: int,
     current_user: User = Depends(require_role([UserRole.ADMIN])),
-    db: AsyncSession = Depends(get_db)
+    db: AsyncSession = Depends(get_db_for_school)
 ):
     if current_user.school_id != school_id:
         raise HTTPException(status_code=403, detail="Access denied")
@@ -134,7 +134,7 @@ async def delete_subject(
 async def create_allocation(
     allocation_data: ClassSubjectAllocationCreate,
     current_user: User = Depends(require_role([UserRole.ADMIN])),
-    db: AsyncSession = Depends(get_db)
+    db: AsyncSession = Depends(get_db_for_school)
 ):
     repo = ClassSubjectAllocationRepository(db)
     # Verify class_group belongs to user's school
@@ -154,7 +154,7 @@ async def create_allocation(
 async def list_allocations(
     class_group_id: int = None,
     current_user: User = Depends(get_current_active_user),
-    db: AsyncSession = Depends(get_db)
+    db: AsyncSession = Depends(get_db_for_school)
 ):
     repo = ClassSubjectAllocationRepository(db)
     if class_group_id:
@@ -182,7 +182,7 @@ async def update_allocation(
     allocation_id: int,
     allocation_data: ClassSubjectAllocationUpdate,
     current_user: User = Depends(require_role([UserRole.ADMIN])),
-    db: AsyncSession = Depends(get_db)
+    db: AsyncSession = Depends(get_db_for_school)
 ):
     repo = ClassSubjectAllocationRepository(db)
     allocation = await repo.get_by_id(allocation_id)
@@ -204,7 +204,7 @@ async def update_allocation(
 async def delete_allocation(
     allocation_id: int,
     current_user: User = Depends(require_role([UserRole.ADMIN])),
-    db: AsyncSession = Depends(get_db)
+    db: AsyncSession = Depends(get_db_for_school)
 ):
     repo = ClassSubjectAllocationRepository(db)
     allocation = await repo.get_by_id(allocation_id)

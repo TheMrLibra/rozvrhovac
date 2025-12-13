@@ -3,7 +3,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from sqlalchemy.orm import selectinload
 from typing import List, Optional
-from app.core.database import get_db
+from app.core.dependencies import get_db_for_school
 from app.core.dependencies import get_current_active_user, require_role
 from app.models.user import User, UserRole
 from app.models.absence import TeacherAbsence
@@ -17,7 +17,7 @@ async def create_absence(
     school_id: int,
     absence_data: TeacherAbsenceCreate,
     current_user: User = Depends(get_current_active_user),
-    db: AsyncSession = Depends(get_db)
+    db: AsyncSession = Depends(get_db_for_school)
 ):
     if current_user.school_id != school_id:
         raise HTTPException(status_code=403, detail="Access denied")
@@ -55,7 +55,7 @@ async def list_absences(
     school_id: int,
     teacher_id: Optional[int] = Query(None, description="Filter by teacher ID"),
     current_user: User = Depends(get_current_active_user),
-    db: AsyncSession = Depends(get_db)
+    db: AsyncSession = Depends(get_db_for_school)
 ):
     if current_user.school_id != school_id:
         raise HTTPException(status_code=403, detail="Access denied")
@@ -79,7 +79,7 @@ async def get_absence(
     school_id: int,
     absence_id: int,
     current_user: User = Depends(get_current_active_user),
-    db: AsyncSession = Depends(get_db)
+    db: AsyncSession = Depends(get_db_for_school)
 ):
     if current_user.school_id != school_id:
         raise HTTPException(status_code=403, detail="Access denied")
@@ -106,7 +106,7 @@ async def delete_absence(
     school_id: int,
     absence_id: int,
     current_user: User = Depends(require_role([UserRole.ADMIN])),
-    db: AsyncSession = Depends(get_db)
+    db: AsyncSession = Depends(get_db_for_school)
 ):
     if current_user.school_id != school_id:
         raise HTTPException(status_code=403, detail="Access denied")

@@ -8,6 +8,7 @@ class Token(BaseModel):
 class LoginRequest(BaseModel):
     email: EmailStr
     password: str
+    school_code: str  # Required: identifies which school database to use
 
 class UserResponse(BaseModel):
     id: int
