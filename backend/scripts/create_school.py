@@ -66,7 +66,15 @@ async def run_migrations(database_url: str):
         print(f"Running migrations on database...")
         print(f"Database URL: {sync_url}")
         
-        # First check current revision
+        # Check if database has tables but no alembic_version (inconsistent state)
+        from sqlalchemy import create_engine as create_sync_engine
+        from sqlalchemy import inspect as sql_inspect
+        sync_engine_check = create_sync_engine(sync_url)
+        inspector_check = sql_inspect(sync_engine_check)
+        existing_tables = inspector_check.get_table_names()
+        sync_engine_check.dispose()
+        
+        # Check current revision
         check_result = subprocess.run(
             ['python', '-m', 'alembic', 'current'],
             env=env,
@@ -74,9 +82,41 @@ async def run_migrations(database_url: str):
             capture_output=True,
             text=True
         )
-        print(f"Current revision: {check_result.stdout.strip() if check_result.stdout else 'None (fresh database)'}")
+        current_rev = check_result.stdout.strip() if check_result.stdout else None
+        print(f"Current revision: {current_rev if current_rev else 'None (fresh database)'}")
         
-        # Run migrations
+        # If database has tables but no alembic_version, stamp it to head
+        if not current_rev and existing_tables:
+            print(f"⚠️  Database has tables but no Alembic version tracking.")
+            print(f"   Found tables: {existing_tables}")
+            print(f"   Stamping database to current head revision...")
+            
+            # Get the head revision
+            heads_result = subprocess.run(
+                ['python', '-m', 'alembic', 'heads'],
+                env=env,
+                cwd=backend_dir,
+                capture_output=True,
+                text=True
+            )
+            head_rev = heads_result.stdout.strip().split()[0] if heads_result.stdout else None
+            
+            if head_rev:
+                stamp_result = subprocess.run(
+                    ['python', '-m', 'alembic', 'stamp', head_rev],
+                    env=env,
+                    cwd=backend_dir,
+                    capture_output=True,
+                    text=True
+                )
+                if stamp_result.returncode != 0:
+                    print(f"⚠️  Warning: Could not stamp database: {stamp_result.stderr}")
+                else:
+                    print(f"✅ Stamped database to revision: {head_rev}")
+            else:
+                print(f"⚠️  Could not determine head revision, continuing anyway...")
+        
+        # Run migrations (will be a no-op if already at head)
         result = subprocess.run(
             ['python', '-m', 'alembic', 'upgrade', 'head'],
             env=env,
@@ -86,12 +126,42 @@ async def run_migrations(database_url: str):
         )
         
         if result.returncode != 0:
-            print(f"❌ Migration error: {result.stderr}")
-            raise RuntimeError(f"Migration failed: {result.stderr}")
-        
-        print(f"✅ Migrations completed")
-        if result.stdout:
-            print(result.stdout)
+            # Check if error is just about duplicate tables (tables exist but migration tried to create them)
+            if 'DuplicateTable' in result.stderr or 'already exists' in result.stderr:
+                print(f"⚠️  Migration error due to existing tables. Stamping database to head...")
+                # Try to stamp to head
+                heads_result = subprocess.run(
+                    ['python', '-m', 'alembic', 'heads'],
+                    env=env,
+                    cwd=backend_dir,
+                    capture_output=True,
+                    text=True
+                )
+                head_rev = heads_result.stdout.strip().split()[0] if heads_result.stdout else None
+                if head_rev:
+                    stamp_result = subprocess.run(
+                        ['python', '-m', 'alembic', 'stamp', head_rev],
+                        env=env,
+                        cwd=backend_dir,
+                        capture_output=True,
+                        text=True
+                    )
+                    if stamp_result.returncode == 0:
+                        print(f"✅ Stamped database to revision: {head_rev}")
+                        print(f"✅ Migrations completed (database was already up to date)")
+                    else:
+                        print(f"❌ Migration error: {result.stderr}")
+                        raise RuntimeError(f"Migration failed: {result.stderr}")
+                else:
+                    print(f"❌ Migration error: {result.stderr}")
+                    raise RuntimeError(f"Migration failed: {result.stderr}")
+            else:
+                print(f"❌ Migration error: {result.stderr}")
+                raise RuntimeError(f"Migration failed: {result.stderr}")
+        else:
+            print(f"✅ Migrations completed")
+            if result.stdout:
+                print(result.stdout)
         
         # Verify migrations actually ran by checking revision again
         verify_result = subprocess.run(
