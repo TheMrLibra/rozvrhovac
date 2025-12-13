@@ -126,7 +126,7 @@ async def create_school(
         # Create default school settings if they don't exist
         existing_settings = await settings_repo.get_by_school_id(school_id)
         if not existing_settings:
-            settings = SchoolSettings(
+            school_settings = SchoolSettings(
                 school_id=school_id,
                 start_time=time(8, 0),
                 end_time=time(16, 0),
@@ -136,7 +136,7 @@ async def create_school(
                 possible_lunch_hours=[3, 4, 5],
                 lunch_duration_minutes=30
             )
-            await settings_repo.create(settings)
+            await settings_repo.create(school_settings)
             await school_db.commit()
             print(f"✅ Created default school settings")
     
