@@ -223,26 +223,32 @@ async def run_migrations(database_url: str):
                 if 'schools' not in tables_check:
                     print(f"⚠️  Cannot create school_settings: schools table still missing")
                 else:
-                    school_settings_table = Table(
-                        'school_settings',
-                        metadata,
-                        Column('id', Integer, primary_key=True),
-                        Column('school_id', Integer, ForeignKey('schools.id'), nullable=False),
-                        Column('start_time', Time, nullable=False),
-                        Column('end_time', Time, nullable=False),
-                        Column('class_hour_length_minutes', Integer, nullable=False),
-                        Column('break_duration_minutes', Integer, nullable=False),
-                        Column('break_durations', JSON, nullable=True),
-                        Column('possible_lunch_hours', JSON, nullable=True),
-                        Column('lunch_duration_minutes', Integer, nullable=False),
-                        Index('ix_school_settings_id', 'id'),
-                        Index('ix_school_settings_school_id', 'school_id', unique=True)
-                    )
+                    # Use raw SQL to create the table (avoids MetaData reflection issues)
+                    from sqlalchemy import text
+                    create_sql = """
+                    CREATE TABLE IF NOT EXISTS school_settings (
+                        id SERIAL PRIMARY KEY,
+                        school_id INTEGER NOT NULL,
+                        start_time TIME NOT NULL,
+                        end_time TIME NOT NULL,
+                        class_hour_length_minutes INTEGER NOT NULL,
+                        break_duration_minutes INTEGER NOT NULL,
+                        break_durations JSON,
+                        possible_lunch_hours JSON,
+                        lunch_duration_minutes INTEGER NOT NULL,
+                        CONSTRAINT fk_school_settings_school_id FOREIGN KEY (school_id) REFERENCES schools(id)
+                    );
+                    CREATE INDEX IF NOT EXISTS ix_school_settings_id ON school_settings(id);
+                    CREATE UNIQUE INDEX IF NOT EXISTS ix_school_settings_school_id ON school_settings(school_id);
+                    """
                     try:
-                        school_settings_table.create(sync_engine, checkfirst=True)
+                        with sync_engine.connect() as conn:
+                            conn.execute(text(create_sql))
+                            conn.commit()
                         print(f"✅ Created 'school_settings' table")
                     except Exception as e:
                         print(f"⚠️  Could not create school_settings table: {e}")
+                        raise
             
             sync_engine.dispose()
             
