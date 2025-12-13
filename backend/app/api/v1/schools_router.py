@@ -4,7 +4,7 @@ from app.core.database import get_db
 from app.core.dependencies import get_current_active_user, require_role
 from app.models.user import User, UserRole
 from app.schemas.school import SchoolSettingsUpdate, SchoolSettingsResponse
-from app.repositories.school_repository import SchoolSettingsRepository
+from app.services.school_service import SchoolService
 
 router = APIRouter()
 
@@ -18,9 +18,8 @@ async def get_school(
     if current_user.school_id != school_id:
         raise HTTPException(status_code=403, detail="Access denied")
     
-    from app.repositories.school_repository import SchoolRepository
-    repo = SchoolRepository(db)
-    school = await repo.get_by_id(school_id)
+    school_service = SchoolService(db)
+    school = await school_service.get_school(school_id)
     if not school:
         raise HTTPException(status_code=404, detail="School not found")
     return school
@@ -34,8 +33,8 @@ async def get_school_settings(
     if current_user.school_id != school_id:
         raise HTTPException(status_code=403, detail="Access denied")
     
-    repo = SchoolSettingsRepository(db)
-    settings = await repo.get_by_school_id(school_id)
+    school_service = SchoolService(db)
+    settings = await school_service.get_school_settings(school_id)
     if not settings:
         raise HTTPException(status_code=404, detail="School settings not found")
     return settings
@@ -50,12 +49,9 @@ async def update_school_settings(
     if current_user.school_id != school_id:
         raise HTTPException(status_code=403, detail="Access denied")
     
-    repo = SchoolSettingsRepository(db)
-    settings = await repo.get_by_school_id(school_id)
+    school_service = SchoolService(db)
+    settings = await school_service.update_school_settings(school_id, settings_data)
     if not settings:
         raise HTTPException(status_code=404, detail="School settings not found")
-    
-    update_data = {k: v for k, v in settings_data.model_dump().items() if v is not None}
-    settings = await repo.update(settings.id, **update_data)
     return settings
 

@@ -1,4 +1,4 @@
-from typing import List, Optional, Dict
+from typing import List, Optional, Dict, Tuple
 from datetime import date
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
@@ -70,6 +70,9 @@ class SubstituteTimetableService:
             base_timetable_id=base_timetable_id
         )
         substitute_timetable = await self.timetable_repo.create(substitute_timetable)
+        
+        # Reload with entries for return
+        substitute_timetable = await self.timetable_repo.get_by_id_with_entries(substitute_timetable.id)
         
         # Get all classes and subjects for constraint checking
         classes = await self.class_repo.get_by_school_id(school_id)
@@ -179,7 +182,27 @@ class SubstituteTimetableService:
         for entry in entries:
             await self.entry_repo.create(entry)
         
+        # Reload with entries for return
+        substitute_timetable = await self.timetable_repo.get_by_id_with_entries(substitute_timetable.id)
+        
         return substitute_timetable
+    
+    async def get_substitute_timetable_with_lunch_hours(
+        self,
+        school_id: int,
+        timetable_id: int
+    ) -> Tuple[Timetable, Dict[int, Dict[int, List[int]]]]:
+        """Get a substitute timetable with entries and calculate lunch hours"""
+        from app.services.timetable_service import TimetableService
+        
+        timetable = await self.timetable_repo.get_by_id_with_entries(timetable_id)
+        if not timetable:
+            return None, {}
+        
+        # Use TimetableService to calculate lunch hours
+        timetable_service = TimetableService(self.db)
+        lunch_hours = await timetable_service.calculate_class_lunch_hours(school_id, timetable_id)
+        return timetable, lunch_hours
     
     async def _find_existing_substitute(
         self,

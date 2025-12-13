@@ -1,6 +1,7 @@
 from typing import List, Optional, Dict, Tuple
 from datetime import date
 import random
+import math
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.models.timetable import Timetable, TimetableEntry
 from app.models.class_group import ClassGroup
@@ -238,6 +239,8 @@ class TimetableService:
         for entry in entries:
             await self.entry_repo.create(entry)
         
+        # Reload timetable with entries for return
+        timetable = await self.timetable_repo.get_by_id_with_entries(timetable.id)
         return timetable
     
     def _get_subject_difficulty(self, subject: Subject) -> int:
@@ -917,4 +920,207 @@ class TimetableService:
             pass
         
         return True
+    
+    async def calculate_class_lunch_hours(
+        self,
+        school_id: int,
+        timetable_id: int
+    ) -> Dict[int, Dict[int, List[int]]]:
+        """Calculate lunch hours for each class per day in a timetable, matching the generation logic
+        and applying adjustments: if there are no lessons after lunch and there's a gap, move lunch after last lesson"""
+        
+        settings = await self.settings_repo.get_by_school_id(school_id)
+        if not settings or not settings.possible_lunch_hours or settings.lunch_duration_minutes <= 0:
+            return {}
+        
+        classes = await self.class_repo.get_by_school_id(school_id)
+        if not classes:
+            return {}
+        
+        # Get all entries for this timetable
+        entries = await self.entry_repo.get_by_timetable_id(timetable_id)
+        
+        # Calculate lunch hours count
+        lunch_hours_count = math.ceil(settings.lunch_duration_minutes / settings.class_hour_length_minutes)
+        possible_hours = sorted(settings.possible_lunch_hours)
+        
+        # Distribute classes evenly across possible lunch hours per day (same logic as generation)
+        # Structure: class_lunch_hours[class_id][day] = list of lunch hour lesson indices
+        class_lunch_hours: Dict[int, Dict[int, List[int]]] = {}
+        sorted_classes = sorted(classes, key=lambda c: c.id)
+        
+        for idx, class_group in enumerate(sorted_classes):
+            class_lunch_hours[class_group.id] = {}
+            # Filter out lesson_index 1 from possible lunch hours (first lesson must be at school start)
+            possible_hours_filtered = [h for h in possible_hours if h > 1]
+            if not possible_hours_filtered:
+                possible_hours_filtered = possible_hours
+            
+            # For each day (0-4 = Monday-Friday), assign a lunch hour
+            # Simply pick from possible hours (no even distribution requirement)
+            for day in range(5):
+                # Simply pick from possible hours
+                assigned_lunch_hour = possible_hours_filtered[(idx + day) % len(possible_hours_filtered)] if possible_hours_filtered else possible_hours[0] if possible_hours else None
+                
+                if not assigned_lunch_hour:
+                    continue
+                
+                # Calculate consecutive lunch slots starting from assigned lunch hour
+                # Ensure none of the slots are lesson_index 1
+                class_lunch_slots: List[int] = []
+                for hour_offset in range(lunch_hours_count):
+                    check_hour = assigned_lunch_hour + hour_offset
+                    if check_hour in possible_hours and check_hour != 1:
+                        class_lunch_slots.append(check_hour)
+                    elif check_hour == 1:
+                        # Skip lesson_index 1 - can't have lunch at first lesson
+                        break
+                
+                # If we couldn't get enough consecutive hours, just use the assigned hour (if not 1)
+                if len(class_lunch_slots) < lunch_hours_count:
+                    if assigned_lunch_hour != 1:
+                        class_lunch_slots = [assigned_lunch_hour]
+                    else:
+                        # If assigned hour is 1, use next available hour
+                        next_hour = next((h for h in possible_hours_filtered if h > 1), None)
+                        if next_hour:
+                            class_lunch_slots = [next_hour]
+                        else:
+                            class_lunch_slots = []
+                
+                class_lunch_hours[class_group.id][day] = class_lunch_slots
+        
+        # After calculating initial lunch hours, apply adjustments based on actual entries
+        # Check each day for each class: if there are no lessons after lunch and there's a gap,
+        # move lunch directly after the last lesson
+        for class_group in sorted_classes:
+            # Get all entries for this class
+            class_entries = [e for e in entries if e.class_group_id == class_group.id]
+            
+            for day in range(5):
+                day_class_entries = [e for e in class_entries if e.day_of_week == day]
+                if not day_class_entries:
+                    continue
+                
+                # Get the last lesson index for this day and class
+                last_lesson_index = max(e.lesson_index for e in day_class_entries)
+                
+                # Get lunch hours for this day
+                lunch_slots = class_lunch_hours.get(class_group.id, {}).get(day, [])
+                if not lunch_slots:
+                    continue
+                
+                lunch_start = min(lunch_slots)
+                lunch_end = max(lunch_slots)
+                
+                # Check if there are any teaching hours (lessons) after the lunch break
+                lessons_after_lunch = [e for e in day_class_entries if e.lesson_index > lunch_end]
+                
+                # If there are no lessons after lunch, check if there's a gap between last lesson and lunch
+                if not lessons_after_lunch:
+                    # Check if there's a gap (lunch starts after the last lesson)
+                    if lunch_start > last_lesson_index:
+                        # There's a gap - move lunch to be directly after the last lesson
+                        new_lunch_start = last_lesson_index + 1
+                        new_lunch_slots = []
+                        for i in range(lunch_hours_count):
+                            new_lunch_slots.append(new_lunch_start + i)
+                        
+                        # Update the lunch hours for this day
+                        class_lunch_hours[class_group.id][day] = new_lunch_slots
+        
+        return class_lunch_hours
+    
+    async def get_timetable_with_lunch_hours(
+        self,
+        school_id: int,
+        timetable_id: int
+    ) -> Tuple[Timetable, Dict[int, Dict[int, List[int]]]]:
+        """Get a timetable with entries and calculate lunch hours"""
+        timetable = await self.timetable_repo.get_by_id_with_entries(timetable_id)
+        if not timetable:
+            return None, {}
+        
+        lunch_hours = await self.calculate_class_lunch_hours(school_id, timetable_id)
+        return timetable, lunch_hours
+    
+    async def delete_timetable(
+        self,
+        school_id: int,
+        timetable_id: int
+    ) -> bool:
+        """Delete a timetable and all its entries, including substitute timetables"""
+        from sqlalchemy import select
+        from app.models.timetable import Timetable
+        
+        # Verify timetable exists and belongs to school
+        timetable = await self.timetable_repo.get_by_id(timetable_id)
+        if not timetable:
+            raise ValueError("Timetable not found")
+        if timetable.school_id != school_id:
+            raise ValueError("Timetable does not belong to this school")
+        
+        try:
+            # First, find and delete all substitute timetables that reference this timetable as their base
+            substitute_result = await self.db.execute(
+                select(Timetable).where(Timetable.base_timetable_id == timetable_id)
+            )
+            substitute_timetables = substitute_result.scalars().all()
+            
+            # Delete entries and timetables for each substitute timetable
+            for substitute_timetable in substitute_timetables:
+                # Delete substitutions that reference entries in this substitute timetable
+                from app.models.absence import Substitution
+                substitute_entries_result = await self.db.execute(
+                    select(TimetableEntry).where(TimetableEntry.timetable_id == substitute_timetable.id)
+                )
+                substitute_entries = substitute_entries_result.scalars().all()
+                
+                # Delete substitutions for each entry
+                for entry in substitute_entries:
+                    substitutions_result = await self.db.execute(
+                        select(Substitution).where(Substitution.timetable_entry_id == entry.id)
+                    )
+                    substitutions = substitutions_result.scalars().all()
+                    for substitution in substitutions:
+                        from app.repositories.absence_repository import SubstitutionRepository
+                        sub_repo = SubstitutionRepository(self.db)
+                        await sub_repo.delete(substitution.id)
+                    
+                    await self.entry_repo.delete(entry.id)
+                
+                # Delete the substitute timetable
+                await self.timetable_repo.delete(substitute_timetable.id)
+            
+            # Delete all timetable entries for the base timetable
+            result = await self.db.execute(
+                select(TimetableEntry).where(TimetableEntry.timetable_id == timetable_id)
+            )
+            entries = result.scalars().all()
+            
+            # Delete substitutions for each entry
+            from app.models.absence import Substitution
+            for entry in entries:
+                substitutions_result = await self.db.execute(
+                    select(Substitution).where(Substitution.timetable_entry_id == entry.id)
+                )
+                substitutions = substitutions_result.scalars().all()
+                for substitution in substitutions:
+                    from app.repositories.absence_repository import SubstitutionRepository
+                    sub_repo = SubstitutionRepository(self.db)
+                    await sub_repo.delete(substitution.id)
+                
+                await self.entry_repo.delete(entry.id)
+            
+            # Now delete the base timetable
+            await self.timetable_repo.delete(timetable_id)
+            
+            # Commit the transaction
+            await self.db.commit()
+            
+            return True
+        except Exception as e:
+            # Rollback on error
+            await self.db.rollback()
+            raise ValueError(f"Failed to delete timetable: {str(e)}")
 
