@@ -14,8 +14,6 @@ from app.models.registry import SchoolRegistry
 from app.models.school import School, SchoolSettings
 from app.repositories.registry_repository import RegistryRepository
 from app.repositories.school_repository import SchoolRepository, SchoolSettingsRepository
-from alembic.config import Config
-from alembic import command
 
 async def create_database(database_name: str, host: str, port: int, user: str, password: str):
     """Create a new PostgreSQL database."""
@@ -45,7 +43,7 @@ async def create_database(database_name: str, host: str, port: int, user: str, p
 async def run_migrations(database_url: str):
     """Run Alembic migrations on a database."""
     import os
-    import sys
+    import subprocess
     
     # Change to backend directory to find alembic.ini
     script_dir = os.path.dirname(os.path.abspath(__file__))
@@ -54,15 +52,30 @@ async def run_migrations(database_url: str):
     
     try:
         os.chdir(backend_dir)
-        alembic_cfg = Config("alembic.ini")
         # Use sync URL for alembic (remove +asyncpg)
         sync_url = database_url.replace("+asyncpg", "")
-        alembic_cfg.set_main_option("sqlalchemy.url", sync_url)
         
-        # Run migrations
+        # Set DATABASE_URL environment variable for alembic
+        env = os.environ.copy()
+        env['DATABASE_URL'] = sync_url
+        
+        # Run migrations using subprocess to avoid asyncio.run() nesting
         print(f"Running migrations on database...")
-        command.upgrade(alembic_cfg, "head")
+        result = subprocess.run(
+            ['python', '-m', 'alembic', 'upgrade', 'head'],
+            env=env,
+            cwd=backend_dir,
+            capture_output=True,
+            text=True
+        )
+        
+        if result.returncode != 0:
+            print(f"❌ Migration error: {result.stderr}")
+            raise RuntimeError(f"Migration failed: {result.stderr}")
+        
         print(f"✅ Migrations completed")
+        if result.stdout:
+            print(result.stdout)
     finally:
         os.chdir(original_dir)
 
