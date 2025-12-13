@@ -1,5 +1,3 @@
-version: '3.8'
-
 # Production Docker Compose for Application VM
 # This VM runs the application services (backend, frontend, databases)
 # Nginx reverse proxy runs on a separate VM
