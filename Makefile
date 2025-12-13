@@ -83,20 +83,20 @@ status-prod: ## Show production services status
 
 # Multi-tenant setup targets
 init-registry: ## Initialize registry database
-	$(DOCKER_COMPOSE) -f docker-compose.prod.yml --env-file .env.prod exec backend python scripts/init_registry_db.py
+	$(DOCKER_COMPOSE) -f docker-compose.prod.yml --env-file .env.prod exec backend sh -c "cd /app && python -m scripts.init_registry_db"
 
 init-registry-vm: ## Initialize registry database (VM architecture)
-	$(DOCKER_COMPOSE) -f docker-compose.prod.vm.yml --env-file .env.prod exec backend python scripts/init_registry_db.py
+	$(DOCKER_COMPOSE) -f docker-compose.prod.vm.yml --env-file .env.prod exec backend sh -c "cd /app && python -m scripts.init_registry_db"
 
 create-school: ## Create a new school (usage: make create-school NAME="School Name" CODE="SCHOOL001")
-	$(DOCKER_COMPOSE) -f docker-compose.prod.yml --env-file .env.prod exec backend python scripts/create_school.py --name "$(NAME)" --code "$(CODE)"
+	$(DOCKER_COMPOSE) -f docker-compose.prod.yml --env-file .env.prod exec backend sh -c "cd /app && python -m scripts.create_school --name '$(NAME)' --code '$(CODE)'"
 
 create-school-vm: ## Create a new school (VM architecture) (usage: make create-school-vm NAME="School Name" CODE="SCHOOL001")
-	$(DOCKER_COMPOSE) -f docker-compose.prod.vm.yml --env-file .env.prod exec backend python scripts/create_school.py --name "$(NAME)" --code "$(CODE)"
+	$(DOCKER_COMPOSE) -f docker-compose.prod.vm.yml --env-file .env.prod exec backend sh -c "cd /app && python -m scripts.create_school --name '$(NAME)' --code '$(CODE)'"
 
 create-admin: ## Create admin user (usage: make create-admin CODE="SCHOOL001" EMAIL="admin@school.local" PASSWORD="password")
-	$(DOCKER_COMPOSE) -f docker-compose.prod.yml --env-file .env.prod exec backend python scripts/create_admin_user.py --school-code "$(CODE)" --email "$(EMAIL)" --password "$(PASSWORD)"
+	$(DOCKER_COMPOSE) -f docker-compose.prod.yml --env-file .env.prod exec backend sh -c "cd /app && python -m scripts.create_admin_user --school-code '$(CODE)' --email '$(EMAIL)' --password '$(PASSWORD)'"
 
 create-admin-vm: ## Create admin user (VM architecture) (usage: make create-admin-vm CODE="SCHOOL001" EMAIL="admin@school.local" PASSWORD="password")
-	$(DOCKER_COMPOSE) -f docker-compose.prod.vm.yml --env-file .env.prod exec backend python scripts/create_admin_user.py --school-code "$(CODE)" --email "$(EMAIL)" --password "$(PASSWORD)"
+	$(DOCKER_COMPOSE) -f docker-compose.prod.vm.yml --env-file .env.prod exec backend sh -c "cd /app && python -m scripts.create_admin_user --school-code '$(CODE)' --email '$(EMAIL)' --password '$(PASSWORD)'"
 
