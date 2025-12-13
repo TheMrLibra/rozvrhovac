@@ -36,6 +36,8 @@ class ClassSubjectAllocationBase(BaseModel):
     subject_id: int
     weekly_hours: int
     primary_teacher_id: Optional[int] = None
+    allow_multiple_in_one_day: bool = False
+    required_consecutive_hours: Optional[int] = None
 
 class ClassSubjectAllocationCreate(ClassSubjectAllocationBase):
     pass
@@ -43,6 +45,8 @@ class ClassSubjectAllocationCreate(ClassSubjectAllocationBase):
 class ClassSubjectAllocationUpdate(BaseModel):
     weekly_hours: Optional[int] = None
     primary_teacher_id: Optional[int] = None
+    allow_multiple_in_one_day: Optional[bool] = None  # Optional in update, but default is False in DB
+    required_consecutive_hours: Optional[int] = None
 
 class TeacherSimpleResponse(BaseModel):
     id: int

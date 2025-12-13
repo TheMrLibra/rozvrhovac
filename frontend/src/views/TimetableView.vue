@@ -68,28 +68,15 @@ const filteredEntries = computed(() => {
   )
 })
 
-// Calculate actual lunch hour slots (consecutive hours based on duration)
+// Get lunch hours for the selected class from timetable data (per day)
 const actualLunchHours = computed(() => {
-  if (!schoolSettings.value?.possible_lunch_hours || !schoolSettings.value?.lunch_duration_minutes || !schoolSettings.value?.class_hour_length_minutes) {
-    return []
+  if (!timetable.value?.class_lunch_hours || !selectedClassId.value) {
+    return {}
   }
   
-  // Calculate how many class hours needed (round up)
-  const lunchHoursCount = Math.ceil(schoolSettings.value.lunch_duration_minutes / schoolSettings.value.class_hour_length_minutes)
-  const possibleHours = [...schoolSettings.value.possible_lunch_hours].sort((a, b) => a - b)
-  
-  // Find consecutive hours
-  for (let i = 0; i <= possibleHours.length - lunchHoursCount; i++) {
-    const consecutive = possibleHours.slice(i, i + lunchHoursCount)
-    // Check if they are consecutive
-    const isConsecutive = consecutive.every((hour, idx) => hour === consecutive[0] + idx)
-    if (isConsecutive) {
-      return consecutive
-    }
-  }
-  
-  // If no consecutive hours found, use first N hours
-  return possibleHours.slice(0, lunchHoursCount)
+  // Get lunch hours per day for the selected class from the timetable response
+  // Structure: { day: [lunch_hours] } where day is 0-4 (Monday-Friday)
+  return timetable.value.class_lunch_hours[selectedClassId.value] || {}
 })
 
 async function loadClassGroups() {

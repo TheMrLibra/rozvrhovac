@@ -48,6 +48,7 @@ class TimetableResponse(BaseModel):
     substitute_for_date: Optional[date] = None
     base_timetable_id: Optional[int] = None
     entries: list[TimetableEntryResponse] = []
+    class_lunch_hours: Optional[dict[int, dict[int, list[int]]]] = None  # class_id -> {day: list of lunch hour lesson indices}
     
     class Config:
         from_attributes = True

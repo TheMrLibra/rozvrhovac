@@ -91,29 +91,16 @@ class TimetableService:
         
         # Calculate lunch break in class hours (round up)
         lunch_hours_count = 0
-        lunch_hour_slots = []  # Consecutive lesson indices blocked for lunch
+        possible_hours = []
         if settings.possible_lunch_hours and settings.lunch_duration_minutes > 0:
             # Calculate how many class hours needed (round up)
             import math
             lunch_hours_count = math.ceil(settings.lunch_duration_minutes / settings.class_hour_length_minutes)
-            
-            # Find consecutive hours in possible_lunch_hours that can accommodate lunch
             possible_hours = sorted(settings.possible_lunch_hours)
-            for i in range(len(possible_hours) - lunch_hours_count + 1):
-                # Check if we can get consecutive hours starting from this position
-                consecutive = possible_hours[i:i+lunch_hours_count]
-                # Check if they are consecutive (each is one more than the previous)
-                is_consecutive = all(consecutive[j] == consecutive[0] + j for j in range(len(consecutive)))
-                if is_consecutive:
-                    lunch_hour_slots = consecutive
-                    break
-            
-            # If no consecutive hours found, use the first N hours from possible_lunch_hours
-            if not lunch_hour_slots:
-                lunch_hour_slots = possible_hours[:lunch_hours_count]
         
         # Calculate available minutes (subtract lunch duration)
-        lunch_duration_minutes = lunch_hours_count * settings.class_hour_length_minutes if lunch_hour_slots else 0
+        # We'll calculate this per class since each class has its own lunch hour
+        lunch_duration_minutes = lunch_hours_count * settings.class_hour_length_minutes if possible_hours else 0
         available_minutes = total_minutes - lunch_duration_minutes
         max_lessons_per_day = int(available_minutes // lesson_duration)
         
@@ -134,6 +121,57 @@ class TimetableService:
         # Generate entries for all classes together to avoid conflicts
         entries: List[TimetableEntry] = []
         
+        # Assign lunch hours to classes per day
+        # Structure: class_lunch_hours[class_id][day] = list of lunch hour lesson indices
+        # IMPORTANT: Never assign lunch to lesson_index 1 (first lesson must be at school start time)
+        # Lunch can be assigned to any possible lunch hour (no even distribution requirement)
+        class_lunch_hours: Dict[int, Dict[int, List[int]]] = {}  # class_id -> {day: [lunch_hours]}
+        if settings.possible_lunch_hours and len(settings.possible_lunch_hours) > 0:
+            possible_hours = sorted(settings.possible_lunch_hours)
+            # Filter out lesson_index 1 from possible lunch hours (first lesson must be at school start)
+            possible_hours_filtered = [h for h in possible_hours if h > 1]
+            if not possible_hours_filtered:
+                # If all possible hours are 1 or less, use original list but warn
+                possible_hours_filtered = possible_hours
+            
+            # For each class, assign lunch hours per day
+            for idx, class_group in enumerate(classes):
+                class_lunch_hours[class_group.id] = {}
+                
+                # For each day (0-4 = Monday-Friday), assign a lunch hour
+                for day in range(5):
+                    # Simply pick from possible hours (no even distribution requirement)
+                    # Use class index and day for some variation
+                    assigned_lunch_hour = possible_hours_filtered[(idx + day) % len(possible_hours_filtered)] if possible_hours_filtered else possible_hours[0] if possible_hours else None
+                    
+                    if not assigned_lunch_hour:
+                        continue
+                    
+                    # Calculate consecutive lunch slots starting from assigned lunch hour
+                    # Ensure none of the slots are lesson_index 1
+                    class_lunch_slots = []
+                    for hour_offset in range(lunch_hours_count):
+                        check_hour = assigned_lunch_hour + hour_offset
+                        if check_hour in possible_hours and check_hour != 1:
+                            class_lunch_slots.append(check_hour)
+                        elif check_hour == 1:
+                            # Skip lesson_index 1 - can't have lunch at first lesson
+                            break
+                    
+                    # If we couldn't get enough consecutive hours, just use the assigned hour (if not 1)
+                    if len(class_lunch_slots) < lunch_hours_count:
+                        if assigned_lunch_hour != 1:
+                            class_lunch_slots = [assigned_lunch_hour]
+                        else:
+                            # If assigned hour is 1, use next available hour
+                            next_hour = next((h for h in possible_hours_filtered if h > 1), None)
+                            if next_hour:
+                                class_lunch_slots = [next_hour]
+                            else:
+                                class_lunch_slots = []
+                    
+                    class_lunch_hours[class_group.id][day] = class_lunch_slots
+        
         # Place subjects for each class with even distribution
         for class_group in classes:
             if class_group.id not in class_subjects:
@@ -148,10 +186,39 @@ class TimetableService:
                 settings,
                 max_lessons_per_day,
                 entries,  # Pass all existing entries to check conflicts
-                lunch_hour_slots,  # Pass lunch hour slots to block
-                is_primary_timetable=True  # This is a primary timetable
+                class_lunch_hours.get(class_group.id, {}),  # Pass lunch hours per day for this class
+                is_primary_timetable=True,  # This is a primary timetable
+                lunch_hours_count=lunch_hours_count  # Pass lunch hours count for adjustment
             )
             entries.extend(class_entries)
+            
+            # After placing lessons, adjust lunch breaks if they're after all lessons
+            # If lunch is after the last lesson, place it directly after (no gap)
+            for day in range(5):
+                day_class_entries = [e for e in class_entries if e.day_of_week == day]
+                if not day_class_entries:
+                    continue
+                
+                # Get the last lesson index for this day and class
+                last_lesson_index = max(e.lesson_index for e in day_class_entries)
+                
+                # Get lunch hours for this day
+                lunch_slots = class_lunch_hours.get(class_group.id, {}).get(day, [])
+                if not lunch_slots:
+                    continue
+                
+                # Check if lunch is after all lessons
+                lunch_start = min(lunch_slots)
+                if lunch_start > last_lesson_index:
+                    # Lunch is after all lessons - adjust it to be directly after the last lesson
+                    # Calculate how many consecutive slots we need
+                    new_lunch_start = last_lesson_index + 1
+                    new_lunch_slots = []
+                    for i in range(lunch_hours_count):
+                        new_lunch_slots.append(new_lunch_start + i)
+                    
+                    # Update the lunch hours for this day
+                    class_lunch_hours[class_group.id][day] = new_lunch_slots
         
         # Save all entries
         for entry in entries:
@@ -184,8 +251,9 @@ class TimetableService:
         settings: SchoolSettings,
         max_lessons_per_day: int,
         existing_entries: List[TimetableEntry],
-        lunch_hour_slots: List[int] = None,
-        is_primary_timetable: bool = True
+        lunch_hours_per_day: Dict[int, List[int]] = None,  # day -> list of lunch hour lesson indices
+        is_primary_timetable: bool = True,
+        lunch_hours_count: int = 0  # Number of consecutive hours needed for lunch
     ) -> List[TimetableEntry]:
         """Place subjects for a class ensuring every day has at least one lesson, with even distribution"""
         entries: List[TimetableEntry] = []
@@ -199,15 +267,16 @@ class TimetableService:
         # Track hours per day for even distribution
         hours_per_day: Dict[int, int] = {day: 0 for day in range(5)}
         
-        # Get lunch break hours (block only the consecutive slots used for lunch)
-        # Other possible lunch hours can still have classes
-        lunch_hours = set(lunch_hour_slots or [])
+        # Get lunch break hours per day (block only the consecutive slots used for lunch on each day)
+        lunch_hours_per_day_dict = lunch_hours_per_day or {}
         
         # Create a list of available slots (day, lesson_index) excluding lunch breaks
+        # Lunch breaks vary by day for each class
         available_slots = []
         for day in range(5):
+            lunch_hours_for_day_set = set(lunch_hours_per_day_dict.get(day, []))
             for lesson_index in range(1, max_lessons_per_day + 1):
-                if lesson_index not in lunch_hours:
+                if lesson_index not in lunch_hours_for_day_set:
                     available_slots.append((day, lesson_index))
         
         # Track which teacher is assigned to each class-subject combination
@@ -229,18 +298,219 @@ class TimetableService:
         subjects_remaining = list(subjects_to_place)
         
         # Place one lesson on each day (Monday-Friday)
+        # CRITICAL: First lesson of each day MUST be at lesson_index 1 (school start time)
         for day in range(5):
             if not subjects_remaining:
                 break
             
-            # Find a subject that can be placed on this day
+            # Get lunch hours for this day
+            lunch_hours_for_day_set = set(lunch_hours_per_day_dict.get(day, []))
+            
+            # Get existing lesson indices for this day to try placing adjacent
+            day_entries = [e for e in entries if e.day_of_week == day]
+            day_lesson_indices = {e.lesson_index for e in day_entries}
+            
+            # If this is the first lesson for this day, MUST place at lesson_index 1
+            # Try ALL subjects until we find one that can be placed at lesson_index 1
+            if not day_lesson_indices:
+                lesson_index = 1
+                # lesson_index 1 should never be a lunch break, but check anyway
+                if lesson_index not in lunch_hours_for_day_set:
+                    # Try each subject until we find one that can be placed at lesson_index 1
+                    for idx, (subject, allocation) in enumerate(subjects_remaining):
+                        if any(e.day_of_week == day and e.lesson_index == lesson_index 
+                               and e.class_group_id == class_group.id for e in existing_entries + entries):
+                            continue
+                        
+                        # Check if we already have a teacher assigned for this class-subject
+                        class_subject_key = (class_group.id, subject.id)
+                        assigned_teacher_id = class_subject_teacher.get(class_subject_key)
+                        
+                        # Find suitable teacher (checking availability at this specific time slot)
+                        teacher = await self._find_suitable_teacher(
+                            subject, class_group, day, lesson_index, teachers, existing_entries + entries, teacher_hours, is_primary_timetable, assigned_teacher_id
+                        )
+                        if teacher:
+                            # If we didn't have an assigned teacher yet, store it now
+                            if not assigned_teacher_id:
+                                class_subject_teacher[class_subject_key] = teacher.id
+                            
+                            # Find suitable classroom
+                            classroom = await self._find_suitable_classroom(
+                                subject, class_group, day, lesson_index, classrooms, existing_entries + entries
+                            )
+                            
+                            # Check subject constraints
+                            if self._check_subject_constraints(
+                                subject, class_group.id, day, lesson_index, existing_entries + entries, allocation
+                            ):
+                                # Create entry
+                                entry = TimetableEntry(
+                                    timetable_id=timetable_id,
+                                    class_group_id=class_group.id,
+                                    subject_id=subject.id,
+                                    teacher_id=teacher.id,
+                                    classroom_id=classroom.id if classroom else None,
+                                    day_of_week=day,
+                                    lesson_index=lesson_index
+                                )
+                                entries.append(entry)
+                                teacher_hours[teacher.id] += 1
+                                hours_per_day[day] += 1
+                                days_with_lessons.add(day)
+                                subjects_remaining.pop(idx)
+                                break  # Move to next day
+            
+            # Find a subject that can be placed on this day (for remaining subjects)
             for idx, (subject, allocation) in enumerate(subjects_remaining):
                 placed = False
                 
-                # Try each lesson index for this day
+                # If first lesson wasn't placed at index 1, try other slots (but still prioritize lesson_index 1)
+                candidate_slots = []
                 for lesson_index in range(1, max_lessons_per_day + 1):
-                    if lesson_index in lunch_hours:
+                    if lesson_index in lunch_hours_for_day_set:
                         continue
+                    if any(e.day_of_week == day and e.lesson_index == lesson_index 
+                           and e.class_group_id == class_group.id for e in existing_entries + entries):
+                        continue
+                    
+                    # Prioritize lesson_index 1 for first lesson of day
+                    is_first = (lesson_index == 1) if not day_lesson_indices else False
+                    # Prioritize slots adjacent to existing lessons
+                    is_adjacent = False
+                    if day_lesson_indices:
+                        if (lesson_index - 1 in day_lesson_indices) or (lesson_index + 1 in day_lesson_indices):
+                            is_adjacent = True
+                    
+                    candidate_slots.append((is_first, is_adjacent, lesson_index))
+                
+                # Sort: first lesson (index 1) first, then adjacent slots, then by lesson index
+                candidate_slots.sort(key=lambda x: (not x[0], not x[1], x[2]))
+                
+                # Try each candidate slot
+                for is_first, is_adjacent, lesson_index in candidate_slots:
+                    # Check if we already have a teacher assigned for this class-subject
+                    class_subject_key = (class_group.id, subject.id)
+                    assigned_teacher_id = class_subject_teacher.get(class_subject_key)
+                    
+                    # Find suitable teacher (checking availability at this specific time slot)
+                    teacher = await self._find_suitable_teacher(
+                        subject, class_group, day, lesson_index, teachers, existing_entries + entries, teacher_hours, is_primary_timetable, assigned_teacher_id
+                    )
+                    if not teacher:
+                        continue
+                    
+                    # If we didn't have an assigned teacher yet, store it now
+                    if not assigned_teacher_id:
+                        class_subject_teacher[class_subject_key] = teacher.id
+                    
+                    # Find suitable classroom
+                    classroom = await self._find_suitable_classroom(
+                        subject, class_group, day, lesson_index, classrooms, existing_entries + entries
+                    )
+                    
+                    # Check subject constraints
+                    if not self._check_subject_constraints(
+                        subject, class_group.id, day, lesson_index, existing_entries + entries, allocation
+                    ):
+                        continue
+                    
+                    # Create entry
+                    entry = TimetableEntry(
+                        timetable_id=timetable_id,
+                        class_group_id=class_group.id,
+                        subject_id=subject.id,
+                        teacher_id=teacher.id,
+                        classroom_id=classroom.id if classroom else None,
+                        day_of_week=day,
+                        lesson_index=lesson_index
+                    )
+                    entries.append(entry)
+                    teacher_hours[teacher.id] += 1
+                    hours_per_day[day] += 1
+                    days_with_lessons.add(day)
+                    placed = True
+                    
+                    # Remove this subject from remaining list
+                    subjects_remaining.pop(idx)
+                    break
+                
+                if placed:
+                    break
+        
+        # Now place remaining subjects with even distribution and minimal gaps
+        # Sort slots to prioritize:
+        # 1. Days with fewer hours (for even distribution)
+        # 2. Slots adjacent to existing lessons (to minimize gaps)
+        def slot_priority(slot):
+            day, lesson_index = slot
+            # Get existing lesson indices for this day and class
+            day_entries = [e for e in entries if e.day_of_week == day]
+            day_lesson_indices = {e.lesson_index for e in day_entries}
+            
+            # Check if this slot is adjacent to an existing lesson (minimize gaps)
+            is_adjacent = False
+            if day_lesson_indices:
+                # Check if adjacent to any existing lesson (before or after)
+                if (lesson_index - 1 in day_lesson_indices) or (lesson_index + 1 in day_lesson_indices):
+                    is_adjacent = True
+            
+            # Prioritize days without lessons first, then adjacent slots, then by hours per day
+            if day not in days_with_lessons:
+                return (-1, 0, day, lesson_index)  # Days without lessons get highest priority
+            # Prioritize adjacent slots (to minimize gaps), then by hours per day
+            return (0 if is_adjacent else 1, hours_per_day[day], day, lesson_index)
+        
+        # Place remaining subjects
+        # Track how many hours have been placed for each subject
+        subject_hours_placed: Dict[Tuple[int, int], int] = {}  # (class_group_id, subject_id) -> hours placed
+        
+        for subject, allocation in subjects_remaining:
+            class_subject_key = (class_group.id, subject.id)
+            hours_placed = subject_hours_placed.get(class_subject_key, 0)
+            hours_to_place = allocation.weekly_hours if allocation else 1
+            hours_remaining = hours_to_place - hours_placed
+            
+            if hours_remaining <= 0:
+                continue  # All hours for this subject are already placed
+            
+            placed = False
+            
+            # Check if this subject requires consecutive hours
+            required_consecutive = allocation.required_consecutive_hours if allocation else None
+            
+            # If required_consecutive_hours is set, try to place consecutive blocks first
+            if required_consecutive and required_consecutive > 1 and hours_remaining >= required_consecutive:
+                # Try to place consecutive blocks
+                blocks_placed = 0
+                while hours_remaining >= required_consecutive and blocks_placed < 10:  # Limit iterations
+                    block_placed = await self._place_consecutive_block(
+                        timetable_id, class_group, subject, allocation, teachers, classrooms,
+                        required_consecutive, existing_entries, entries, lunch_hours_per_day_dict,
+                        max_lessons_per_day, teacher_hours, class_subject_teacher,
+                        hours_per_day, days_with_lessons, is_primary_timetable
+                    )
+                    if block_placed:
+                        hours_remaining -= required_consecutive
+                        hours_placed += required_consecutive
+                        subject_hours_placed[class_subject_key] = hours_placed
+                        blocks_placed += 1
+                    else:
+                        # If we can't place a consecutive block, break and try individual placement
+                        break
+                
+                if hours_remaining == 0:
+                    placed = True
+                    continue
+            
+            # If not placed yet (no consecutive requirement or consecutive placement failed), place individually
+            if not placed:
+                # Sort available slots by priority (adjacent slots first, then by hours per day)
+                available_slots_sorted = sorted(available_slots, key=slot_priority)
+                
+                for day, lesson_index in available_slots_sorted:
+                    if placed:
+                        break
                     
                     # Check if this slot is already taken for this class
                     if any(e.day_of_week == day and e.lesson_index == lesson_index 
@@ -269,7 +539,7 @@ class TimetableService:
                     
                     # Check subject constraints
                     if not self._check_subject_constraints(
-                        subject, class_group.id, day, lesson_index, existing_entries + entries
+                        subject, class_group.id, day, lesson_index, existing_entries + entries, allocation
                     ):
                         continue
                     
@@ -288,36 +558,45 @@ class TimetableService:
                     hours_per_day[day] += 1
                     days_with_lessons.add(day)
                     placed = True
-                    
-                    # Remove this subject from remaining list
-                    subjects_remaining.pop(idx)
-                    break
-                
-                if placed:
-                    break
         
-        # Now place remaining subjects with even distribution
-        # Sort slots to prioritize days with fewer hours (for even distribution)
-        def slot_priority(slot):
-            day, lesson_index = slot
-            # Prioritize days with fewer hours, but ensure all days have at least one
-            if day not in days_with_lessons:
-                return (-1, day, lesson_index)  # Days without lessons get highest priority
-            return (hours_per_day[day], day, lesson_index)
+        return entries
+    
+    async def _place_consecutive_block(
+        self,
+        timetable_id: int,
+        class_group: ClassGroup,
+        subject: Subject,
+        allocation: ClassSubjectAllocation,
+        teachers: List[Teacher],
+        classrooms: List[Classroom],
+        block_size: int,
+        existing_entries: List[TimetableEntry],
+        entries: List[TimetableEntry],
+        lunch_hours_per_day: Dict[int, List[int]],
+        max_lessons_per_day: int,
+        teacher_hours: Dict[int, int],
+        class_subject_teacher: Dict[Tuple[int, int], int],
+        hours_per_day: Dict[int, int],
+        days_with_lessons: set,
+        is_primary_timetable: bool
+    ) -> bool:
+        """Place a consecutive block of lessons for a subject. Returns True if successful."""
+        # Get lunch hours per day
+        lunch_hours_per_day_dict = lunch_hours_per_day or {}
         
-        # Place remaining subjects
-        for subject, allocation in subjects_remaining:
-            placed = False
+        # Try each day
+        for day in range(5):
+            lunch_hours_for_day_set = set(lunch_hours_per_day_dict.get(day, []))
             
-            # Sort available slots by priority (days with fewer hours first)
-            available_slots_sorted = sorted(available_slots, key=slot_priority)
-            
-            for day, lesson_index in available_slots_sorted:
-                if placed:
-                    break
+            # Try each starting lesson index
+            for start_index in range(1, max_lessons_per_day + 1 - block_size + 1):
+                # Check if all consecutive slots are available
+                consecutive_slots = list(range(start_index, start_index + block_size))
                 
-                # Check if this slot is already taken for this class
-                if any(e.day_of_week == day and e.lesson_index == lesson_index 
+                # Check if any slot is a lunch break or already taken
+                if any(slot in lunch_hours_for_day_set for slot in consecutive_slots):
+                    continue
+                if any(e.day_of_week == day and e.lesson_index in consecutive_slots 
                        and e.class_group_id == class_group.id for e in existing_entries + entries):
                     continue
                 
@@ -325,45 +604,55 @@ class TimetableService:
                 class_subject_key = (class_group.id, subject.id)
                 assigned_teacher_id = class_subject_teacher.get(class_subject_key)
                 
-                # Find suitable teacher (checking availability at this specific time slot)
-                teacher = await self._find_suitable_teacher(
-                    subject, class_group, day, lesson_index, teachers, existing_entries + entries, teacher_hours, is_primary_timetable, assigned_teacher_id
-                )
-                if not teacher:
-                    continue
-                
-                # If we didn't have an assigned teacher yet, store it now
-                if not assigned_teacher_id:
-                    class_subject_teacher[class_subject_key] = teacher.id
-                
-                # Find suitable classroom
-                classroom = await self._find_suitable_classroom(
-                    subject, class_group, day, lesson_index, classrooms, existing_entries + entries
-                )
-                
-                # Check subject constraints
-                if not self._check_subject_constraints(
-                    subject, class_group.id, day, lesson_index, existing_entries + entries
-                ):
-                    continue
-                
-                # Create entry
-                entry = TimetableEntry(
-                    timetable_id=timetable_id,
-                    class_group_id=class_group.id,
-                    subject_id=subject.id,
-                    teacher_id=teacher.id,
-                    classroom_id=classroom.id if classroom else None,
-                    day_of_week=day,
-                    lesson_index=lesson_index
-                )
-                entries.append(entry)
-                teacher_hours[teacher.id] += 1
-                hours_per_day[day] += 1
-                days_with_lessons.add(day)
-                placed = True
+                # Check if teacher is available for all slots
+                teacher = None
+                for slot_index in consecutive_slots:
+                    candidate_teacher = await self._find_suitable_teacher(
+                        subject, class_group, day, slot_index, teachers, existing_entries + entries, 
+                        teacher_hours, is_primary_timetable, assigned_teacher_id
+                    )
+                    if not candidate_teacher:
+                        break
+                    if teacher is None:
+                        teacher = candidate_teacher
+                    elif teacher.id != candidate_teacher.id:
+                        # Teacher must be the same for all slots
+                        break
+                else:
+                    # All slots have the same teacher available
+                    if teacher:
+                        # If we didn't have an assigned teacher yet, store it now
+                        if not assigned_teacher_id:
+                            class_subject_teacher[class_subject_key] = teacher.id
+                        
+                        # Check subject constraints for the first slot
+                        if not self._check_subject_constraints(
+                            subject, class_group.id, day, start_index, existing_entries + entries, allocation
+                        ):
+                            continue
+                        
+                        # Place all consecutive entries
+                        for slot_index in consecutive_slots:
+                            classroom = await self._find_suitable_classroom(
+                                subject, class_group, day, slot_index, classrooms, existing_entries + entries
+                            )
+                            entry = TimetableEntry(
+                                timetable_id=timetable_id,
+                                class_group_id=class_group.id,
+                                subject_id=subject.id,
+                                teacher_id=teacher.id,
+                                classroom_id=classroom.id if classroom else None,
+                                day_of_week=day,
+                                lesson_index=slot_index
+                            )
+                            entries.append(entry)
+                            teacher_hours[teacher.id] += 1
+                            hours_per_day[day] += 1
+                            days_with_lessons.add(day)
+                        
+                        return True
         
-        return entries
+        return False
     
     async def _find_primary_teacher_for_class_subject(
         self,
@@ -574,7 +863,8 @@ class TimetableService:
         class_group_id: int,
         day: int,
         lesson_index: int,
-        placed_entries: List[TimetableEntry]
+        placed_entries: List[TimetableEntry],
+        allocation: Optional[ClassSubjectAllocation] = None
     ) -> bool:
         """Check if placing subject at this position violates constraints"""
         class_entries = [e for e in placed_entries 
@@ -586,8 +876,12 @@ class TimetableService:
                    for e in class_entries):
                 return False
         
-        # Check multiple in day
-        if not subject.allow_multiple_in_one_day:
+        # Check multiple in day - use allocation setting if available, otherwise use subject setting
+        allow_multiple = subject.allow_multiple_in_one_day
+        if allocation and allocation.allow_multiple_in_one_day is not None:
+            allow_multiple = allocation.allow_multiple_in_one_day
+        
+        if not allow_multiple:
             if any(e.subject_id == subject.id for e in class_entries):
                 return False
         

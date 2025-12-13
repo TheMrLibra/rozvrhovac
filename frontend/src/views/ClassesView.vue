@@ -134,6 +134,25 @@
                   {{ teacher.full_name }}
                 </option>
               </select>
+              <label class="classes-view__checkbox-label">
+                <input
+                  v-model="newAllocation.allow_multiple_in_one_day"
+                  type="checkbox"
+                  class="classes-view__checkbox"
+                  @change="handleMultipleInOneDayChange(false)"
+                />
+                {{ t('classes.allowMultipleInOneDay') }}
+              </label>
+              <div v-if="newAllocation.allow_multiple_in_one_day" class="classes-view__form-group">
+                <label class="classes-view__label">{{ t('classes.requiredConsecutiveHours') }}</label>
+                <input
+                  v-model.number="newAllocation.required_consecutive_hours"
+                  type="number"
+                  :placeholder="t('classes.requiredConsecutiveHoursPlaceholder')"
+                  min="1"
+                  class="classes-view__input"
+                />
+              </div>
               <button type="submit" class="classes-view__button" :disabled="loading">
                 {{ t('classes.addAllocation') }}
               </button>
@@ -215,6 +234,25 @@
                 {{ teacher.full_name }}
               </option>
             </select>
+            <label class="classes-view__checkbox-label">
+              <input
+                v-model="editingAllocation.allow_multiple_in_one_day"
+                type="checkbox"
+                class="classes-view__checkbox"
+                @change="handleMultipleInOneDayChange(true)"
+              />
+              {{ t('classes.allowMultipleInOneDay') }}
+            </label>
+            <div v-if="editingAllocation.allow_multiple_in_one_day" class="classes-view__form-group">
+              <label class="classes-view__label">{{ t('classes.requiredConsecutiveHours') }}</label>
+              <input
+                v-model.number="editingAllocation.required_consecutive_hours"
+                type="number"
+                :placeholder="t('classes.requiredConsecutiveHoursPlaceholder')"
+                min="1"
+                class="classes-view__input"
+              />
+            </div>
             <div class="classes-view__modal-actions">
               <button type="submit" class="classes-view__button" :disabled="loading">
                 {{ t('common.save') }}
@@ -267,6 +305,8 @@ interface SubjectAllocation {
   subject_id: number
   weekly_hours: number
   primary_teacher_id?: number | null
+  allow_multiple_in_one_day?: boolean | null
+  required_consecutive_hours?: number | null
   primary_teacher?: {
     id: number
     full_name: string
@@ -284,6 +324,7 @@ interface Timetable {
   name: string
   entries: any[]
   is_primary?: number
+  class_lunch_hours?: { [classId: number]: { [day: number]: number[] } }
 }
 
 const classes = ref<ClassGroup[]>([])
@@ -315,7 +356,9 @@ const sortedClassAllocations = computed(() => {
 const newAllocation = ref({
   subject_id: null as number | null,
   weekly_hours: 1,
-  primary_teacher_id: null as number | null
+  primary_teacher_id: null as number | null,
+  allow_multiple_in_one_day: null as boolean | null,
+  required_consecutive_hours: null as number | null
 })
 
 const classTimetableEntries = computed(() => {
@@ -325,23 +368,15 @@ const classTimetableEntries = computed(() => {
   )
 })
 
+// Get lunch hours for the selected class from timetable data (per day)
 const actualLunchHours = computed(() => {
-  if (!schoolSettings.value?.possible_lunch_hours || !schoolSettings.value?.lunch_duration_minutes || !schoolSettings.value?.class_hour_length_minutes) {
-    return []
+  if (!primaryTimetable.value?.class_lunch_hours || !selectedClassId.value) {
+    return {}
   }
   
-  const lunchHoursCount = Math.ceil(schoolSettings.value.lunch_duration_minutes / schoolSettings.value.class_hour_length_minutes)
-  const possibleHours = [...schoolSettings.value.possible_lunch_hours].sort((a, b) => a - b)
-  
-  for (let i = 0; i <= possibleHours.length - lunchHoursCount; i++) {
-    const consecutive = possibleHours.slice(i, i + lunchHoursCount)
-    const isConsecutive = consecutive.every((hour, idx) => hour === consecutive[0] + idx)
-    if (isConsecutive) {
-      return consecutive
-    }
-  }
-  
-  return possibleHours.slice(0, lunchHoursCount)
+  // Get lunch hours per day for the selected class from the timetable response
+  // Structure: { day: [lunch_hours] } where day is 0-4 (Monday-Friday)
+  return primaryTimetable.value.class_lunch_hours[selectedClassId.value] || {}
 })
 
 function getSelectedClassName(): string {
@@ -491,10 +526,12 @@ async function addAllocation() {
       class_group_id: selectedClassId.value,
       subject_id: newAllocation.value.subject_id,
       weekly_hours: newAllocation.value.weekly_hours,
-      primary_teacher_id: newAllocation.value.primary_teacher_id || null
+      primary_teacher_id: newAllocation.value.primary_teacher_id || null,
+      allow_multiple_in_one_day: newAllocation.value.allow_multiple_in_one_day,
+      required_consecutive_hours: newAllocation.value.required_consecutive_hours || null
     })
     success.value = 'Allocation added successfully'
-    newAllocation.value = { subject_id: null, weekly_hours: 1, primary_teacher_id: null }
+    newAllocation.value = { subject_id: null, weekly_hours: 1, primary_teacher_id: null, allow_multiple_in_one_day: null, required_consecutive_hours: null }
     await loadClassAllocations()
   } catch (err: any) {
     error.value = err.response?.data?.detail || 'Failed to add allocation'
@@ -507,6 +544,18 @@ function editAllocation(allocation: SubjectAllocation) {
   editingAllocation.value = { ...allocation }
 }
 
+function handleMultipleInOneDayChange(isEditing: boolean) {
+  if (isEditing && editingAllocation.value) {
+    if (!editingAllocation.value.allow_multiple_in_one_day) {
+      editingAllocation.value.required_consecutive_hours = null
+    }
+  } else {
+    if (!newAllocation.value.allow_multiple_in_one_day) {
+      newAllocation.value.required_consecutive_hours = null
+    }
+  }
+}
+
 async function updateAllocation() {
   if (!editingAllocation.value) return
   
@@ -517,7 +566,9 @@ async function updateAllocation() {
   try {
     await api.put(`/subjects/class-subject-allocations/${editingAllocation.value.id}`, {
       weekly_hours: editingAllocation.value.weekly_hours,
-      primary_teacher_id: editingAllocation.value.primary_teacher_id || null
+      primary_teacher_id: editingAllocation.value.primary_teacher_id || null,
+      allow_multiple_in_one_day: editingAllocation.value.allow_multiple_in_one_day,
+      required_consecutive_hours: editingAllocation.value.required_consecutive_hours || null
     })
     success.value = 'Allocation updated successfully'
     editingAllocation.value = null
@@ -896,6 +947,72 @@ onMounted(async () => {
     &:disabled {
       opacity: 0.6;
       cursor: not-allowed;
+    }
+  }
+
+  &__checkbox-label {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    margin: 0.75rem 0;
+    cursor: pointer;
+    color: $neo-text;
+    font-size: 0.95rem;
+    user-select: none;
+  }
+
+  &__checkbox {
+    width: 1.5rem;
+    height: 1.5rem;
+    cursor: pointer;
+    appearance: none;
+    -webkit-appearance: none;
+    -moz-appearance: none;
+    @include neo-inset(8px, 0.5);
+    background: $neo-bg-light;
+    position: relative;
+    transition: all 0.3s ease;
+    flex-shrink: 0;
+    
+    &:hover {
+      @include neo-inset(8px, 0.7);
+      background: $neo-bg-base;
+    }
+    
+    &:checked {
+      background: linear-gradient(135deg, $neo-accent 0%, darken($neo-accent, 5%) 100%);
+      box-shadow: 
+        inset calc(3px) calc(3px) calc(6px) darken($neo-accent, 15%),
+        inset calc(-3px) calc(-3px) calc(6px) lighten($neo-accent, 10%);
+      
+      &::after {
+        content: '';
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%) rotate(45deg);
+        width: 0.4rem;
+        height: 0.7rem;
+        border: solid white;
+        border-width: 0 2px 2px 0;
+        box-shadow: 
+          calc(1px) calc(1px) calc(2px) rgba(0, 0, 0, 0.2),
+          calc(-1px) calc(-1px) calc(2px) rgba(255, 255, 255, 0.3);
+      }
+      
+      &:hover {
+        background: linear-gradient(135deg, $neo-accent-hover 0%, darken($neo-accent-hover, 5%) 100%);
+      }
+    }
+    
+    &:focus {
+      outline: none;
+      @include neo-surface(8px, 0.4);
+    }
+    
+    &:active {
+      @include neo-inset(8px, 0.8);
+      transform: scale(0.95);
     }
   }
 }

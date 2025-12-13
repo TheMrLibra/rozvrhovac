@@ -153,6 +153,7 @@ interface Timetable {
   is_primary?: number
   substitute_for_date?: string | null
   entries?: TimetableEntry[]
+  class_lunch_hours?: { [classId: number]: { [day: number]: number[] } }
 }
 
 interface TimetableEntry {
@@ -225,25 +226,22 @@ const currentMonthName = computed(() => {
   return currentDate.value.toLocaleDateString('en-US', { month: 'long' })
 })
 
-// Calculate lunch hour slots
+// Get lunch hour slots for the selected class from timetable data (per day)
 const lunchHourSlots = computed(() => {
-  if (!schoolSettings.value?.possible_lunch_hours || !schoolSettings.value?.lunch_duration_minutes || !schoolSettings.value?.class_hour_length_minutes) {
-    return []
+  if (!selectedClassId.value || !props.timetables.length) {
+    return {}
   }
   
-  const lunchHoursCount = Math.ceil(schoolSettings.value.lunch_duration_minutes / schoolSettings.value.class_hour_length_minutes)
-  const possibleHours = [...schoolSettings.value.possible_lunch_hours].sort((a, b) => a - b)
+  // Find the primary timetable (or first available timetable)
+  const primaryTimetable = props.timetables.find(t => t.is_primary === 1) || props.timetables[0]
   
-  // Find consecutive hours
-  for (let i = 0; i <= possibleHours.length - lunchHoursCount; i++) {
-    const consecutive = possibleHours.slice(i, i + lunchHoursCount)
-    const isConsecutive = consecutive.every((hour, idx) => hour === consecutive[0] + idx)
-    if (isConsecutive) {
-      return consecutive
-    }
+  if (!primaryTimetable?.class_lunch_hours) {
+    return {}
   }
   
-  return possibleHours.slice(0, lunchHoursCount)
+  // Get lunch hours per day for the selected class from the timetable response
+  // Structure: { day: [lunch_hours] } where day is 0-4 (Monday-Friday)
+  return primaryTimetable.class_lunch_hours[selectedClassId.value] || {}
 })
 
 // Calculate day schedule with times and lunch breaks
@@ -279,15 +277,19 @@ const daySchedule = computed((): ScheduleItem[] => {
   let currentTime = new Date()
   currentTime.setHours(startHours, startMinutes, 0, 0)
   
+  // Get the day of week (0-4 for Monday-Friday)
+  const dayOfWeek = selectedDayDate.value.getDay() === 0 ? 6 : selectedDayDate.value.getDay() - 1  // Convert Sunday=0 to Monday=0
+  const lunchHoursForDay = lunchHourSlots.value[dayOfWeek] || []
+  
   // Get all lesson indices that have entries, sorted
   const lessonIndices = [...new Set(dayEntries.value.map(e => e.lesson_index))].sort((a, b) => a - b)
   const maxLessonIndex = Math.max(...lessonIndices, 1) // Backend uses 1-based indexing
   
-  // Backend generates timetables with lesson_index starting from 1
-  // So we start from 1, not 0, to match the timetable generation
+  // Timetable always starts at lesson_index 1, which corresponds to school start time
+  // Process all lesson indices from 1 to max, ensuring time starts at school start time
   for (let lessonIndex = 1; lessonIndex <= maxLessonIndex; lessonIndex++) {
     const entry = dayEntries.value.find(e => e.lesson_index === lessonIndex)
-    const isLunchSlot = lunchHourSlots.value.includes(lessonIndex)
+    const isLunchSlot = lunchHoursForDay.includes(lessonIndex)
     const hasEntry = !!entry
     
     // Calculate lesson start time
@@ -325,7 +327,7 @@ const daySchedule = computed((): ScheduleItem[] => {
       // Add break after lesson (except after last lesson or if next is lunch)
       const nextIndex = lessonIndex + 1
       if (nextIndex <= maxLessonIndex) {
-        const nextIsLunch = lunchHourSlots.value.includes(nextIndex)
+        const nextIsLunch = lunchHoursForDay.includes(nextIndex)
         if (!nextIsLunch) {
           // breakIndex = lessonIndex - 1 (break after lesson 1 is at index 0)
           const breakDuration = getBreakDuration(lessonIndex - 1)
@@ -338,7 +340,7 @@ const daySchedule = computed((): ScheduleItem[] => {
       currentTime = new Date(currentTime.getTime() + classHourLength * 60000)
       const nextIndex = lessonIndex + 1
       if (nextIndex <= maxLessonIndex) {
-        const nextIsLunch = lunchHourSlots.value.includes(nextIndex)
+        const nextIsLunch = lunchHoursForDay.includes(nextIndex)
         if (!nextIsLunch) {
           // breakIndex = lessonIndex - 1 (break after lesson 1 is at index 0)
           const breakDuration = getBreakDuration(lessonIndex - 1)

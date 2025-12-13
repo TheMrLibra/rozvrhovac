@@ -25,7 +25,7 @@
               :entry="getEntry(day - 1, hour)"
               :day="day - 1"
               :hour="hour"
-              :lunch-hours="props.lunchHours"
+              :lunch-hours="props.lunchHours?.[day - 1] || []"
             />
           </td>
         </tr>
@@ -41,7 +41,7 @@ import { useI18nStore } from '@/stores/i18n'
 
 interface Props {
   timetable: any
-  lunchHours?: number[]
+  lunchHours?: { [day: number]: number[] }  // day (0-4) -> list of lunch hour lesson indices
 }
 
 const props = defineProps<Props>()

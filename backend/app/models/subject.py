@@ -30,6 +30,8 @@ class ClassSubjectAllocation(Base):
     subject_id = Column(Integer, ForeignKey("subjects.id"), nullable=False)
     weekly_hours = Column(Integer, nullable=False)  # number of hours per week
     primary_teacher_id = Column(Integer, ForeignKey("teachers.id"), nullable=True, index=True)  # Primary teacher for this class-subject
+    allow_multiple_in_one_day = Column(Boolean, nullable=False, default=False)  # Override subject setting for this class-subject allocation
+    required_consecutive_hours = Column(Integer, nullable=True)  # Number of lessons that must be in a row for this class-subject
     
     class_group = relationship("ClassGroup", back_populates="subject_allocations")
     subject = relationship("Subject", back_populates="class_allocations")

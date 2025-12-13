@@ -5,7 +5,7 @@
       <div class="timetables-list-view__controls">
         <button
           v-if="authStore.user?.role === 'ADMIN'"
-          @click="showGenerateForm = !showGenerateForm"
+          @click="showGenerateModal = true"
           class="timetables-list-view__button"
         >
           {{ t('timetables.generateNewFixedTimetable') }}
@@ -14,41 +14,53 @@
       </div>
     </header>
     <main class="timetables-list-view__content">
-      <!-- Generate Form -->
-      <div v-if="showGenerateForm && authStore.user?.role === 'ADMIN'" class="timetables-list-view__section">
-        <h2>{{ t('timetables.generateNewFixedTimetable') }}</h2>
-        <form @submit.prevent="generateTimetable" class="timetables-list-view__form">
-          <input
-            v-model="timetableName"
-            type="text"
-            :placeholder="t('timetables.timetableNamePlaceholder')"
-            class="timetables-list-view__input"
-            required
-          />
-          <div class="timetables-list-view__form-row">
-            <div class="timetables-list-view__form-group">
-              <label class="timetables-list-view__label">{{ t('timetables.validFrom') }}</label>
-              <input
-                v-model="timetableValidFrom"
-                type="date"
-                class="timetables-list-view__input"
-                required
-              />
+      <!-- Generate Timetable Modal -->
+      <div v-if="showGenerateModal" class="timetables-list-view__modal" @click.self="closeGenerateModal">
+        <div class="timetables-list-view__modal-content">
+          <h3>{{ t('timetables.generateNewFixedTimetable') }}</h3>
+          <form @submit.prevent="generateTimetable" class="timetables-list-view__form">
+            <input
+              v-model="timetableName"
+              type="text"
+              :placeholder="t('timetables.timetableNamePlaceholder')"
+              class="timetables-list-view__input"
+              required
+            />
+            <div class="timetables-list-view__form-row">
+              <div class="timetables-list-view__form-group">
+                <label class="timetables-list-view__label">{{ t('timetables.validFrom') }}</label>
+                <input
+                  v-model="timetableValidFrom"
+                  type="date"
+                  class="timetables-list-view__input"
+                  required
+                />
+              </div>
+              <div class="timetables-list-view__form-group">
+                <label class="timetables-list-view__label">{{ t('timetables.validTo') }}</label>
+                <input
+                  v-model="timetableValidTo"
+                  type="date"
+                  class="timetables-list-view__input"
+                  required
+                />
+              </div>
             </div>
-            <div class="timetables-list-view__form-group">
-              <label class="timetables-list-view__label">{{ t('timetables.validTo') }}</label>
-              <input
-                v-model="timetableValidTo"
-                type="date"
-                class="timetables-list-view__input"
-                required
-              />
+            <div class="timetables-list-view__modal-actions">
+              <button type="submit" class="timetables-list-view__button" :disabled="loading">
+                {{ loading ? t('timetables.generating') : t('timetables.generate') }}
+              </button>
+              <button
+                type="button"
+                @click="closeGenerateModal"
+                class="timetables-list-view__button timetables-list-view__button--secondary"
+                :disabled="loading"
+              >
+                {{ t('common.cancel') }}
+              </button>
             </div>
-          </div>
-          <button type="submit" class="timetables-list-view__button" :disabled="loading">
-            {{ loading ? t('timetables.generating') : t('timetables.generate') }}
-          </button>
-        </form>
+          </form>
+        </div>
       </div>
 
       <!-- Calendar View -->
@@ -221,7 +233,7 @@ const router = useRouter()
 const authStore = useAuthStore()
 const timetables = ref<Timetable[]>([])
 const loading = ref(false)
-const showGenerateForm = ref(false)
+const showGenerateModal = ref(false)
 const timetableName = ref('')
 const timetableValidFrom = ref('')
 const timetableValidTo = ref('')
@@ -288,10 +300,7 @@ async function generateTimetable() {
     })
     
     alert.success(t('timetables.timetableGeneratedSuccessfully'))
-    timetableName.value = ''
-    timetableValidFrom.value = ''
-    timetableValidTo.value = ''
-    showGenerateForm.value = false
+    closeGenerateModal()
     
     // Reload timetables list
     await loadTimetables()
@@ -308,6 +317,13 @@ async function generateTimetable() {
   } finally {
     loading.value = false
   }
+}
+
+function closeGenerateModal() {
+  timetableName.value = ''
+  timetableValidFrom.value = ''
+  timetableValidTo.value = ''
+  showGenerateModal.value = false
 }
 
 function viewTimetable(timetableId: number) {
@@ -660,6 +676,47 @@ onMounted(async () => {
     padding: 0.75rem;
     border-radius: 12px;
     margin-bottom: 0.5rem;
+  }
+
+  &__modal {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.3);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+    backdrop-filter: blur(4px);
+  }
+
+  &__modal-content {
+    @extend %neo-modal;
+    padding: 2rem;
+    max-width: 500px;
+    width: 90%;
+    max-height: 90vh;
+    overflow-y: auto;
+
+    h3 {
+      color: $neo-text;
+      margin-bottom: 1.5rem;
+      font-size: 1.5rem;
+      font-weight: 700;
+    }
+  }
+
+  &__modal-actions {
+    display: flex;
+    gap: 1rem;
+    margin-top: 1rem;
+    justify-content: flex-end;
+  }
+
+  &__button--secondary {
+    @extend %neo-button--secondary;
   }
 }
 </style>
