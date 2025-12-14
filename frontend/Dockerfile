@@ -8,6 +8,10 @@ RUN rm -rf /root/.npmrc ~/.npmrc /root/.npm ~/.npm && \
     npm config set registry https://registry.npmjs.org/ && \
     npm config delete //registry.npmjs.org/:_authToken || true
 
+# Accept build arguments for Vite environment variables
+ARG VITE_API_URL
+ENV VITE_API_URL=${VITE_API_URL}
+
 # Copy package files
 COPY package.json ./
 

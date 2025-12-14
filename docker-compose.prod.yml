@@ -83,10 +83,9 @@ services:
     build:
       context: ./frontend
       dockerfile: Dockerfile
+      args:
+        VITE_API_URL: ${VITE_API_URL:-https://api.rozvrhovac.adamlibra.cz}
     container_name: rozvrhovac-frontend
-    environment:
-      # Frontend environment variables
-      VITE_API_URL: ${VITE_API_URL:-http://api.yourdomain.com}
     restart: unless-stopped
     networks:
       - rozvrhovac-network
