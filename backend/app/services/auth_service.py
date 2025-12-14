@@ -116,31 +116,34 @@ class AuthService:
         Returns:
             Tuple of (User, SchoolRegistry) if authentication succeeds, (None, registry_entry) otherwise
         """
-        try:
-            async for db in get_school_db(
-                database_name=registry_entry.database_name,
-                host=registry_entry.database_host,
-                port=registry_entry.database_port,
-                user=registry_entry.database_user
-            ):
-                try:
-                    logger.info(f"Attempting authentication in school {registry_entry.code} for email {email}")
-                    user_service = UserService(db)
-                    user = await user_service.authenticate_user(email, password)
-                    if user:
-                        logger.info(f"✅ Authentication successful for {email} in school {registry_entry.code}")
-                    else:
-                        logger.warning(f"❌ Authentication failed for {email} in school {registry_entry.code} - user_service returned None")
-                    return user, registry_entry
-                except Exception as e:
-                    logger.error(f"Exception during authentication in school {registry_entry.code}: {e}", exc_info=True)
-                    return None, registry_entry
-                finally:
-                    break
-        except Exception as e:
-            logger.error(f"Error connecting to school database {registry_entry.database_name}: {e}", exc_info=True)
-            return None, registry_entry
+        logger.info(f"🔍 _authenticate_in_school called for {email} in school {registry_entry.code}")
+        logger.info(f"   Database: {registry_entry.database_name} on {registry_entry.database_host}:{registry_entry.database_port}")
         
-        logger.warning(f"Reached end of _authenticate_in_school for {email} - returning None")
+        async for db in get_school_db(
+            database_name=registry_entry.database_name,
+            host=registry_entry.database_host,
+            port=registry_entry.database_port,
+            user=registry_entry.database_user
+        ):
+            logger.info(f"✅ Got database session for school {registry_entry.code}")
+            logger.info(f"🔐 Attempting authentication in school {registry_entry.code} for email {email}")
+            try:
+                user_service = UserService(db)
+                logger.info(f"   Created UserService, calling authenticate_user...")
+                user = await user_service.authenticate_user(email, password)
+                logger.info(f"   authenticate_user returned: {user is not None}")
+                if user:
+                    logger.info(f"✅ Authentication successful for {email} in school {registry_entry.code}")
+                    return user, registry_entry
+                else:
+                    logger.warning(f"❌ Authentication failed for {email} in school {registry_entry.code} - user_service returned None")
+                    return None, registry_entry
+            except Exception as e:
+                logger.error(f"❌ Exception during authentication in school {registry_entry.code}: {e}", exc_info=True)
+                import traceback
+                logger.error(traceback.format_exc())
+                return None, registry_entry
+        
+        logger.warning(f"⚠️ Reached end of _authenticate_in_school for {email} - async for loop completed without entering body")
         return None, registry_entry
 
