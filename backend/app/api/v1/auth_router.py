@@ -59,7 +59,6 @@ async def login(
                                 tokens = user_service.create_tokens(user)
                                 return tokens
                         except HTTPException:
-                            # Re-raise HTTP exceptions
                             raise
                         except Exception as e:
                             logger.error(f"Error authenticating user in school {school_code}: {e}", exc_info=True)
@@ -67,8 +66,6 @@ async def login(
                                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
                                 detail="Authentication error"
                             )
-                        finally:
-                            break
                     
                     # If we get here, authentication failed
                     logger.warning(f"Authentication failed for email: {login_data.email} in school: {school_code}")
@@ -91,6 +88,7 @@ async def login(
                 logger.info(f"Searching {len(all_schools)} active schools for user: {login_data.email}")
                 
                 # Try each school database until we find the user
+                last_error = None
                 for registry_entry in all_schools:
                     try:
                         async for db in get_school_db(
@@ -107,25 +105,27 @@ async def login(
                                     logger.info(f"User authenticated successfully: {login_data.email} in school {registry_entry.code}")
                                     tokens = user_service.create_tokens(user)
                                     return tokens
-                            except HTTPException:
-                                # Re-raise HTTP exceptions (like 401)
+                            except HTTPException as e:
+                                # If it's a 401, continue searching other schools
+                                # Other HTTP exceptions should be raised
+                                if e.status_code == status.HTTP_401_UNAUTHORIZED:
+                                    last_error = e
+                                    break
                                 raise
                             except Exception as e:
-                                # Log but continue to next school
                                 logger.debug(f"Error checking school {registry_entry.code}: {e}")
-                                pass
-                            finally:
+                                last_error = e
                                 break
                     except HTTPException:
-                        # Re-raise HTTP exceptions
                         raise
                     except Exception as e:
-                        # Log but continue to next school
                         logger.debug(f"Error connecting to school {registry_entry.code}: {e}")
                         continue
                 
                 # If we get here, user not found in any school
                 logger.warning(f"User not found in any school: {login_data.email}")
+                if last_error and isinstance(last_error, HTTPException):
+                    raise last_error
                 raise HTTPException(
                     status_code=status.HTTP_401_UNAUTHORIZED,
                     detail="Incorrect email or password"
@@ -133,13 +133,14 @@ async def login(
             finally:
                 break
     except HTTPException:
-        # Re-raise HTTP exceptions
         raise
     except Exception as e:
         logger.error(f"Unexpected error during login: {e}", exc_info=True)
+        import traceback
+        logger.error(traceback.format_exc())
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Internal server error: {str(e)}"
+            detail="Internal server error"
         )
 
 @router.post("/refresh", response_model=Token)
