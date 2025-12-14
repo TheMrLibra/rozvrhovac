@@ -14,6 +14,7 @@ from app.models.user import User, UserRole
 from app.models.registry import SchoolRegistry
 from app.repositories.user_repository import UserRepository
 from app.repositories.registry_repository import RegistryRepository
+from app.repositories.school_repository import SchoolRepository
 
 logger = logging.getLogger(__name__)
 
@@ -72,16 +73,57 @@ async def get_school_context(
                             )
                             return registry_entry
                         
+                        # Direct lookup failed - try fallback: search all schools
+                        logger.warning(f"Direct lookup failed for school_id: {school_id}, trying fallback search")
+                        all_schools = await registry_repo.get_all_active()
+                        
                         # Log all registry entries for debugging
                         logger.error(f"Registry entry not found for school_id: {school_id}")
-                        all_schools = await registry_repo.get_all_active()
                         logger.error(f"Active schools in registry ({len(all_schools)}):")
                         for school in all_schools:
                             logger.error(
-                                f"  - School ID: {school.school_id}, "
+                                f"  - Registry ID: {school.id}, "
+                                f"School ID: {school.school_id}, "
                                 f"Code: {school.code}, "
-                                f"DB: {school.database_name}"
+                                f"DB: {school.database_name}, "
+                                f"Active: {school.is_active}"
                             )
+                        
+                        # Fallback: If only one active school, use it (for development/testing)
+                        if len(all_schools) == 1:
+                            logger.warning(
+                                f"Fallback: Using only active school '{all_schools[0].code}' "
+                                f"(school_id mismatch: JWT has {school_id}, registry has {all_schools[0].school_id})"
+                            )
+                            return all_schools[0]
+                        
+                        # If multiple schools, try to find by checking school databases
+                        logger.warning("Multiple schools found, checking school databases for matching school_id...")
+                        for candidate in all_schools:
+                            try:
+                                # Check if this school's database has a school with matching ID
+                                async for db in get_school_db(
+                                    database_name=candidate.database_name,
+                                    host=candidate.database_host,
+                                    port=candidate.database_port,
+                                    user=candidate.database_user
+                                ):
+                                    school_repo = SchoolRepository(db)
+                                    school = await school_repo.get_by_id(school_id)
+                                    if school:
+                                        logger.warning(
+                                            f"Found matching school_id {school_id} in database '{candidate.database_name}'. "
+                                            f"Updating registry entry school_id from {candidate.school_id} to {school_id}"
+                                        )
+                                        # Update registry entry to match
+                                        candidate.school_id = school_id
+                                        await registry_db.commit()
+                                        logger.info(f"Updated registry entry for school '{candidate.code}'")
+                                        return candidate
+                                    break
+                            except Exception as e:
+                                logger.debug(f"Error checking school {candidate.code}: {e}")
+                                continue
                     else:
                         logger.warning("JWT token does not contain school_id")
                 else:
