@@ -23,7 +23,7 @@ COPY . .
 
 # Build the application (skip type checking for production - faster builds)
 # Type checking can be done in CI/CD, not needed for production Docker build
-RUN vite build --mode production
+RUN npm run build:prod
 
 # Production stage
 FROM nginx:alpine
