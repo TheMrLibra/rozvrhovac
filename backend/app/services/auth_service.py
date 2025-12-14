@@ -40,71 +40,64 @@ class AuthService:
             ValueError: If school not found or user not found/invalid credentials
         """
         # Get registry database connection
-        try:
-            async for registry_db in get_registry_db():
+        async for registry_db in get_registry_db():
+            registry_repo = RegistryRepository(registry_db)
+            
+            # If school_code is provided, use it directly
+            if school_code and school_code.strip():
+                school_code = school_code.strip()
+                logger.info(f"Login attempt with school_code: {school_code}, email: {email}")
+                
+                registry_entry = await registry_repo.get_by_code(school_code)
+                
+                if not registry_entry or not registry_entry.is_active:
+                    logger.warning(f"School not found or inactive: {school_code}")
+                    raise ValueError("School not found or inactive")
+                
+                # Try to authenticate in this school's database
+                user, registry = await self._authenticate_in_school(
+                    registry_entry, email, password
+                )
+                if user:
+                    logger.info(f"User authenticated successfully: {email} in school {school_code}")
+                    return user, registry
+                
+                # Authentication failed
+                logger.warning(f"Authentication failed for email: {email} in school: {school_code}")
+                raise ValueError("Incorrect email or password")
+            
+            # No school_code provided - try to find user in all active schools
+            logger.info(f"Login attempt without school_code, email: {email}")
+            all_schools = await registry_repo.get_all_active()
+            
+            if not all_schools:
+                logger.warning("No active schools found in registry")
+                raise ValueError("No active schools found")
+            
+            logger.info(f"Searching {len(all_schools)} active schools for user: {email}")
+            
+            # Try each school database until we find the user
+            for registry_entry in all_schools:
                 try:
-                    registry_repo = RegistryRepository(registry_db)
-                    
-                    # If school_code is provided, use it directly
-                    if school_code and school_code.strip():
-                        school_code = school_code.strip()
-                        logger.info(f"Login attempt with school_code: {school_code}, email: {email}")
-                        
-                        registry_entry = await registry_repo.get_by_code(school_code)
-                        
-                        if not registry_entry or not registry_entry.is_active:
-                            logger.warning(f"School not found or inactive: {school_code}")
-                            raise ValueError("School not found or inactive")
-                        
-                        # Try to authenticate in this school's database
-                        user, registry = await self._authenticate_in_school(
-                            registry_entry, email, password
-                        )
-                        if user:
-                            logger.info(f"User authenticated successfully: {email} in school {school_code}")
-                            return user, registry
-                        
-                        # Authentication failed
-                        logger.warning(f"Authentication failed for email: {email} in school: {school_code}")
-                        raise ValueError("Incorrect email or password")
-                    
-                    # No school_code provided - try to find user in all active schools
-                    logger.info(f"Login attempt without school_code, email: {email}")
-                    all_schools = await registry_repo.get_all_active()
-                    
-                    if not all_schools:
-                        logger.warning("No active schools found in registry")
-                        raise ValueError("No active schools found")
-                    
-                    logger.info(f"Searching {len(all_schools)} active schools for user: {email}")
-                    
-                    # Try each school database until we find the user
-                    for registry_entry in all_schools:
-                        try:
-                            user, registry = await self._authenticate_in_school(
-                                registry_entry, email, password
-                            )
-                            if user:
-                                logger.info(f"User authenticated successfully: {email} in school {registry_entry.code}")
-                                return user, registry
-                        except ValueError:
-                            # Continue to next school if authentication fails
-                            continue
-                        except Exception as e:
-                            logger.debug(f"Error checking school {registry_entry.code}: {e}")
-                            continue
-                    
-                    # If we get here, user not found in any school
-                    logger.warning(f"User not found in any school: {email}")
-                    raise ValueError("Incorrect email or password")
-                finally:
-                    break
-        except ValueError:
-            # Re-raise ValueError (business logic errors)
-            raise
-        except Exception as e:
-            logger.error(f"Error accessing registry database: {e}", exc_info=True)
-            raise ValueError(f"Database error: {str(e)}")
+                    user, registry = await self._authenticate_in_school(
+                        registry_entry, email, password
+                    )
+                    if user:
+                        logger.info(f"User authenticated successfully: {email} in school {registry_entry.code}")
+                        return user, registry
+                except ValueError:
+                    # Continue to next school if authentication fails
+                    continue
+                except Exception as e:
+                    logger.debug(f"Error checking school {registry_entry.code}: {e}")
+                    continue
+            
+            # If we get here, user not found in any school
+            logger.warning(f"User not found in any school: {email}")
+            raise ValueError("Incorrect email or password")
+        
+        # This should never be reached, but if it is, raise an error
+        raise ValueError("Failed to access registry database")
     
     async def _authenticate_in_school(
         self,
