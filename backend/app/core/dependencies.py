@@ -1,14 +1,11 @@
 from typing import Optional
 import logging
 from fastapi import Depends, HTTPException, status, Header, Request
-from fastapi.security import OAuth2PasswordBearer, HTTPBearer, HTTPAuthorizationCredentials
+from fastapi.security import OAuth2PasswordBearer
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.database import get_db
 from app.core.database_manager import get_registry_db, get_school_db
 from app.core.security import decode_token
-
-# Optional bearer token for school context (doesn't require auth)
-optional_bearer = HTTPBearer(auto_error=False)
 from app.models.user import User, UserRole
 from app.models.registry import SchoolRegistry
 from app.repositories.user_repository import UserRepository
@@ -20,14 +17,13 @@ oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/v1/auth/login")
 
 async def get_school_context(
     request: Request,
-    x_school_code: Optional[str] = Header(None, alias="X-School-Code"),
-    credentials: Optional[HTTPAuthorizationCredentials] = Depends(optional_bearer)
+    x_school_code: Optional[str] = Header(None, alias="X-School-Code")
 ) -> Optional[SchoolRegistry]:
     """
     Extract school context from request.
     Priority: X-School-Code header > JWT token school_id
     """
-    logger.info(f"🔍 get_school_context called - x_school_code: {x_school_code}, credentials: {credentials is not None}")
+    logger.info(f"🔍 get_school_context called - x_school_code: {x_school_code}")
     
     async for registry_db in get_registry_db():
         try:
@@ -41,19 +37,12 @@ async def get_school_context(
                     logger.info(f"✅ Found school from header: {registry_entry.code}")
                     return registry_entry
             
-            # Fall back to JWT token - try both optional_bearer and manual extraction
-            token = None
-            if credentials:
-                token = credentials.credentials
-                logger.info(f"📝 Extracted token from optional_bearer: {token[:20] if token else None}...")
-            else:
-                # Try manual extraction from Authorization header (same as oauth2_scheme)
-                auth_header = request.headers.get("Authorization")
-                if auth_header and auth_header.startswith("Bearer "):
-                    token = auth_header.split(" ")[1]
-                    logger.info(f"📝 Extracted token from Authorization header: {token[:20]}...")
-            
-            if token:
+            # Fall back to JWT token - extract manually from Authorization header
+            auth_header = request.headers.get("Authorization")
+            if auth_header and auth_header.startswith("Bearer "):
+                token = auth_header.split(" ")[1]
+                logger.info(f"📝 Extracted token from Authorization header: {token[:20]}...")
+                
                 payload = decode_token(token)
                 if payload:
                     school_id = payload.get("school_id")
@@ -77,7 +66,7 @@ async def get_school_context(
                 else:
                     logger.warning("❌ Failed to decode JWT token")
             else:
-                logger.warning("❌ No token found (no Authorization header)")
+                logger.warning("❌ No Authorization header found")
             
             logger.warning("❌ Could not determine school context from request")
             return None
