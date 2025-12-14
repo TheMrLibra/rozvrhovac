@@ -187,6 +187,8 @@ async def run_migrations(database_url: str):
             missing_tables.append('schools')
         if 'school_settings' not in tables:
             missing_tables.append('school_settings')
+        if 'users' not in tables:
+            missing_tables.append('users')
         
         if missing_tables:
             print(f"⚠️  Warning: Missing tables after migrations: {missing_tables}")
@@ -250,6 +252,48 @@ async def run_migrations(database_url: str):
                         print(f"⚠️  Could not create school_settings table: {e}")
                         raise
             
+            # Create users table if missing (depends on schools)
+            if 'users' in missing_tables:
+                # Verify schools exists
+                inspector_check = sql_inspect(sync_engine)
+                tables_check = inspector_check.get_table_names()
+                if 'schools' not in tables_check:
+                    print(f"⚠️  Cannot create users: schools table still missing")
+                else:
+                    # Use raw SQL to create the table
+                    from sqlalchemy import text
+                    create_users_sql = """
+                    -- Create ENUM type if it doesn't exist
+                    DO $$ BEGIN
+                        CREATE TYPE userrole AS ENUM ('ADMIN', 'TEACHER', 'SCHOLAR');
+                    EXCEPTION
+                        WHEN duplicate_object THEN null;
+                    END $$;
+                    
+                    CREATE TABLE IF NOT EXISTS users (
+                        id SERIAL PRIMARY KEY,
+                        school_id INTEGER NOT NULL,
+                        email VARCHAR NOT NULL,
+                        password_hash VARCHAR NOT NULL,
+                        role userrole NOT NULL,
+                        is_active BOOLEAN DEFAULT TRUE,
+                        teacher_id INTEGER,
+                        class_group_id INTEGER,
+                        CONSTRAINT fk_users_school_id FOREIGN KEY (school_id) REFERENCES schools(id)
+                    );
+                    CREATE UNIQUE INDEX IF NOT EXISTS ix_users_email ON users(email);
+                    CREATE INDEX IF NOT EXISTS ix_users_id ON users(id);
+                    CREATE INDEX IF NOT EXISTS ix_users_school_id ON users(school_id);
+                    """
+                    try:
+                        with sync_engine.connect() as conn:
+                            conn.execute(text(create_users_sql))
+                            conn.commit()
+                        print(f"✅ Created 'users' table")
+                    except Exception as e:
+                        print(f"⚠️  Could not create users table: {e}")
+                        raise
+            
             sync_engine.dispose()
             
             # Verify tables exist now
@@ -263,6 +307,8 @@ async def run_migrations(database_url: str):
                 raise RuntimeError("Failed to create 'schools' table. Database is in inconsistent state.")
             if 'school_settings' not in tables_after:
                 raise RuntimeError("Failed to create 'school_settings' table. Database is in inconsistent state.")
+            if 'users' not in tables_after:
+                raise RuntimeError("Failed to create 'users' table. Database is in inconsistent state.")
             print(f"✅ Verified: Required tables exist")
         else:
             print(f"✅ Verified: Required tables exist")
