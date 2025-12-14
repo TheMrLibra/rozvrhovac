@@ -128,6 +128,9 @@ prod-create-test-data: ## Create test data in production (usage: make prod-creat
 prod-check-db: ## Check database connection in production
 	docker compose -f docker-compose.prod.yml exec -w /app backend python -c "import asyncio; from app.core.database import AsyncSessionLocal; async def test(): async with AsyncSessionLocal() as db: await db.execute('SELECT 1'); print('✅ Database connection OK'); asyncio.run(test())"
 
+prod-check-env: ## Check environment variables in production backend
+	docker compose -f docker-compose.prod.yml exec backend printenv | grep -E "MIGRATION_DEFAULT_TENANT_ID|ENV|DB_"
+
 prod-migration-status: ## Check migration status in production
 	docker compose -f docker-compose.prod.yml exec -w /app backend alembic current
 
