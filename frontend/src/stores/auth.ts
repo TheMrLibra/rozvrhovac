@@ -18,13 +18,20 @@ export const useAuthStore = defineStore('auth', () => {
 
   const isAuthenticated = computed(() => !!accessToken.value && !!user.value)
 
-  async function login(email: string, password: string) {
+  async function login(email: string, password: string, schoolCode: string) {
     try {
-      const response = await api.post('/auth/login', { email, password })
+      const response = await api.post('/auth/login', { 
+        email, 
+        password, 
+        school_code: schoolCode 
+      })
       accessToken.value = response.data.access_token
       refreshToken.value = response.data.refresh_token
       localStorage.setItem('access_token', response.data.access_token)
       localStorage.setItem('refresh_token', response.data.refresh_token)
+      
+      // Store school_code for future requests
+      localStorage.setItem('school_code', schoolCode)
       
       // Get user info
       await fetchUser()

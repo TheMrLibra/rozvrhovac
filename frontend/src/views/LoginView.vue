@@ -7,6 +7,17 @@
       <h1 class="login-view__title">Rozvrhovac</h1>
       <form @submit.prevent="handleLogin" class="login-view__form">
         <div class="login-view__field">
+          <label class="login-view__label">{{ t('login.schoolCode') || 'School Code' }}</label>
+          <input
+            v-model="schoolCode"
+            type="text"
+            required
+            class="login-view__input"
+            placeholder="GJR"
+            autocomplete="off"
+          />
+        </div>
+        <div class="login-view__field">
           <label class="login-view__label">{{ t('login.email') }}</label>
           <input
             v-model="email"
@@ -47,6 +58,7 @@ const authStore = useAuthStore()
 const i18nStore = useI18nStore()
 const t = i18nStore.t
 
+const schoolCode = ref('')
 const email = ref('')
 const password = ref('')
 const loading = ref(false)
@@ -56,7 +68,7 @@ async function handleLogin() {
   loading.value = true
   error.value = ''
   try {
-    await authStore.login(email.value, password.value)
+    await authStore.login(email.value, password.value, schoolCode.value)
     router.push('/dashboard')
   } catch (err: any) {
     error.value = err.response?.data?.detail || t('login.loginError')
