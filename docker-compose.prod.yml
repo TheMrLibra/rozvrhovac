@@ -92,9 +92,9 @@ services:
     restart: unless-stopped
     networks:
       - rozvrhovac-network
-    # Expose backend on internal port (nginx on other VM will proxy to this)
-    expose:
-      - "8000"
+    # Expose backend on host port (nginx on other VM will proxy to this)
+    ports:
+      - "8000:8000"
     # Health check
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"]
@@ -115,9 +115,9 @@ services:
     restart: unless-stopped
     networks:
       - rozvrhovac-network
-    # Expose frontend on internal port (nginx on other VM will proxy to this)
-    expose:
-      - "80"
+    # Expose frontend on host port (nginx on other VM will proxy to this)
+    ports:
+      - "80:80"
     # Health check
     healthcheck:
       test: ["CMD", "sh", "-c", "pgrep nginx || exit 1"]
