@@ -196,15 +196,6 @@
             </button>
           </div>
         </form>
-        
-        <div v-if="error" class="school-settings-view__message school-settings-view__message--error">
-          <span class="school-settings-view__message-icon">⚠️</span>
-          {{ error }}
-        </div>
-        <div v-if="success" class="school-settings-view__message school-settings-view__message--success">
-          <span class="school-settings-view__message-icon">✓</span>
-          {{ success }}
-        </div>
       </div>
     </main>
   </div>
@@ -214,14 +205,14 @@
 import { ref, onMounted, computed } from 'vue'
 import { useAuthStore } from '@/stores/auth'
 import { useI18nStore } from '@/stores/i18n'
+import { useAlert } from '@/composables/useAlert'
 import api from '@/services/api'
 
 const authStore = useAuthStore()
 const i18nStore = useI18nStore()
 const t = i18nStore.t
+const alert = useAlert()
 const loading = ref(false)
-const error = ref('')
-const success = ref('')
 
 const settings = ref({
   start_time: '08:00',
@@ -290,15 +281,13 @@ async function loadSettings() {
     }
   } catch (err: any) {
     if (err.response?.status !== 404) {
-      error.value = err.response?.data?.detail || 'Failed to load settings'
+      console.error('Failed to load settings:', err)
     }
   }
 }
 
 async function saveSettings() {
   loading.value = true
-  error.value = ''
-  success.value = ''
   
   try {
     const schoolId = authStore.user?.school_id
@@ -307,14 +296,9 @@ async function saveSettings() {
     }
     
     await api.put(`/schools/${schoolId}/settings`, settings.value)
-    success.value = 'Settings saved successfully'
-    
-    // Clear success message after 3 seconds
-    setTimeout(() => {
-      success.value = ''
-    }, 3000)
+    alert.success('Settings saved successfully')
   } catch (err: any) {
-    error.value = err.response?.data?.detail || 'Failed to save settings'
+    alert.error(err.response?.data?.detail || 'Failed to save settings')
   } finally {
     loading.value = false
   }
@@ -587,41 +571,6 @@ onMounted(() => {
     }
     to {
       transform: rotate(360deg);
-    }
-  }
-
-  &__message {
-    @extend %neo-message;
-    margin-top: 1.5rem;
-    padding: 1rem 1.25rem;
-    border-radius: 12px;
-    display: flex;
-    align-items: center;
-    gap: 0.75rem;
-    font-weight: 500;
-    animation: slideIn 0.3s ease-out;
-
-    &--error {
-      @extend %neo-message--error;
-    }
-
-    &--success {
-      @extend %neo-message--success;
-    }
-  }
-
-  &__message-icon {
-    font-size: 1.25rem;
-  }
-
-  @keyframes slideIn {
-    from {
-      opacity: 0;
-      transform: translateY(-10px);
-    }
-    to {
-      opacity: 1;
-      transform: translateY(0);
     }
   }
 }

@@ -2,7 +2,8 @@
   <div class="classes-view">
     <header class="classes-view__header">
       <h1 class="classes-view__title">{{ t('classes.title') }}</h1>
-      <select
+      <div class="classes-view__header-center">
+        <select
           v-model="selectedClassId"
           class="classes-view__filter"
           @change="onClassChange"
@@ -16,10 +17,18 @@
             {{ classItem.name }}
           </option>
         </select>
-      <router-link to="/dashboard" class="classes-view__back">{{ t('classes.back') }}</router-link>
+      </div>
+      <div class="classes-view__header-actions">
+        <button
+          @click="showCreateClassModal = true"
+          class="classes-view__button"
+        >
+          {{ t('classes.addClass') }}
+        </button>
+        <router-link to="/dashboard" class="classes-view__back">{{ t('classes.back') }}</router-link>
+      </div>
     </header>
-    <main class="classes-view__content">
-        
+    <main class="classes-view__content">        
       <!-- Class Details -->
       <div v-if="selectedClassId" class="classes-view__details">
         <!-- Timetable Section -->
@@ -80,13 +89,19 @@
             <div class="classes-view__info-item">
               <label class="classes-view__info-label">{{ t('classes.numberOfStudents') }}:</label>
               <input
-                v-model.number="selectedClass.number_of_students"
+                v-model.number="numberOfStudentsInput"
                 type="number"
                 min="1"
                 class="classes-view__input classes-view__input--inline"
-                @blur="updateClassInfo"
                 :placeholder="t('classes.enterNumberOfStudents')"
               />
+              <button
+                @click="updateClassInfo"
+                class="classes-view__button classes-view__button--save"
+                :disabled="loading"
+              >
+                {{ t('common.save') }}
+              </button>
             </div>
           </div>
         </div>
@@ -208,6 +223,54 @@
         </div>
       </div>
 
+      <!-- Create Class Modal -->
+      <div v-if="showCreateClassModal" class="classes-view__modal">
+        <div class="classes-view__modal-content">
+          <h3>{{ t('classes.addNewClass') }}</h3>
+          <form @submit.prevent="createClass" class="classes-view__form">
+            <div class="classes-view__form-group">
+              <label class="classes-view__label">{{ t('classes.className') }}</label>
+              <input
+                v-model="newClass.name"
+                type="text"
+                :placeholder="t('classes.classNamePlaceholder')"
+                class="classes-view__input"
+                required
+              />
+            </div>
+            <div class="classes-view__form-group">
+              <label class="classes-view__label">{{ t('classes.gradeLevel') }}</label>
+              <select
+                v-model="newClass.grade_level_id"
+                class="classes-view__input"
+                required
+              >
+                <option value="">{{ t('classes.selectGradeLevel') }}</option>
+                <option
+                  v-for="gradeLevel in gradeLevels"
+                  :key="gradeLevel.id"
+                  :value="gradeLevel.id"
+                >
+                  {{ gradeLevel.name }}
+                </option>
+              </select>
+            </div>
+            <div class="classes-view__modal-actions">
+              <button type="submit" class="classes-view__button" :disabled="loading">
+                {{ t('classes.createClass') }}
+              </button>
+              <button
+                type="button"
+                @click="showCreateClassModal = false; resetNewClass()"
+                class="classes-view__button classes-view__button--secondary"
+              >
+                {{ t('common.cancel') }}
+              </button>
+            </div>
+          </form>
+        </div>
+      </div>
+
       <!-- Edit Allocation Modal -->
       <div v-if="editingAllocation" class="classes-view__modal">
         <div class="classes-view__modal-content">
@@ -269,22 +332,22 @@
         </div>
       </div>
 
-      <div v-if="error" class="classes-view__error">{{ error }}</div>
-      <div v-if="success" class="classes-view__success">{{ success }}</div>
     </main>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, computed } from 'vue'
+import { ref, onMounted, computed, watch } from 'vue'
 import { useAuthStore } from '@/stores/auth'
 import { useI18nStore } from '@/stores/i18n'
+import { useAlert } from '@/composables/useAlert'
 import api from '@/services/api'
 import TimetableGrid from '@/components/TimetableGrid.vue'
 
 const authStore = useAuthStore()
 const i18nStore = useI18nStore()
 const t = i18nStore.t
+const alert = useAlert()
 
 interface ClassGroup {
   id: number
@@ -292,6 +355,12 @@ interface ClassGroup {
   grade_level_id: number
   school_id: number
   number_of_students?: number | null
+}
+
+interface GradeLevel {
+  id: number
+  name: string
+  level?: number | null
 }
 
 interface Subject {
@@ -328,22 +397,38 @@ interface Timetable {
 }
 
 const classes = ref<ClassGroup[]>([])
+const gradeLevels = ref<GradeLevel[]>([])
 const subjects = ref<Subject[]>([])
 const teachers = ref<Teacher[]>([])
 const selectedClassId = ref<number | null>(null)
 const loading = ref(false)
 const loadingTimetable = ref(false)
-const error = ref('')
-const success = ref('')
 const showSubjectModal = ref(false)
+const showCreateClassModal = ref(false)
 const classAllocations = ref<SubjectAllocation[]>([])
 const editingAllocation = ref<SubjectAllocation | null>(null)
 const primaryTimetable = ref<Timetable | null>(null)
 const schoolSettings = ref<any>(null)
 
+const newClass = ref({
+  name: '',
+  grade_level_id: null as number | null
+})
+
 const selectedClass = computed(() => {
   return classes.value.find(c => c.id === selectedClassId.value) || null
 })
+
+const numberOfStudentsInput = ref<number | null>(null)
+
+// Watch selectedClass to update the input value
+watch(selectedClass, (newClass: ClassGroup | null) => {
+  if (newClass) {
+    numberOfStudentsInput.value = newClass.number_of_students || null
+  } else {
+    numberOfStudentsInput.value = null
+  }
+}, { immediate: true })
 
 const sortedClassAllocations = computed(() => {
   return [...classAllocations.value].sort((a, b) => {
@@ -404,7 +489,16 @@ async function loadClasses() {
     const response = await api.get('/class-groups/')
     classes.value = response.data
   } catch (err: any) {
-    error.value = err.response?.data?.detail || 'Failed to load classes'
+    console.error('Failed to load classes:', err)
+  }
+}
+
+async function loadGradeLevels() {
+  try {
+    const response = await api.get('/class-groups/grade-levels/')
+    gradeLevels.value = response.data
+  } catch (err: any) {
+    console.error('Failed to load grade levels:', err)
   }
 }
 
@@ -451,7 +545,7 @@ async function loadClassAllocations() {
     const response = await api.get(`/subjects/class-subject-allocations?class_group_id=${selectedClassId.value}`)
     classAllocations.value = response.data
   } catch (err: any) {
-    error.value = err.response?.data?.detail || 'Failed to load allocations'
+    console.error('Failed to load allocations:', err)
   }
 }
 
@@ -501,14 +595,69 @@ async function updateClassInfo() {
   loading.value = true
   try {
     await api.put(`/class-groups/${selectedClass.value.id}`, {
-      number_of_students: selectedClass.value.number_of_students || null
+      number_of_students: numberOfStudentsInput.value || null
     })
+    alert.success('Class information updated successfully')
     // Reload classes to ensure sync
     await loadClasses()
+    // Ensure selected class is still selected after reload
+    if (selectedClassId.value) {
+      const index = classes.value.findIndex(c => c.id === selectedClassId.value)
+      if (index !== -1) {
+        classes.value[index] = { ...classes.value[index], number_of_students: numberOfStudentsInput.value }
+      }
+    }
   } catch (err: any) {
     console.error('Failed to update class info:', err)
-    // Reload to revert changes
+    alert.error(err.response?.data?.detail || 'Failed to update class information')
+    // Reload to revert changes and reset input
     await loadClasses()
+    if (selectedClass.value) {
+      numberOfStudentsInput.value = selectedClass.value.number_of_students || null
+    }
+  } finally {
+    loading.value = false
+  }
+}
+
+function resetNewClass() {
+  newClass.value = {
+    name: '',
+    grade_level_id: null
+  }
+}
+
+async function createClass() {
+  if (!newClass.value.name || !newClass.value.grade_level_id) return
+  
+  loading.value = true
+  
+  try {
+    const classData = {
+      name: newClass.value.name,
+      grade_level_id: newClass.value.grade_level_id
+    }
+    
+    const response = await api.post('/class-groups/', classData)
+    alert.success('Class created successfully')
+    showCreateClassModal.value = false
+    resetNewClass()
+    
+    // Reload classes to get fresh data
+    await loadClasses()
+    
+    // Auto-select the newly created class
+    if (response.data?.id) {
+      selectedClassId.value = response.data.id
+      // Ensure the class data is updated in the array with the response data
+      const index = classes.value.findIndex(c => c.id === response.data.id)
+      if (index !== -1 && response.data.number_of_students !== undefined) {
+        classes.value[index] = { ...classes.value[index], ...response.data }
+      }
+      await onClassChange()
+    }
+  } catch (err: any) {
+    alert.error(err.response?.data?.detail || 'Failed to create class')
   } finally {
     loading.value = false
   }
@@ -518,8 +667,6 @@ async function addAllocation() {
   if (!selectedClassId.value || !newAllocation.value.subject_id) return
   
   loading.value = true
-  error.value = ''
-  success.value = ''
   
   try {
     await api.post('/subjects/class-subject-allocations', {
@@ -530,11 +677,11 @@ async function addAllocation() {
       allow_multiple_in_one_day: newAllocation.value.allow_multiple_in_one_day,
       required_consecutive_hours: newAllocation.value.required_consecutive_hours || null
     })
-    success.value = 'Allocation added successfully'
+    alert.success('Allocation added successfully')
     newAllocation.value = { subject_id: null, weekly_hours: 1, primary_teacher_id: null, allow_multiple_in_one_day: null, required_consecutive_hours: null }
     await loadClassAllocations()
   } catch (err: any) {
-    error.value = err.response?.data?.detail || 'Failed to add allocation'
+    alert.error(err.response?.data?.detail || 'Failed to add allocation')
   } finally {
     loading.value = false
   }
@@ -560,8 +707,6 @@ async function updateAllocation() {
   if (!editingAllocation.value) return
   
   loading.value = true
-  error.value = ''
-  success.value = ''
   
   try {
     await api.put(`/subjects/class-subject-allocations/${editingAllocation.value.id}`, {
@@ -570,11 +715,11 @@ async function updateAllocation() {
       allow_multiple_in_one_day: editingAllocation.value.allow_multiple_in_one_day,
       required_consecutive_hours: editingAllocation.value.required_consecutive_hours || null
     })
-    success.value = 'Allocation updated successfully'
+    alert.success('Allocation updated successfully')
     editingAllocation.value = null
     await loadClassAllocations()
   } catch (err: any) {
-    error.value = err.response?.data?.detail || 'Failed to update allocation'
+    alert.error(err.response?.data?.detail || 'Failed to update allocation')
   } finally {
     loading.value = false
   }
@@ -586,15 +731,13 @@ async function removeAllocation(allocationId: number) {
   }
   
   loading.value = true
-  error.value = ''
-  success.value = ''
   
   try {
     await api.delete(`/subjects/class-subject-allocations/${allocationId}`)
-    success.value = 'Allocation removed successfully'
+    alert.success('Allocation removed successfully')
     await loadClassAllocations()
   } catch (err: any) {
-    error.value = err.response?.data?.detail || 'Failed to remove allocation'
+    alert.error(err.response?.data?.detail || 'Failed to remove allocation')
   } finally {
     loading.value = false
   }
@@ -602,6 +745,7 @@ async function removeAllocation(allocationId: number) {
 
 onMounted(async () => {
   await loadClasses()
+  await loadGradeLevels()
   await loadSubjects()
   await loadTeachers()
   await loadSchoolSettings()
@@ -619,9 +763,10 @@ onMounted(async () => {
   &__header {
     @extend %neo-header;
     padding: 1.5rem 2rem;
-    display: flex;
-    justify-content: space-between;
+    display: grid;
+    grid-template-columns: 1fr auto 1fr;
     align-items: center;
+    gap: 1rem;
     position: sticky;
     top: 0;
     z-index: 100;
@@ -631,7 +776,19 @@ onMounted(async () => {
     color: $neo-text;
     font-size: 1.75rem;
     font-weight: 700;
-    
+  }
+
+  &__header-center {
+    display: flex;
+    justify-content: center;
+    width: 100%;
+  }
+
+  &__header-actions {
+    display: flex;
+    gap: 1rem;
+    justify-content: flex-end;
+    align-items: center;
   }
 
   &__back {
@@ -666,10 +823,33 @@ onMounted(async () => {
   &__filter {
     @extend %neo-input;
     width: 100%;
-    max-width: 400px;
-    padding: 0.75rem;
+    max-width: 500px;
+    min-width: 300px;
+    padding: 0.75rem 2.5rem 0.75rem 0.75rem;
     border-radius: 12px;
     font-size: 1rem;
+    appearance: none;
+    background-repeat: no-repeat;
+    background-position: right 0.75rem center;
+    background-size: 12px;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%234a5568' d='M6 9L1 4h10z'/%3E%3C/svg%3E");
+    
+    &:focus {
+      padding: 0.75rem 2.5rem 0.75rem 0.75rem;
+      background-color: $neo-bg-base;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%234a5568' d='M6 9L1 4h10z'/%3E%3C/svg%3E");
+      background-repeat: no-repeat;
+      background-position: right 0.75rem center;
+      background-size: 12px;
+    }
+    
+    &:hover:not(:focus) {
+      background-color: $neo-bg-base;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%234a5568' d='M6 9L1 4h10z'/%3E%3C/svg%3E");
+      background-repeat: no-repeat;
+      background-position: right 0.75rem center;
+      background-size: 12px;
+    }
   }
 
   &__details {
@@ -790,6 +970,12 @@ onMounted(async () => {
       font-size: 0.9rem;
     }
 
+    &--save {
+      padding: 0.5rem 1rem;
+      font-size: 0.9rem;
+      margin-left: 0.5rem;
+    }
+
     &--secondary {
       @extend %neo-button--secondary;
     }
@@ -808,20 +994,17 @@ onMounted(async () => {
     font-style: italic;
   }
 
-  &__error {
-    @extend %neo-message;
-    @extend %neo-message--error;
-    padding: 1rem;
-    border-radius: 12px;
-    margin-top: 1rem;
+  &__form-group {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    margin-bottom: 1rem;
   }
 
-  &__success {
-    @extend %neo-message;
-    @extend %neo-message--success;
-    padding: 1rem;
-    border-radius: 12px;
-    margin-top: 1rem;
+  &__label {
+    font-weight: 600;
+    color: $neo-text;
+    font-size: 0.95rem;
   }
 
   &__modal {

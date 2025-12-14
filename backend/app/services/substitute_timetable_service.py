@@ -276,21 +276,31 @@ class SubstituteTimetableService:
         target_date: date,
         existing_entries: List[TimetableEntry],
         teacher_hours: Dict[int, int],
-        tenant_id: UUID
+        tenant_id: UUID,
+        classes_dict: Dict[int, ClassGroup]
     ) -> Optional[Teacher]:
         """Find a substitute teacher for an entry, following all rules except primary teacher assignment"""
         day_names = ["monday", "tuesday", "wednesday", "thursday", "friday"]
         day_name = day_names[entry.day_of_week]
         
+        # Get the class group and its grade level
+        class_group = classes_dict.get(entry.class_group_id)
+        entry_grade_level_id = class_group.grade_level_id if class_group else None
+        
         for teacher in teachers:
             if teacher.id == absent_teacher_id:
                 continue
             
-            # Check if teacher can teach this subject
+            # Check if teacher can teach this subject and grade level
             can_teach = False
             for capability in teacher.capabilities:
                 if capability.subject_id == entry.subject_id:
-                    can_teach = True
+                    # If capability has a grade_level_id, it must match the entry's grade level
+                    # If capability has no grade_level_id (None), it applies to all grade levels
+                    if capability.grade_level_id is None:
+                        can_teach = True
+                    elif capability.grade_level_id == entry_grade_level_id:
+                        can_teach = True
                     break
             
             if not can_teach:
@@ -506,7 +516,8 @@ class SubstituteTimetableService:
                         lesson_index=li
                     ) for e, li in placed],
                     teacher_hours,
-                    tenant_id
+                    tenant_id,
+                    classes_dict
                 )
                 if not substitute_teacher:
                     return False, None, None
@@ -677,7 +688,7 @@ class SubstituteTimetableService:
                         )
                         substitute_teacher = await self._find_substitute_teacher(
                             temp_entry, absent_teacher_id, teachers, check_date,
-                            existing_entries + moved_entries, teacher_hours, tenant_id
+                            existing_entries + moved_entries, teacher_hours, tenant_id, classes_dict
                         )
                         if not substitute_teacher:
                             continue

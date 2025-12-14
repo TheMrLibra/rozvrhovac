@@ -273,16 +273,16 @@
                 </option>
               </select>
               <select
-                v-model="newCapability.class_group_id"
+                v-model="newCapability.grade_level_id"
                 class="teachers-view__input"
               >
-                <option :value="null">{{ t('teachers.allClassesOrSelect') }}</option>
+                <option :value="null">{{ t('teachers.allGradeLevelsOrSelect') }}</option>
                 <option
-                  v-for="classGroup in classes"
-                  :key="classGroup.id"
-                  :value="classGroup.id"
+                  v-for="gradeLevel in gradeLevels"
+                  :key="gradeLevel.id"
+                  :value="gradeLevel.id"
                 >
-                  {{ classGroup.name }}
+                  {{ gradeLevel.name }}
                 </option>
               </select>
               <button type="submit" class="teachers-view__button" :disabled="loading">
@@ -301,8 +301,11 @@
                 <span class="teachers-view__capability-subject">
                   {{ getSubjectName(capability.subject_id) }}
                 </span>
-                <span v-if="capability.class_group_id" class="teachers-view__capability-class">
-                  ({{ t('teachers.class') }}: {{ getClassName(capability.class_group_id) }})
+                <span v-if="capability.grade_level_id" class="teachers-view__capability-grade">
+                  ({{ t('teachers.gradeLevel') }}: {{ getGradeLevelName(capability.grade_level_id) }})
+                </span>
+                <span v-else class="teachers-view__capability-all">
+                  ({{ t('teachers.allGradeLevels') }})
                 </span>
                 <button
                   @click="removeCapability(capability.id)"
@@ -360,10 +363,17 @@ interface ClassGroup {
   name: string
 }
 
+interface GradeLevel {
+  id: number
+  name: string
+  level?: number | null
+}
+
 interface TeacherCapability {
   id: number
   teacher_id: number
   subject_id: number
+  grade_level_id: number | null
   class_group_id: number | null
 }
 
@@ -371,6 +381,7 @@ const authStore = useAuthStore()
 const teachers = ref<Teacher[]>([])
 const subjects = ref<Subject[]>([])
 const classes = ref<ClassGroup[]>([])
+const gradeLevels = ref<GradeLevel[]>([])
 const loading = ref(false)
 const editingTeacher = ref<Teacher | null>(null)
 const managingCapabilities = ref<Teacher | null>(null)
@@ -403,7 +414,7 @@ const newTeacher = ref({
 
 const newCapability = ref({
   subject_id: null as number | null,
-  class_group_id: null as number | null
+  grade_level_id: null as number | null
 })
 
 const availabilityInput = ref('')
@@ -471,6 +482,15 @@ async function loadClasses() {
     classes.value = response.data
   } catch (err: any) {
     console.error('Failed to load classes:', err)
+  }
+}
+
+async function loadGradeLevels() {
+  try {
+    const response = await api.get('/class-groups/grade-levels/')
+    gradeLevels.value = response.data
+  } catch (err: any) {
+    console.error('Failed to load grade levels:', err)
   }
 }
 
@@ -566,11 +586,11 @@ async function addCapability() {
       {
         teacher_id: managingCapabilities.value.id,
         subject_id: newCapability.value.subject_id,
-        class_group_id: newCapability.value.class_group_id || null
+        grade_level_id: newCapability.value.grade_level_id || null
       }
     )
     alert.success('Capability added successfully')
-    newCapability.value = { subject_id: null, class_group_id: null }
+    newCapability.value = { subject_id: null, grade_level_id: null }
     await loadTeacherCapabilities(managingCapabilities.value.id)
   } catch (err: any) {
     alert.error(err.response?.data?.detail || 'Failed to add capability')
@@ -607,9 +627,9 @@ function getSubjectName(subjectId: number): string {
   return subject ? subject.name : 'Unknown'
 }
 
-function getClassName(classGroupId: number): string {
-  const classGroup = classes.value.find(c => c.id === classGroupId)
-  return classGroup ? classGroup.name : 'Unknown'
+function getGradeLevelName(gradeLevelId: number): string {
+  const gradeLevel = gradeLevels.value.find(gl => gl.id === gradeLevelId)
+  return gradeLevel ? gradeLevel.name : 'Unknown'
 }
 
 function getTeacherSubjects(capabilities: TeacherCapability[]): string {
@@ -821,6 +841,7 @@ onMounted(async () => {
   await loadTeachers()
   await loadSubjects()
   await loadClasses()
+  await loadGradeLevels()
   await loadSchoolSettings()
   
   // If user is a teacher, automatically select their own teacher ID
@@ -1233,9 +1254,15 @@ onMounted(async () => {
     color: $neo-text;
   }
 
-  &__capability-class {
+  &__capability-grade {
     color: $neo-text-light;
     font-size: 0.875rem;
+  }
+
+  &__capability-all {
+    color: $neo-text-muted;
+    font-size: 0.875rem;
+    font-style: italic;
   }
 
   &__capability-remove {
