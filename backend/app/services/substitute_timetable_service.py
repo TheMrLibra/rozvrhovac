@@ -1,5 +1,6 @@
 from typing import List, Optional, Dict, Tuple, Set
 from datetime import date, datetime
+from uuid import UUID
 import math
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
@@ -37,26 +38,27 @@ class SubstituteTimetableService:
     async def generate_substitute_timetable(
         self,
         school_id: int,
+        tenant_id: UUID,
         base_timetable_id: int,
         substitute_date: date
     ) -> Timetable:
         """Generate a substitute timetable for a specific date based on absences.
         First tries to rearrange lessons within the day, then adjusts the rest of the week if needed."""
         # Get the primary timetable
-        base_timetable = await self.timetable_repo.get_by_id_with_entries(base_timetable_id)
+        base_timetable = await self.timetable_repo.get_by_id_with_entries(base_timetable_id, tenant_id=tenant_id)
         if not base_timetable or base_timetable.school_id != school_id:
             raise ValueError("Base timetable not found")
         if base_timetable.is_primary != 1:
             raise ValueError("Base timetable must be a primary timetable")
         
         # Check if substitute timetable already exists for this date
-        existing = await self._find_existing_substitute(school_id, base_timetable_id, substitute_date)
+        existing = await self._find_existing_substitute(school_id, base_timetable_id, substitute_date, tenant_id)
         if existing:
             # Delete existing substitute timetable and recreate
-            await self._delete_substitute_timetable(existing.id)
+            await self._delete_substitute_timetable(existing.id, tenant_id)
         
         # Get school settings
-        settings = await self.settings_repo.get_by_school_id(school_id)
+        settings = await self.settings_repo.get_by_school_id(school_id, tenant_id=tenant_id)
         if not settings:
             raise ValueError("School settings not found")
         
@@ -79,20 +81,21 @@ class SubstituteTimetableService:
         
         # Get all absences for this date
         day_of_week = self._date_to_day_of_week(substitute_date)
-        absences = await self._get_absences_for_date(school_id, substitute_date)
+        absences = await self._get_absences_for_date(school_id, substitute_date, tenant_id)
         
         # Get all teachers and classrooms
-        teachers = await self.teacher_repo.get_by_school_id(school_id)
-        classrooms = await self.classroom_repo.get_by_school_id(school_id)
+        teachers = await self.teacher_repo.get_by_school_id(school_id, tenant_id=tenant_id)
+        classrooms = await self.classroom_repo.get_by_school_id(school_id, tenant_id=tenant_id)
         
         # Get all classes and subjects
-        classes = await self.class_repo.get_by_school_id(school_id)
+        classes = await self.class_repo.get_by_school_id(school_id, tenant_id=tenant_id)
         classes_dict = {c.id: c for c in classes}
-        subjects = await self.subject_repo.get_by_school_id(school_id)
+        subjects = await self.subject_repo.get_by_school_id(school_id, tenant_id=tenant_id)
         subjects_dict = {s.id: s for s in subjects}
         
         # Create substitute timetable
         substitute_timetable = Timetable(
+            tenant_id=tenant_id,
             school_id=school_id,
             name=f"Substitute for {substitute_date.strftime('%Y-%m-%d')}",
             valid_from=substitute_date,
@@ -101,7 +104,7 @@ class SubstituteTimetableService:
             substitute_for_date=substitute_date,
             base_timetable_id=base_timetable_id
         )
-        substitute_timetable = await self.timetable_repo.create(substitute_timetable)
+        substitute_timetable = await self.timetable_repo.create(substitute_timetable, tenant_id=tenant_id)
         
         # Get entries for the target day from base timetable
         day_entries = [e for e in base_timetable.entries if e.day_of_week == day_of_week]
@@ -119,7 +122,7 @@ class SubstituteTimetableService:
         # Get lunch hours for the day (from base timetable calculation)
         from app.services.timetable_service import TimetableService
         timetable_service = TimetableService(self.db)
-        lunch_hours = await timetable_service.calculate_class_lunch_hours(school_id, base_timetable_id)
+        lunch_hours = await timetable_service.calculate_class_lunch_hours(school_id, base_timetable_id, tenant_id=tenant_id)
         
         # Try to rearrange lessons within the day first
         all_entries: List[TimetableEntry] = []
@@ -137,7 +140,7 @@ class SubstituteTimetableService:
             rearranged = await self._try_rearrange_class_day(
                 class_group, class_day_entries, subjects_dict, teachers, classrooms,
                 absences, substitute_date, day_of_week, max_lessons_per_day,
-                class_lunch_slots, teacher_hours, all_entries, substitute_timetable.id
+                class_lunch_slots, teacher_hours, all_entries, substitute_timetable.id, tenant_id
             )
             
             if rearranged:
@@ -181,7 +184,7 @@ class SubstituteTimetableService:
                 moved = await self._try_move_class_to_other_days(
                     class_group, class_day_entries, subjects_dict, teachers, classrooms,
                     absences, available_days, max_lessons_per_day, lunch_hours,
-                    teacher_hours, all_entries, substitute_timetable.id, base_timetable.entries
+                    teacher_hours, all_entries, substitute_timetable.id, base_timetable.entries, tenant_id
                 )
                 
                 if moved:
@@ -192,40 +195,44 @@ class SubstituteTimetableService:
         
         # Save all entries
         for entry in all_entries:
-            await self.entry_repo.create(entry)
+            entry.tenant_id = tenant_id  # Ensure tenant_id is set on entries
+            await self.entry_repo.create(entry, tenant_id=tenant_id)
         
         # Reload with entries for return
-        substitute_timetable = await self.timetable_repo.get_by_id_with_entries(substitute_timetable.id)
+        substitute_timetable = await self.timetable_repo.get_by_id_with_entries(substitute_timetable.id, tenant_id=tenant_id)
         
         return substitute_timetable
     
     async def get_substitute_timetable_with_lunch_hours(
         self,
         school_id: int,
-        timetable_id: int
+        timetable_id: int,
+        tenant_id: UUID
     ) -> Tuple[Timetable, Dict[int, Dict[int, List[int]]]]:
         """Get a substitute timetable with entries and calculate lunch hours"""
         from app.services.timetable_service import TimetableService
         
-        timetable = await self.timetable_repo.get_by_id_with_entries(timetable_id)
+        timetable = await self.timetable_repo.get_by_id_with_entries(timetable_id, tenant_id=tenant_id)
         if not timetable:
             return None, {}
         
         # Use TimetableService to calculate lunch hours
         timetable_service = TimetableService(self.db)
-        lunch_hours = await timetable_service.calculate_class_lunch_hours(school_id, timetable_id)
+        lunch_hours = await timetable_service.calculate_class_lunch_hours(school_id, timetable_id, tenant_id=tenant_id)
         return timetable, lunch_hours
     
     async def _find_existing_substitute(
         self,
         school_id: int,
         base_timetable_id: int,
-        substitute_date: date
+        substitute_date: date,
+        tenant_id: UUID
     ) -> Optional[Timetable]:
         """Find existing substitute timetable for a date"""
         result = await self.db.execute(
             select(Timetable).where(
                 Timetable.school_id == school_id,
+                Timetable.tenant_id == tenant_id,
                 Timetable.base_timetable_id == base_timetable_id,
                 Timetable.substitute_for_date == substitute_date,
                 Timetable.is_primary == 0
@@ -233,25 +240,28 @@ class SubstituteTimetableService:
         )
         return result.scalar_one_or_none()
     
-    async def _delete_substitute_timetable(self, timetable_id: int):
+    async def _delete_substitute_timetable(self, timetable_id: int, tenant_id: UUID):
         """Delete a substitute timetable and its entries"""
         # Delete entries first
         result = await self.db.execute(
-            select(TimetableEntry).where(TimetableEntry.timetable_id == timetable_id)
+            select(TimetableEntry)
+            .where(TimetableEntry.timetable_id == timetable_id)
+            .where(TimetableEntry.tenant_id == tenant_id)
         )
         entries = result.scalars().all()
         for entry in entries:
-            await self.entry_repo.delete(entry.id)
+            await self.entry_repo.delete(entry.id, tenant_id=tenant_id)
         
         # Delete timetable
-        await self.timetable_repo.delete(timetable_id)
+        await self.timetable_repo.delete(timetable_id, tenant_id=tenant_id)
     
-    async def _get_absences_for_date(self, school_id: int, target_date: date) -> List[TeacherAbsence]:
+    async def _get_absences_for_date(self, school_id: int, target_date: date, tenant_id: UUID) -> List[TeacherAbsence]:
         """Get all teacher absences that cover the target date"""
         from app.models.absence import TeacherAbsence
         result = await self.db.execute(
             select(TeacherAbsence).where(
                 TeacherAbsence.school_id == school_id,
+                TeacherAbsence.tenant_id == tenant_id,
                 TeacherAbsence.date_from <= target_date,
                 TeacherAbsence.date_to >= target_date
             )
@@ -265,7 +275,8 @@ class SubstituteTimetableService:
         teachers: List[Teacher],
         target_date: date,
         existing_entries: List[TimetableEntry],
-        teacher_hours: Dict[int, int]
+        teacher_hours: Dict[int, int],
+        tenant_id: UUID
     ) -> Optional[Teacher]:
         """Find a substitute teacher for an entry, following all rules except primary teacher assignment"""
         day_names = ["monday", "tuesday", "wednesday", "thursday", "friday"]
@@ -297,7 +308,7 @@ class SubstituteTimetableService:
                 continue
             
             # Check if teacher is absent on this date
-            teacher_absences = await self._get_absences_for_date(teacher.school_id, target_date)
+            teacher_absences = await self._get_absences_for_date(teacher.school_id, target_date, tenant_id)
             if any(a.teacher_id == teacher.id for a in teacher_absences):
                 continue
             
@@ -428,7 +439,8 @@ class SubstituteTimetableService:
         lunch_slots: Set[int],
         teacher_hours: Dict[int, int],
         existing_entries: List[TimetableEntry],
-        timetable_id: int
+        timetable_id: int,
+        tenant_id: UUID
     ) -> Optional[List[TimetableEntry]]:
         """Try to rearrange lessons within a day for a class, ensuring all subjects are still taught"""
         from itertools import permutations
@@ -493,7 +505,8 @@ class SubstituteTimetableService:
                         day_of_week=day_of_week,
                         lesson_index=li
                     ) for e, li in placed],
-                    teacher_hours
+                    teacher_hours,
+                    tenant_id
                 )
                 if not substitute_teacher:
                     return False, None, None
@@ -613,7 +626,8 @@ class SubstituteTimetableService:
         teacher_hours: Dict[int, int],
         existing_entries: List[TimetableEntry],
         timetable_id: int,
-        base_entries: List[TimetableEntry]
+        base_entries: List[TimetableEntry],
+        tenant_id: UUID
     ) -> Optional[List[TimetableEntry]]:
         """Try to move a class's lessons to other days in the week"""
         if not available_days:
@@ -635,7 +649,7 @@ class SubstituteTimetableService:
                 available_indices = [i for i in range(1, max_lessons_per_day + 1) if i not in class_lunch_slots]
                 
                 # Check if original teacher is absent on this day
-                day_absences = await self._get_absences_for_date(school_id, check_date)
+                day_absences = await self._get_absences_for_date(school_id, check_date, tenant_id)
                 absent_teacher_id = None
                 for absence in day_absences:
                     if absence.teacher_id == entry.teacher_id:
@@ -663,7 +677,7 @@ class SubstituteTimetableService:
                         )
                         substitute_teacher = await self._find_substitute_teacher(
                             temp_entry, absent_teacher_id, teachers, check_date,
-                            existing_entries + moved_entries, teacher_hours
+                            existing_entries + moved_entries, teacher_hours, tenant_id
                         )
                         if not substitute_teacher:
                             continue

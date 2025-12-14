@@ -190,6 +190,8 @@ async def generate_substitute_timetable(
     school_id: int,
     base_timetable_id: int,
     data: SubstituteTimetableCreate,
+    request: Request,
+    tenant: TenantContext = Depends(get_tenant_from_user),
     current_user: User = Depends(require_role([UserRole.ADMIN])),
     db: AsyncSession = Depends(get_db)
 ):
@@ -201,6 +203,7 @@ async def generate_substitute_timetable(
     try:
         substitute_timetable = await substitute_service.generate_substitute_timetable(
             school_id=school_id,
+            tenant_id=tenant.tenant_id,
             base_timetable_id=base_timetable_id,
             substitute_date=data.substitute_date
         )
@@ -210,7 +213,7 @@ async def generate_substitute_timetable(
         
         # Get full timetable with entries and lunch hours
         full_timetable, lunch_hours = await substitute_service.get_substitute_timetable_with_lunch_hours(
-            school_id, substitute_timetable.id
+            school_id, substitute_timetable.id, tenant_id=tenant.tenant_id
         )
         if not full_timetable:
             raise HTTPException(status_code=404, detail="Substitute timetable not found after creation")
