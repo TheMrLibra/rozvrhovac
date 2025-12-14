@@ -1,4 +1,5 @@
 from typing import List, Optional
+from uuid import UUID
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from sqlalchemy.orm import selectinload
@@ -9,8 +10,8 @@ class TimetableRepository(BaseRepository[Timetable]):
     def __init__(self, db: AsyncSession):
         super().__init__(db, Timetable)
     
-    async def get_by_school_id(self, school_id: int) -> List[Timetable]:
-        result = await self.db.execute(
+    async def get_by_school_id(self, school_id: int, tenant_id: Optional[UUID] = None) -> List[Timetable]:
+        stmt = (
             select(Timetable)
             .where(Timetable.school_id == school_id)
             .options(
@@ -20,10 +21,13 @@ class TimetableRepository(BaseRepository[Timetable]):
                 selectinload(Timetable.entries).selectinload(TimetableEntry.classroom),
             )
         )
+        if tenant_id:
+            stmt = stmt.where(Timetable.tenant_id == tenant_id)
+        result = await self.db.execute(stmt)
         return list(result.scalars().all())
     
-    async def get_by_id_with_entries(self, id: int) -> Optional[Timetable]:
-        result = await self.db.execute(
+    async def get_by_id_with_entries(self, id: int, tenant_id: Optional[UUID] = None) -> Optional[Timetable]:
+        stmt = (
             select(Timetable)
             .where(Timetable.id == id)
             .options(
@@ -33,14 +37,17 @@ class TimetableRepository(BaseRepository[Timetable]):
                 selectinload(Timetable.entries).selectinload(TimetableEntry.classroom),
             )
         )
+        if tenant_id:
+            stmt = stmt.where(Timetable.tenant_id == tenant_id)
+        result = await self.db.execute(stmt)
         return result.scalar_one_or_none()
 
 class TimetableEntryRepository(BaseRepository[TimetableEntry]):
     def __init__(self, db: AsyncSession):
         super().__init__(db, TimetableEntry)
     
-    async def get_by_timetable_id(self, timetable_id: int) -> List[TimetableEntry]:
-        result = await self.db.execute(
+    async def get_by_timetable_id(self, timetable_id: int, tenant_id: Optional[UUID] = None) -> List[TimetableEntry]:
+        stmt = (
             select(TimetableEntry)
             .where(TimetableEntry.timetable_id == timetable_id)
             .options(
@@ -51,6 +58,9 @@ class TimetableEntryRepository(BaseRepository[TimetableEntry]):
                 selectinload(TimetableEntry.classroom),
             )
         )
+        if tenant_id:
+            stmt = stmt.where(TimetableEntry.tenant_id == tenant_id)
+        result = await self.db.execute(stmt)
         return list(result.scalars().all())
     
     async def get_by_teacher_and_date_range(

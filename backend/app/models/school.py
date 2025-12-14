@@ -1,15 +1,23 @@
-from sqlalchemy import Column, Integer, String, ForeignKey, Time, JSON
+from sqlalchemy import Column, Integer, String, ForeignKey, Time, JSON, Index
 from sqlalchemy.orm import relationship
+from sqlalchemy.dialects.postgresql import UUID
 from app.core.database import Base
 
 class School(Base):
     __tablename__ = "schools"
     
     id = Column(Integer, primary_key=True, index=True)
+    tenant_id = Column(UUID(as_uuid=True), ForeignKey("tenants.id"), nullable=False, index=True)
     name = Column(String, nullable=False)
-    code = Column(String, unique=True, nullable=False, index=True)
+    code = Column(String, nullable=False, index=True)
     # settings_id removed - circular dependency. Use SchoolSettings.school_id instead
     
+    # Unique constraint: code must be unique per tenant
+    __table_args__ = (
+        Index('ix_schools_tenant_code', 'tenant_id', 'code', unique=True),
+    )
+    
+    tenant = relationship("Tenant")
     settings = relationship("SchoolSettings", back_populates="school", uselist=False, foreign_keys="SchoolSettings.school_id")
     grade_levels = relationship("GradeLevel", back_populates="school", cascade="all, delete-orphan")
     classes = relationship("ClassGroup", back_populates="school", cascade="all, delete-orphan")
@@ -23,6 +31,7 @@ class SchoolSettings(Base):
     __tablename__ = "school_settings"
     
     id = Column(Integer, primary_key=True, index=True)
+    tenant_id = Column(UUID(as_uuid=True), ForeignKey("tenants.id"), nullable=False, index=True)
     school_id = Column(Integer, ForeignKey("schools.id"), nullable=False, unique=True, index=True)
     start_time = Column(Time, nullable=False)  # e.g., 08:00
     end_time = Column(Time, nullable=False)  # e.g., 16:00
@@ -32,5 +41,6 @@ class SchoolSettings(Base):
     possible_lunch_hours = Column(JSON, nullable=True)  # e.g., [3, 4, 5]
     lunch_duration_minutes = Column(Integer, nullable=False, default=30)
     
+    tenant = relationship("Tenant")
     school = relationship("School", back_populates="settings", foreign_keys="SchoolSettings.school_id")
 

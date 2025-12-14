@@ -1,5 +1,5 @@
 from pydantic_settings import BaseSettings
-from typing import List
+from typing import List, Optional
 import os
 
 class Settings(BaseSettings):
@@ -18,6 +18,11 @@ class Settings(BaseSettings):
     # CORS - accept comma-separated string from env, convert to list
     CORS_ORIGINS: str = "http://localhost:5173,http://localhost:3000"
     
+    # Multi-tenancy
+    ENV: str = "dev"  # dev or prod
+    DEFAULT_TENANT_SLUG: Optional[str] = None  # Default tenant slug for dev
+    MIGRATION_DEFAULT_TENANT_ID: Optional[str] = None  # UUID for migration backfill
+    
     @property
     def cors_origins_list(self) -> List[str]:
         """Convert CORS_ORIGINS to a list"""
@@ -25,6 +30,11 @@ class Settings(BaseSettings):
         if isinstance(origins, str):
             return [origin.strip() for origin in origins.split(",") if origin.strip()]
         return origins if isinstance(origins, list) else []
+    
+    @property
+    def is_dev(self) -> bool:
+        """Check if running in development mode"""
+        return self.ENV.lower() == "dev"
     
     class Config:
         env_file = ".env"

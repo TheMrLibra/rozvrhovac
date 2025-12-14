@@ -1,5 +1,6 @@
 from typing import List, Optional, Dict, Tuple
 from datetime import date
+from uuid import UUID
 import random
 import math
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -32,6 +33,7 @@ class TimetableService:
     async def generate_timetable(
         self,
         school_id: int,
+        tenant_id: UUID,
         name: str,
         valid_from: Optional[date] = None,
         valid_to: Optional[date] = None
@@ -39,32 +41,33 @@ class TimetableService:
         """Generate a timetable using a heuristic algorithm"""
         
         # Get school settings
-        settings = await self.settings_repo.get_by_school_id(school_id)
+        settings = await self.settings_repo.get_by_school_id(school_id, tenant_id=tenant_id)
         if not settings:
             raise ValueError("School settings not found")
         
         # Get all classes
-        classes = await self.class_repo.get_by_school_id(school_id)
+        classes = await self.class_repo.get_by_school_id(school_id, tenant_id=tenant_id)
         if not classes:
             raise ValueError("No classes found for school")
         
         # Get all teachers
-        teachers = await self.teacher_repo.get_by_school_id(school_id)
+        teachers = await self.teacher_repo.get_by_school_id(school_id, tenant_id=tenant_id)
         if not teachers:
             raise ValueError("No teachers found for school")
         
         # Get all classrooms
-        classrooms = await self.classroom_repo.get_by_school_id(school_id)
+        classrooms = await self.classroom_repo.get_by_school_id(school_id, tenant_id=tenant_id)
         
         # Create timetable (mark as primary)
         timetable = Timetable(
+            tenant_id=tenant_id,
             school_id=school_id,
             name=name,
             valid_from=valid_from,
             valid_to=valid_to,
             is_primary=1  # This is a primary timetable
         )
-        timetable = await self.timetable_repo.create(timetable)
+        timetable = await self.timetable_repo.create(timetable, tenant_id=tenant_id)
         
         # Calculate max lessons per day from settings
         total_minutes = (settings.end_time.hour * 60 + settings.end_time.minute) - \
@@ -108,7 +111,7 @@ class TimetableService:
         # Group subjects by class for even distribution
         class_subjects: Dict[int, List[Tuple[Subject, ClassSubjectAllocation]]] = {}  # class_id -> [(subject, allocation), ...]
         for class_group in classes:
-            allocations = await self.allocation_repo.get_by_class_group_id(class_group.id)
+            allocations = await self.allocation_repo.get_by_class_group_id(class_group.id, tenant_id=tenant_id)
             class_subjects[class_group.id] = []
             for allocation in allocations:
                 subject = await self.db.get(Subject, allocation.subject_id)
@@ -237,10 +240,11 @@ class TimetableService:
         
         # Save all entries
         for entry in entries:
-            await self.entry_repo.create(entry)
+            entry.tenant_id = tenant_id  # Ensure tenant_id is set on entries
+            await self.entry_repo.create(entry, tenant_id=tenant_id)
         
         # Reload timetable with entries for return
-        timetable = await self.timetable_repo.get_by_id_with_entries(timetable.id)
+        timetable = await self.timetable_repo.get_by_id_with_entries(timetable.id, tenant_id=tenant_id)
         return timetable
     
     def _get_subject_difficulty(self, subject: Subject) -> int:
@@ -924,21 +928,22 @@ class TimetableService:
     async def calculate_class_lunch_hours(
         self,
         school_id: int,
-        timetable_id: int
+        timetable_id: int,
+        tenant_id: UUID
     ) -> Dict[int, Dict[int, List[int]]]:
         """Calculate lunch hours for each class per day in a timetable, matching the generation logic
         and applying adjustments: if there are no lessons after lunch and there's a gap, move lunch after last lesson"""
         
-        settings = await self.settings_repo.get_by_school_id(school_id)
+        settings = await self.settings_repo.get_by_school_id(school_id, tenant_id=tenant_id)
         if not settings or not settings.possible_lunch_hours or settings.lunch_duration_minutes <= 0:
             return {}
         
-        classes = await self.class_repo.get_by_school_id(school_id)
+        classes = await self.class_repo.get_by_school_id(school_id, tenant_id=tenant_id)
         if not classes:
             return {}
         
         # Get all entries for this timetable
-        entries = await self.entry_repo.get_by_timetable_id(timetable_id)
+        entries = await self.entry_repo.get_by_timetable_id(timetable_id, tenant_id=tenant_id)
         
         # Calculate lunch hours count
         lunch_hours_count = math.ceil(settings.lunch_duration_minutes / settings.class_hour_length_minutes)
@@ -1034,27 +1039,29 @@ class TimetableService:
     async def get_timetable_with_lunch_hours(
         self,
         school_id: int,
-        timetable_id: int
+        timetable_id: int,
+        tenant_id: UUID
     ) -> Tuple[Timetable, Dict[int, Dict[int, List[int]]]]:
         """Get a timetable with entries and calculate lunch hours"""
-        timetable = await self.timetable_repo.get_by_id_with_entries(timetable_id)
+        timetable = await self.timetable_repo.get_by_id_with_entries(timetable_id, tenant_id=tenant_id)
         if not timetable:
             return None, {}
         
-        lunch_hours = await self.calculate_class_lunch_hours(school_id, timetable_id)
+        lunch_hours = await self.calculate_class_lunch_hours(school_id, timetable_id, tenant_id=tenant_id)
         return timetable, lunch_hours
     
     async def delete_timetable(
         self,
         school_id: int,
-        timetable_id: int
+        timetable_id: int,
+        tenant_id: UUID
     ) -> bool:
         """Delete a timetable and all its entries, including substitute timetables"""
         from sqlalchemy import select
         from app.models.timetable import Timetable
         
         # Verify timetable exists and belongs to school
-        timetable = await self.timetable_repo.get_by_id(timetable_id)
+        timetable = await self.timetable_repo.get_by_id(timetable_id, tenant_id=tenant_id)
         if not timetable:
             raise ValueError("Timetable not found")
         if timetable.school_id != school_id:
@@ -1094,7 +1101,9 @@ class TimetableService:
             
             # Delete all timetable entries for the base timetable
             result = await self.db.execute(
-                select(TimetableEntry).where(TimetableEntry.timetable_id == timetable_id)
+                select(TimetableEntry)
+                .where(TimetableEntry.timetable_id == timetable_id)
+                .where(TimetableEntry.tenant_id == tenant_id)
             )
             entries = result.scalars().all()
             
@@ -1108,12 +1117,12 @@ class TimetableService:
                 for substitution in substitutions:
                     from app.repositories.absence_repository import SubstitutionRepository
                     sub_repo = SubstitutionRepository(self.db)
-                    await sub_repo.delete(substitution.id)
+                    await sub_repo.delete(substitution.id, tenant_id=tenant_id)
                 
-                await self.entry_repo.delete(entry.id)
+                await self.entry_repo.delete(entry.id, tenant_id=tenant_id)
             
             # Now delete the base timetable
-            await self.timetable_repo.delete(timetable_id)
+            await self.timetable_repo.delete(timetable_id, tenant_id=tenant_id)
             
             # Commit the transaction
             await self.db.commit()

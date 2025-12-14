@@ -1,5 +1,11 @@
 # Quick Start Guide
 
+## Prerequisites
+
+- Docker and Docker Compose
+- Node.js 18+ (for frontend)
+- Make (optional, but recommended)
+
 ## Access Points
 
 ### Backend API
@@ -21,41 +27,160 @@
   - User: `postgres`
   - Password: `postgres`
 
-## Quick Start Commands
+## Quick Start - One Command Setup
+
+### Complete Development Setup
 
 ```bash
-# Start database and backend
-make up-dev
+# This single command does everything:
+# - Starts Docker services
+# - Runs migrations
+# - Creates default tenant
+# - Creates school and admin user
+make dev-up
+```
 
-# Run database migrations
-make migrate
+That's it! After running `make dev-up`, your development environment is ready.
 
-# Seed initial data (creates demo school and users)
-make seed
+**Default Credentials:**
+- Email: `admin@school.example`
+- Password: `admin123`
+- Tenant Header: `X-Tenant: default-school`
 
-# Start frontend (in a separate terminal)
+### Manual Setup (if needed)
+
+If you prefer to run steps manually or customize the setup:
+
+<details>
+<summary>Click to expand manual setup steps</summary>
+
+### 1. Start Development Services
+
+```bash
+docker-compose -f docker-compose.dev.yml up -d
+```
+
+### 2. Run Initial Migration (Creates Tenant Table)
+
+```bash
+docker-compose -f docker-compose.dev.yml exec backend alembic upgrade 316b16895072
+```
+
+### 3. Create Default Tenant
+
+```bash
+make seed-tenant NAME="Default School" SLUG="default-school"
+```
+
+### 4. Run Remaining Migrations
+
+```bash
+# Get tenant UUID first
+TENANT_ID=$(docker-compose -f docker-compose.dev.yml exec -T postgres psql -U postgres -d rozvrhovac -t -c "SELECT id FROM tenants WHERE slug = 'default-school';" | tr -d " \n")
+docker-compose -f docker-compose.dev.yml exec -e MIGRATION_DEFAULT_TENANT_ID=$TENANT_ID backend alembic upgrade head
+```
+
+### 5. Create Admin User
+
+```bash
+docker-compose -f docker-compose.dev.yml exec backend python -m scripts.create_admin_user \
+  --tenant-slug default-school \
+  --email admin@school.example \
+  --password admin123 \
+  --school-code SCHOOL001
+```
+
+</details>
+
+### Start Frontend
+
+**Prerequisites**: Node.js 18+ is required. If you have nvm installed, it will automatically use the version specified in `.nvmrc`.
+
+```bash
 cd frontend
+
+# If using nvm, switch to Node.js 18+
+nvm use  # or: nvm install 18 && nvm use 18
+
+# Install dependencies (first time only)
+npm install
+
+# Start dev server
 npm run dev
 ```
 
-## Login Credentials
+**Note**: If you see `crypto.getRandomValues is not a function`, you need to upgrade Node.js to version 18 or higher.
 
-After running the seed script, you can login with:
+## Using the API
 
-### Admin User
-- **Email**: `admin@rozvrhovac.dev`
-- **Password**: `admin123`
-- **Access**: Full access to all features
+### Development Mode
 
-### Teacher User
-- **Email**: `teacher@rozvrhovac.dev`
-- **Password**: `teacher123`
-- **Access**: View own timetable, report absences
+In development, the tenant is automatically resolved from `DEFAULT_TENANT_SLUG` (set to `default-school`).
 
-### Scholar User
-- **Email**: `scholar@rozvrhovac.dev`
-- **Password**: `scholar123`
-- **Access**: View class timetable
+You can also override by sending the `X-Tenant` header:
+```bash
+curl -H "X-Tenant: default-school" http://localhost:8000/api/v1/...
+```
+
+### Login
+
+```bash
+curl -X POST http://localhost:8000/api/v1/auth/login \
+  -H "Content-Type: application/json" \
+  -H "X-Tenant: default-school" \
+  -d '{
+    "email": "admin@school.local",
+    "password": "securepassword"
+  }'
+```
+
+### Authenticated Requests
+
+Include the JWT token in the Authorization header:
+```bash
+curl -H "Authorization: Bearer <token>" \
+     -H "X-Tenant: default-school" \
+     http://localhost:8000/api/v1/...
+```
+
+## Creating Test Data
+
+To populate your database with comprehensive test data (grade levels, classes, subjects, teachers, classrooms, etc.), use the test data generation script:
+
+```bash
+# Using Makefile (recommended)
+make create-test-data TENANT_SLUG="default-school" SCHOOL_CODE="SCHOOL001"
+
+# Or with force flag to automatically delete existing data
+make create-test-data TENANT_SLUG="default-school" SCHOOL_CODE="SCHOOL001" FORCE=--force
+
+# Or directly with Python
+docker-compose -f docker-compose.dev.yml exec backend python -m scripts.create_test_data \
+  --tenant-slug default-school \
+  --school-code SCHOOL001 \
+  --force
+```
+
+This will create:
+- **4 Grade Levels** (1st-4th Grade)
+- **10 Class Groups** (1.A, 1.B, 1.C, 2.A, 2.B, 2.C, 3.A, 3.B, 4.A, 4.B)
+- **10 Subjects** (Mathematics, Physics, Chemistry, Biology, Computer Science, English, History, Geography, Physical Education, Art)
+- **18 Teachers** with capabilities and primary assignments
+- **17 Classrooms** (regular rooms + specialized labs)
+- **66 Class Subject Allocations** with weekly hour requirements
+
+**Note**: If test data already exists, the script will prompt you to delete it first (unless you use `--force`).
+
+## Environment Variables
+
+Create `.env.dev` file (optional, defaults are set in docker-compose.dev.yml):
+
+```bash
+DATABASE_URL=postgresql+asyncpg://postgres:postgres@postgres:5432/rozvrhovac
+ENV=dev
+DEFAULT_TENANT_SLUG=default-school
+SECRET_KEY=dev-secret-key-change-in-production
+```
 
 ## Troubleshooting
 
@@ -75,6 +200,30 @@ After running the seed script, you can login with:
    ```bash
    docker-compose -f docker-compose.dev.yml restart backend
    ```
+
+### Migration fails with "MIGRATION_DEFAULT_TENANT_ID must be set"
+
+1. Create a tenant first:
+   ```bash
+   make seed-tenant NAME="Default School" SLUG="default-school"
+   ```
+
+2. Copy the UUID from the output
+
+3. Set it as environment variable:
+   ```bash
+   export MIGRATION_DEFAULT_TENANT_ID=<uuid>
+   ```
+
+4. Run migrations again:
+   ```bash
+   make migrate-dev
+   ```
+
+### Tenant not found errors
+
+- Make sure you've created a tenant: `make seed-tenant`
+- Check tenant exists: `docker-compose -f docker-compose.dev.yml exec backend python -c "from app.repositories.tenant_repository import TenantRepository; from app.core.database import AsyncSessionLocal; import asyncio; async def check(): async with AsyncSessionLocal() as db: repo = TenantRepository(db); tenants = await repo.get_all(); print([t.slug for t in tenants])"`
 
 ### Frontend not accessible
 
@@ -106,18 +255,6 @@ After running the seed script, you can login with:
    lsof -i :5173
    ```
 
-### Frontend Error: `crypto.getRandomValues is not a function`
-
-This means you're using Node.js < 18. Upgrade to Node.js 18 or 20:
-```bash
-nvm install 20
-nvm use 20
-cd frontend
-rm -rf node_modules package-lock.json
-npm install
-npm run dev
-```
-
 ### Database connection issues
 
 1. Check if PostgreSQL is running:
@@ -130,11 +267,21 @@ npm run dev
    docker-compose -f docker-compose.dev.yml exec postgres psql -U postgres -d rozvrhovac -c "SELECT 1;"
    ```
 
-### No users in database / Can't login
+### Can't login / No users
 
-Run the seed script to create initial users:
+Create an admin user:
 ```bash
-make seed
-# Or manually:
-docker-compose -f docker-compose.dev.yml exec backend python -m scripts.seed_data
+docker-compose -f docker-compose.dev.yml exec backend python -m scripts.create_admin_user \
+  --tenant-slug default-school \
+  --email admin@school.example \
+  --password admin123 \
+  --school-code SCHOOL001
 ```
+
+Then login with the `X-Tenant` header set to your tenant slug.
+
+### Local
+1. make dev-up
+2. cd frontend && npm install && npm run dev
+3. Test data: make create-test-data TENANT_SLUG="default-school" SCHOOL_CODE="SCHOOL001"
+4. Rebuild BE - make rebuild-backend

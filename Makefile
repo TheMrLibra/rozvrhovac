@@ -54,3 +54,38 @@ status: ## Show status of all services
 seed: ## Seed initial data (school, users)
 	docker-compose -f docker-compose.dev.yml exec backend python -m scripts.seed_data
 
+seed-tenant: ## Create a default tenant (usage: make seed-tenant NAME="Default School" SLUG="default-school")
+	docker-compose -f docker-compose.dev.yml exec backend python -m scripts.seed_tenant --name "$(NAME)" --slug "$(SLUG)"
+
+create-test-data: ## Create comprehensive test data (usage: make create-test-data TENANT_SLUG="default-school" SCHOOL_CODE="SCHOOL001" [FORCE=--force])
+	docker-compose -f docker-compose.dev.yml exec backend python -m scripts.create_test_data --tenant-slug "$(TENANT_SLUG)" --school-code "$(SCHOOL_CODE)" $(FORCE)
+
+migrate-dev: ## Run database migrations in dev (requires MIGRATION_DEFAULT_TENANT_ID)
+	docker-compose -f docker-compose.dev.yml exec backend alembic upgrade head
+
+migrate-prod: ## Run database migrations in prod (requires MIGRATION_DEFAULT_TENANT_ID)
+	docker-compose -f docker-compose.prod.yml exec backend alembic upgrade head
+
+dev-up: ## Start development services and run complete setup
+	@./scripts/dev-setup.sh
+
+dev-down: ## Stop development services
+	docker-compose -f docker-compose.dev.yml down
+
+rebuild-backend: ## Rebuild backend container (dev)
+	docker-compose -f docker-compose.dev.yml build backend
+	docker-compose -f docker-compose.dev.yml up -d backend
+	@echo "Backend rebuilt and restarted."
+
+rebuild-backend-no-cache: ## Rebuild backend container without cache (dev)
+	docker-compose -f docker-compose.dev.yml build --no-cache backend
+	docker-compose -f docker-compose.dev.yml up -d backend
+	@echo "Backend rebuilt (no cache) and restarted."
+
+prod-up: ## Start production services
+	docker-compose -f docker-compose.prod.yml up -d
+	@echo "Production services started."
+
+prod-down: ## Stop production services
+	docker-compose -f docker-compose.prod.yml down
+

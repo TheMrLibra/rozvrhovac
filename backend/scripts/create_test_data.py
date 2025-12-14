@@ -1,62 +1,158 @@
 """
 Script to create comprehensive test data for development
-Run with: python -m scripts.create_test_data
+Run with: python -m scripts.create_test_data [--tenant-slug <slug>] [--school-code <code>]
 """
 import asyncio
+import sys
+import os
+import argparse
+from uuid import UUID
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.database import AsyncSessionLocal
-from app.models.school import School, SchoolSettings
+from app.models.school import School
 from app.models.grade_level import GradeLevel
 from app.models.class_group import ClassGroup
 from app.models.subject import Subject, ClassSubjectAllocation
 from app.models.teacher import Teacher, TeacherSubjectCapability
 from app.models.classroom import Classroom
-from datetime import time
 from sqlalchemy import text, select
+from app.repositories.tenant_repository import TenantRepository
+from app.repositories.school_repository import SchoolRepository
 
-async def create_test_data():
+
+async def create_test_data(tenant_slug: str = None, school_code: str = None, force: bool = False):
+    """
+    Create comprehensive test data for a school.
+    
+    Args:
+        tenant_slug: Tenant slug (defaults to DEFAULT_TENANT_SLUG env var or 'default-school')
+        school_code: School code (defaults to DEFAULT_SCHOOL_CODE env var or 'SCHOOL001')
+        force: If True, automatically delete existing test data without prompting
+    """
     async with AsyncSessionLocal() as db:
-        # Get or create school
-        result = await db.execute(text("SELECT id FROM schools WHERE code = 'DEMO001'"))
-        school_id_result = result.scalar_one_or_none()
+        # Resolve tenant
+        tenant_slug = tenant_slug or os.getenv("DEFAULT_TENANT_SLUG", "default-school")
+        tenant_repo = TenantRepository(db)
+        tenant = await tenant_repo.get_by_slug(tenant_slug)
         
-        if not school_id_result:
-            print("❌ School not found. Please run seed_data.py first to create the school.")
-            return
+        if not tenant:
+            print(f"❌ Tenant '{tenant_slug}' not found.")
+            print("   Please run setup_dev.py first to create the tenant.")
+            return False
         
-        school_id = school_id_result
+        tenant_id = tenant.id
+        print(f"📦 Using tenant: {tenant.name} ({tenant.slug})")
+        
+        # Resolve school
+        school_code = school_code or os.getenv("DEFAULT_SCHOOL_CODE", "SCHOOL001")
+        school_repo = SchoolRepository(db)
+        school = await school_repo.get_by_code(school_code, tenant_id=tenant_id)
+        
+        if not school:
+            print(f"❌ School '{school_code}' not found for tenant '{tenant_slug}'.")
+            print("   Please run setup_dev.py first to create the school.")
+            return False
+        
+        school_id = school.id
+        print(f"📦 Using school: {school.name} ({school.code})")
         
         # Check if test data already exists
-        result = await db.execute(text("SELECT COUNT(*) FROM subjects WHERE school_id = :school_id"), {"school_id": school_id})
+        result = await db.execute(
+            text("SELECT COUNT(*) FROM subjects WHERE school_id = :school_id AND tenant_id = :tenant_id"),
+            {"school_id": school_id, "tenant_id": tenant_id}
+        )
         subject_count = result.scalar_one()
         
         if subject_count > 0:
-            print("⚠️  Test data already exists.")
+            print("\n⚠️  Test data already exists.")
+            if not force:
+                try:
+                    response = input("   Delete existing test data? (y/N): ").strip().lower()
+                    if response != 'y':
+                        print("   Skipping test data creation.")
+                        return False
+                except (EOFError, KeyboardInterrupt):
+                    # Non-interactive mode (e.g., Docker exec)
+                    print("   Non-interactive mode detected. Use --force flag to delete existing data.")
+                    return False
+            
             print("   Deleting existing test data...")
             
             # Delete in reverse order of dependencies
             # First delete timetable entries and timetables
-            await db.execute(text("DELETE FROM timetable_entries WHERE timetable_id IN (SELECT id FROM timetables WHERE school_id = :school_id)"), {"school_id": school_id})
-            await db.execute(text("DELETE FROM timetables WHERE school_id = :school_id"), {"school_id": school_id})
+            await db.execute(
+                text("""
+                    DELETE FROM timetable_entries 
+                    WHERE tenant_id = :tenant_id 
+                    AND timetable_id IN (
+                        SELECT id FROM timetables 
+                        WHERE school_id = :school_id AND tenant_id = :tenant_id
+                    )
+                """),
+                {"school_id": school_id, "tenant_id": tenant_id}
+            )
+            await db.execute(
+                text("DELETE FROM timetables WHERE school_id = :school_id AND tenant_id = :tenant_id"),
+                {"school_id": school_id, "tenant_id": tenant_id}
+            )
             # Delete substitutions (references teacher_absences and teachers)
-            await db.execute(text("DELETE FROM substitutions WHERE school_id = :school_id"), {"school_id": school_id})
+            await db.execute(
+                text("DELETE FROM substitutions WHERE school_id = :school_id AND tenant_id = :tenant_id"),
+                {"school_id": school_id, "tenant_id": tenant_id}
+            )
             # Delete teacher absences (references teachers)
-            await db.execute(text("DELETE FROM teacher_absences WHERE school_id = :school_id"), {"school_id": school_id})
+            await db.execute(
+                text("DELETE FROM teacher_absences WHERE school_id = :school_id AND tenant_id = :tenant_id"),
+                {"school_id": school_id, "tenant_id": tenant_id}
+            )
             # Delete allocations and capabilities
-            await db.execute(text("DELETE FROM class_subject_allocations WHERE class_group_id IN (SELECT id FROM class_groups WHERE school_id = :school_id)"), {"school_id": school_id})
-            await db.execute(text("DELETE FROM teacher_subject_capabilities WHERE teacher_id IN (SELECT id FROM teachers WHERE school_id = :school_id)"), {"school_id": school_id})
-            await db.execute(text("DELETE FROM class_subject_allocations WHERE subject_id IN (SELECT id FROM subjects WHERE school_id = :school_id)"), {"school_id": school_id})
+            await db.execute(
+                text("""
+                    DELETE FROM class_subject_allocations 
+                    WHERE class_group_id IN (
+                        SELECT id FROM class_groups 
+                        WHERE school_id = :school_id AND tenant_id = :tenant_id
+                    )
+                """),
+                {"school_id": school_id, "tenant_id": tenant_id}
+            )
+            await db.execute(
+                text("""
+                    DELETE FROM teacher_subject_capabilities 
+                    WHERE teacher_id IN (
+                        SELECT id FROM teachers 
+                        WHERE school_id = :school_id AND tenant_id = :tenant_id
+                    )
+                """),
+                {"school_id": school_id, "tenant_id": tenant_id}
+            )
             # Delete main entities
-            await db.execute(text("DELETE FROM subjects WHERE school_id = :school_id"), {"school_id": school_id})
-            await db.execute(text("DELETE FROM teachers WHERE school_id = :school_id"), {"school_id": school_id})
-            await db.execute(text("DELETE FROM classrooms WHERE school_id = :school_id"), {"school_id": school_id})
-            await db.execute(text("DELETE FROM class_groups WHERE school_id = :school_id"), {"school_id": school_id})
-            await db.execute(text("DELETE FROM grade_levels WHERE school_id = :school_id"), {"school_id": school_id})
+            await db.execute(
+                text("DELETE FROM subjects WHERE school_id = :school_id AND tenant_id = :tenant_id"),
+                {"school_id": school_id, "tenant_id": tenant_id}
+            )
+            await db.execute(
+                text("DELETE FROM teachers WHERE school_id = :school_id AND tenant_id = :tenant_id"),
+                {"school_id": school_id, "tenant_id": tenant_id}
+            )
+            await db.execute(
+                text("DELETE FROM classrooms WHERE school_id = :school_id AND tenant_id = :tenant_id"),
+                {"school_id": school_id, "tenant_id": tenant_id}
+            )
+            await db.execute(
+                text("DELETE FROM class_groups WHERE school_id = :school_id AND tenant_id = :tenant_id"),
+                {"school_id": school_id, "tenant_id": tenant_id}
+            )
+            await db.execute(
+                text("DELETE FROM grade_levels WHERE school_id = :school_id AND tenant_id = :tenant_id"),
+                {"school_id": school_id, "tenant_id": tenant_id}
+            )
             await db.commit()
             print("   ✓ Deleted existing test data")
         
-        print(f"Creating test data for school ID: {school_id}")
-        print("=" * 60)
+        print(f"\n{'=' * 60}")
+        print(f"Creating test data for school: {school.name} (ID: {school_id})")
+        print(f"{'=' * 60}")
         
         # Create Grade Levels
         print("\n📚 Creating Grade Levels...")
@@ -69,6 +165,7 @@ async def create_test_data():
         grade_levels = {}
         for gl_data in grade_levels_data:
             grade_level = GradeLevel(
+                tenant_id=tenant_id,
                 school_id=school_id,
                 name=gl_data["name"],
                 level=gl_data["level"]
@@ -97,6 +194,7 @@ async def create_test_data():
         class_groups = {}
         for cg_data in class_groups_data:
             class_group = ClassGroup(
+                tenant_id=tenant_id,
                 school_id=school_id,
                 grade_level_id=grade_levels[cg_data["grade_level"]].id,
                 name=cg_data["name"],
@@ -126,6 +224,7 @@ async def create_test_data():
         subjects = {}
         for subj_data in subjects_data:
             subject = Subject(
+                tenant_id=tenant_id,
                 school_id=school_id,
                 name=subj_data["name"],
                 allow_consecutive_hours=True,
@@ -178,6 +277,7 @@ async def create_test_data():
         teachers = {}
         for teacher_data in teachers_data:
             teacher = Teacher(
+                tenant_id=tenant_id,
                 school_id=school_id,
                 full_name=teacher_data["name"],
                 max_weekly_hours=teacher_data["hours"],
@@ -348,6 +448,7 @@ async def create_test_data():
             # Convert subject names to IDs
             spec_ids = [subjects[s].id for s in room_data["specializations"]] if room_data["specializations"] else []
             classroom = Classroom(
+                tenant_id=tenant_id,
                 school_id=school_id,
                 name=room_data["name"],
                 capacity=room_data["capacity"],
@@ -469,6 +570,7 @@ async def create_test_data():
         
         print("\n" + "=" * 60)
         print("✅ Test data created successfully!")
+        print("=" * 60)
         print("\nSummary:")
         print(f"  • {len(grade_levels)} Grade Levels")
         print(f"  • {len(class_groups)} Class Groups")
@@ -476,8 +578,50 @@ async def create_test_data():
         print(f"  • {len(teachers)} Teachers")
         print(f"  • {len(classrooms)} Classrooms")
         print(f"  • {len(allocations_data)} Class Subject Allocations")
+        print(f"\nTenant: {tenant.name} ({tenant.slug})")
+        print(f"School: {school.name} ({school.code})")
         print("\nYou can now use the admin panel to manage this data!")
+        return True
+
+
+def main():
+    parser = argparse.ArgumentParser(description="Create comprehensive test data for development")
+    parser.add_argument(
+        "--tenant-slug",
+        type=str,
+        default=None,
+        help="Tenant slug (defaults to DEFAULT_TENANT_SLUG env var or 'default-school')"
+    )
+    parser.add_argument(
+        "--school-code",
+        type=str,
+        default=None,
+        help="School code (defaults to DEFAULT_SCHOOL_CODE env var or 'SCHOOL001')"
+    )
+    parser.add_argument(
+        "--force",
+        action="store_true",
+        help="Automatically delete existing test data without prompting"
+    )
+    
+    args = parser.parse_args()
+    
+    try:
+        success = asyncio.run(create_test_data(
+            tenant_slug=args.tenant_slug,
+            school_code=args.school_code,
+            force=args.force
+        ))
+        sys.exit(0 if success else 1)
+    except KeyboardInterrupt:
+        print("\n\n⚠️  Interrupted by user")
+        sys.exit(1)
+    except Exception as e:
+        print(f"\n❌ Error: {e}", file=sys.stderr)
+        import traceback
+        traceback.print_exc()
+        sys.exit(1)
+
 
 if __name__ == "__main__":
-    asyncio.run(create_test_data())
-
+    main()

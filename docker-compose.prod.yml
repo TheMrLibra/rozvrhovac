@@ -1,0 +1,108 @@
+# Production Docker Compose for Application VM
+# This VM runs the application services (backend, frontend, databases)
+# Nginx reverse proxy runs on a separate VM
+
+services:
+  # Main PostgreSQL instance
+  postgres:
+    image: postgres:15-alpine
+    container_name: rozvrhovac-postgres
+    environment:
+      POSTGRES_USER: ${DB_USER:-postgres}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-postgres}
+      POSTGRES_INITDB_ARGS: "-E UTF8 --locale=C"
+      # Allow creating databases
+      POSTGRES_HOST_AUTH_METHOD: md5
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-postgres}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+    networks:
+      - rozvrhovac-network
+    # Expose port only to internal network (not to host)
+    expose:
+      - "5432"
+
+  # Backend API
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: rozvrhovac-backend
+    environment:
+      # Database
+      DATABASE_URL: postgresql+asyncpg://${DB_USER:-postgres}:${DB_PASSWORD:-postgres}@postgres:5432/rozvrhovac
+      
+      # Multi-tenancy
+      ENV: ${ENV:-prod}
+      # DEFAULT_TENANT_SLUG not set in prod - requires X-Tenant header
+      MIGRATION_DEFAULT_TENANT_ID: ${MIGRATION_DEFAULT_TENANT_ID:-}
+      
+      # JWT Configuration
+      SECRET_KEY: ${SECRET_KEY:-change-me-in-production}
+      ALGORITHM: ${JWT_ALGORITHM:-HS256}
+      ACCESS_TOKEN_EXPIRE_MINUTES: ${ACCESS_TOKEN_EXPIRE_MINUTES:-30}
+      REFRESH_TOKEN_EXPIRE_DAYS: ${REFRESH_TOKEN_EXPIRE_DAYS:-7}
+      
+      # CORS Configuration
+      CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:3000}
+      
+      # Application Settings
+      PROJECT_NAME: ${PROJECT_NAME:-Rozvrhovac}
+      API_V1_STR: ${API_V1_STR:-/api/v1}
+      
+      # Logging
+      LOG_LEVEL: ${LOG_LEVEL:-INFO}
+    env_file:
+      - .env.prod
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: unless-stopped
+    networks:
+      - rozvrhovac-network
+    # Expose backend on host port (nginx on other VM will proxy to this)
+    ports:
+      - "8000:8000"
+    # Health check
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  # Frontend
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: rozvrhovac-frontend
+    environment:
+      # Frontend environment variables
+      VITE_API_URL: ${VITE_API_URL:-http://api.yourdomain.com}
+    restart: unless-stopped
+    networks:
+      - rozvrhovac-network
+    # Expose frontend on host port (nginx on other VM will proxy to this)
+    ports:
+      - "80:80"
+    # Health check
+    healthcheck:
+      test: ["CMD", "sh", "-c", "pgrep nginx || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+volumes:
+  postgres_data:
+    driver: local
+
+networks:
+  rozvrhovac-network:
+    driver: bridge
+

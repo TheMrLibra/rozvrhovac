@@ -36,7 +36,9 @@ async def get_current_user(
         raise credentials_exception
     
     user_repo = UserRepository(db)
-    user = await user_repo.get_by_id(user_id)
+    # For auth, we use get_by_id_for_auth which doesn't require tenant_id
+    # The user's tenant_id will be available after authentication
+    user = await user_repo.get_by_id_for_auth(user_id)
     if user is None:
         logger.debug(f"User not found for id: {user_id}")
         raise credentials_exception

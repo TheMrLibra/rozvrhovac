@@ -1,11 +1,13 @@
 from sqlalchemy import Column, Integer, String, ForeignKey, Boolean, JSON
 from sqlalchemy.orm import relationship
+from sqlalchemy.dialects.postgresql import UUID
 from app.core.database import Base
 
 class Subject(Base):
     __tablename__ = "subjects"
     
     id = Column(Integer, primary_key=True, index=True)
+    tenant_id = Column(UUID(as_uuid=True), ForeignKey("tenants.id"), nullable=False, index=True)
     school_id = Column(Integer, ForeignKey("schools.id"), nullable=False, index=True)
     grade_level_id = Column(Integer, ForeignKey("grade_levels.id"), nullable=True)
     name = Column(String, nullable=False)  # e.g., "Mathematics"
@@ -16,6 +18,7 @@ class Subject(Base):
     is_laboratory = Column(Boolean, default=False)
     requires_specialized_classroom = Column(Boolean, default=False)
     
+    tenant = relationship("Tenant")
     school = relationship("School", back_populates="subjects")
     grade_level = relationship("GradeLevel", back_populates="subjects")
     class_allocations = relationship("ClassSubjectAllocation", back_populates="subject", cascade="all, delete-orphan")

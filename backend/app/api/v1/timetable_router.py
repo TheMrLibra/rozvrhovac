@@ -1,8 +1,9 @@
 from sqlalchemy import select
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, Request
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.database import get_db
 from app.core.dependencies import get_current_active_user, require_role
+from app.core.tenant_context import get_tenant_context_with_user, TenantContext
 from app.models.user import User, UserRole
 from app.schemas.timetable import TimetableCreate, TimetableResponse, ValidationResponse, ValidationErrorResponse
 from app.repositories.timetable_repository import TimetableRepository
@@ -15,10 +16,20 @@ from datetime import date
 
 router = APIRouter()
 
+async def get_tenant_from_user(
+    request: Request,
+    current_user: User = Depends(get_current_active_user),
+    db: AsyncSession = Depends(get_db)
+) -> TenantContext:
+    """Get tenant context from authenticated user."""
+    return await get_tenant_context_with_user(request, db, current_user)
+
 @router.post("/schools/{school_id}/timetables/generate", response_model=TimetableResponse)
 async def generate_timetable(
     school_id: int,
     timetable_data: TimetableCreate,
+    request: Request,
+    tenant: TenantContext = Depends(get_tenant_from_user),
     current_user: User = Depends(require_role([UserRole.ADMIN])),
     db: AsyncSession = Depends(get_db)
 ):
@@ -29,6 +40,7 @@ async def generate_timetable(
     try:
         timetable = await timetable_service.generate_timetable(
             school_id=school_id,
+            tenant_id=tenant.tenant_id,
             name=timetable_data.name,
             valid_from=timetable_data.valid_from,
             valid_to=timetable_data.valid_to
@@ -39,7 +51,7 @@ async def generate_timetable(
         
         # Get full timetable with entries and lunch hours
         full_timetable, lunch_hours = await timetable_service.get_timetable_with_lunch_hours(
-            school_id, timetable.id
+            school_id, timetable.id, tenant_id=tenant.tenant_id
         )
         if not full_timetable:
             raise HTTPException(status_code=404, detail="Timetable not found after creation")
@@ -64,6 +76,8 @@ async def generate_timetable(
 async def validate_timetable(
     school_id: int,
     timetable_id: int,
+    request: Request,
+    tenant: TenantContext = Depends(get_tenant_from_user),
     current_user: User = Depends(get_current_active_user),
     db: AsyncSession = Depends(get_db)
 ):
@@ -71,7 +85,7 @@ async def validate_timetable(
         raise HTTPException(status_code=403, detail="Access denied")
     
     validation_service = TimetableValidationService(db)
-    errors = await validation_service.validate_timetable(timetable_id)
+    errors = await validation_service.validate_timetable(timetable_id, tenant_id=tenant.tenant_id)
     
     return ValidationResponse(
         is_valid=len(errors) == 0,
@@ -81,6 +95,8 @@ async def validate_timetable(
 @router.get("/schools/{school_id}/timetables", response_model=list[TimetableResponse])
 async def list_timetables(
     school_id: int,
+    request: Request,
+    tenant: TenantContext = Depends(get_tenant_from_user),
     current_user: User = Depends(get_current_active_user),
     db: AsyncSession = Depends(get_db)
 ):
@@ -88,13 +104,13 @@ async def list_timetables(
         raise HTTPException(status_code=403, detail="Access denied")
     
     repo = TimetableRepository(db)
-    timetables = await repo.get_by_school_id(school_id)
+    timetables = await repo.get_by_school_id(school_id, tenant_id=tenant.tenant_id)
     
     # Add lunch hours for each timetable
     timetable_service = TimetableService(db)
     result = []
     for timetable in timetables:
-        lunch_hours = await timetable_service.calculate_class_lunch_hours(school_id, timetable.id)
+        lunch_hours = await timetable_service.calculate_class_lunch_hours(school_id, timetable.id, tenant_id=tenant.tenant_id)
         # Convert to dict response
         timetable_dict = {
             "id": timetable.id,
@@ -116,6 +132,8 @@ async def list_timetables(
 async def get_timetable(
     school_id: int,
     timetable_id: int,
+    request: Request,
+    tenant: TenantContext = Depends(get_tenant_from_user),
     current_user: User = Depends(get_current_active_user),
     db: AsyncSession = Depends(get_db)
 ):
@@ -123,7 +141,7 @@ async def get_timetable(
         raise HTTPException(status_code=403, detail="Access denied")
     
     repo = TimetableRepository(db)
-    timetable = await repo.get_by_id_with_entries(timetable_id)
+    timetable = await repo.get_by_id_with_entries(timetable_id, tenant_id=tenant.tenant_id)
     if not timetable:
         raise HTTPException(status_code=404, detail="Timetable not found")
     if timetable.school_id != school_id:
@@ -131,7 +149,7 @@ async def get_timetable(
     
     # Calculate and add lunch hours
     timetable_service = TimetableService(db)
-    lunch_hours = await timetable_service.calculate_class_lunch_hours(school_id, timetable_id)
+    lunch_hours = await timetable_service.calculate_class_lunch_hours(school_id, timetable_id, tenant_id=tenant.tenant_id)
     timetable_dict = {
         "id": timetable.id,
         "school_id": timetable.school_id,
@@ -150,6 +168,8 @@ async def get_timetable(
 async def delete_timetable(
     school_id: int,
     timetable_id: int,
+    request: Request,
+    tenant: TenantContext = Depends(get_tenant_from_user),
     current_user: User = Depends(require_role([UserRole.ADMIN])),
     db: AsyncSession = Depends(get_db)
 ):
@@ -158,7 +178,7 @@ async def delete_timetable(
     
     timetable_service = TimetableService(db)
     try:
-        await timetable_service.delete_timetable(school_id, timetable_id)
+        await timetable_service.delete_timetable(school_id, timetable_id, tenant_id=tenant.tenant_id)
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e))
 

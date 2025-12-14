@@ -1,5 +1,6 @@
 from sqlalchemy import Column, Integer, String, ForeignKey, JSON, Table
 from sqlalchemy.orm import relationship
+from sqlalchemy.dialects.postgresql import UUID
 from app.core.database import Base
 
 # Association table for many-to-many relationship between teachers and classrooms
@@ -14,12 +15,14 @@ class Teacher(Base):
     __tablename__ = "teachers"
     
     id = Column(Integer, primary_key=True, index=True)
+    tenant_id = Column(UUID(as_uuid=True), ForeignKey("tenants.id"), nullable=False, index=True)
     school_id = Column(Integer, ForeignKey("schools.id"), nullable=False, index=True)
     full_name = Column(String, nullable=False)
     max_weekly_hours = Column(Integer, nullable=False)
     availability = Column(JSON, nullable=True)  # e.g., {"monday": [1, 2, 3, 4, 5], "tuesday": [1, 2, 3]}
     user_id = Column(Integer, ForeignKey("users.id"), nullable=True, unique=True)
     
+    tenant = relationship("Tenant")
     school = relationship("School", back_populates="teachers")
     user = relationship("User", back_populates="teacher", uselist=False, foreign_keys="User.teacher_id")
     capabilities = relationship("TeacherSubjectCapability", back_populates="teacher", cascade="all, delete-orphan")

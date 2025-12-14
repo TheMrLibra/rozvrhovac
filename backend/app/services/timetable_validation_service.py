@@ -20,10 +20,11 @@ class TimetableValidationService:
         self.entry_repo = TimetableEntryRepository(db)
         self.settings_repo = SchoolSettingsRepository(db)
     
-    async def validate_timetable(self, timetable_id: int) -> List[ValidationError]:
+    async def validate_timetable(self, timetable_id: int, tenant_id) -> List[ValidationError]:
         """Validate all constraints for a timetable"""
+        from uuid import UUID
         errors: List[ValidationError] = []
-        entries = await self.entry_repo.get_by_timetable_id(timetable_id)
+        entries = await self.entry_repo.get_by_timetable_id(timetable_id, tenant_id=tenant_id)
         
         if not entries:
             return errors
@@ -31,13 +32,17 @@ class TimetableValidationService:
         # Get school_id from timetable directly
         from sqlalchemy import select
         from app.models.timetable import Timetable
-        result = await self.db.execute(select(Timetable).where(Timetable.id == timetable_id))
+        result = await self.db.execute(
+            select(Timetable)
+            .where(Timetable.id == timetable_id)
+            .where(Timetable.tenant_id == tenant_id)
+        )
         timetable = result.scalar_one_or_none()
         if not timetable:
             return errors
         
         school_id = timetable.school_id
-        settings = await self.settings_repo.get_by_school_id(school_id)
+        settings = await self.settings_repo.get_by_school_id(school_id, tenant_id=tenant_id)
         
         # Group entries by various dimensions for validation
         teacher_entries: Dict[int, List[TimetableEntry]] = {}

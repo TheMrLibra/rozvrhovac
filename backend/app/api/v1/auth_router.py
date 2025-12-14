@@ -1,7 +1,8 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, Request
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.database import get_db
 from app.core.dependencies import get_current_active_user
+from app.core.tenant_context import get_tenant_context_optional, TenantContext
 from app.core.security import decode_token
 from app.schemas.auth import Token, LoginRequest, UserResponse
 from app.services.user_service import UserService
@@ -16,10 +17,19 @@ class RefreshTokenRequest(BaseModel):
 @router.post("/login", response_model=Token)
 async def login(
     login_data: LoginRequest,
+    request: Request,
     db: AsyncSession = Depends(get_db)
 ):
+    """
+    Login endpoint. Accepts X-Tenant header (optional in dev, required in prod).
+    If tenant is provided, user lookup is scoped to that tenant.
+    """
+    # Try to resolve tenant (optional for login - allows cross-tenant email lookup if needed)
+    tenant_context = await get_tenant_context_optional(request, db)
+    tenant_id = tenant_context.tenant_id if tenant_context else None
+    
     user_service = UserService(db)
-    user = await user_service.authenticate_user(login_data.email, login_data.password)
+    user = await user_service.authenticate_user(login_data.email, login_data.password, tenant_id=tenant_id)
     if not user:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
@@ -56,7 +66,7 @@ async def refresh_token(
         )
     
     user_repo = UserRepository(db)
-    user = await user_repo.get_by_id(user_id)
+    user = await user_repo.get_by_id_for_auth(user_id)
     if user is None or not user.is_active:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
