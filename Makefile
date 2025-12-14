@@ -60,6 +60,12 @@ seed-tenant: ## Create a default tenant (usage: make seed-tenant NAME="Default S
 create-test-data: ## Create comprehensive test data (usage: make create-test-data TENANT_SLUG="default-school" SCHOOL_CODE="SCHOOL001" [FORCE=--force])
 	docker-compose -f docker-compose.dev.yml exec backend python -m scripts.create_test_data --tenant-slug "$(TENANT_SLUG)" --school-code "$(SCHOOL_CODE)" $(FORCE)
 
+create-school: ## Create a new school (usage: make create-school TENANT_SLUG="default-school" NAME="School Name" CODE="SCHOOL002" [CREATE_ADMIN=--create-admin])
+	docker-compose -f docker-compose.dev.yml exec backend python -m scripts.create_school --tenant-slug "$(TENANT_SLUG)" --name "$(NAME)" --code "$(CODE)" $(CREATE_ADMIN) $(if $(ADMIN_EMAIL),--admin-email "$(ADMIN_EMAIL)") $(if $(ADMIN_PASSWORD),--admin-password "$(ADMIN_PASSWORD)")
+
+list-tenants: ## List all tenants and their schools
+	docker-compose -f docker-compose.dev.yml exec backend python -m scripts.list_tenants
+
 migrate-dev: ## Run database migrations in dev (requires MIGRATION_DEFAULT_TENANT_ID)
 	docker-compose -f docker-compose.dev.yml exec backend alembic upgrade head
 
@@ -73,19 +79,34 @@ dev-down: ## Stop development services
 	docker-compose -f docker-compose.dev.yml down
 
 rebuild-backend: ## Rebuild backend container (dev)
-	docker-compose -f docker-compose.dev.yml build backend
-	docker-compose -f docker-compose.dev.yml up -d backend
+	docker compose -f docker-compose.dev.yml build backend
+	docker compose -f docker-compose.dev.yml up -d backend
 	@echo "Backend rebuilt and restarted."
 
 rebuild-backend-no-cache: ## Rebuild backend container without cache (dev)
-	docker-compose -f docker-compose.dev.yml build --no-cache backend
-	docker-compose -f docker-compose.dev.yml up -d backend
+	docker compose -f docker-compose.dev.yml build --no-cache backend
+	docker compose -f docker-compose.dev.yml up -d backend
 	@echo "Backend rebuilt (no cache) and restarted."
 
 prod-up: ## Start production services
-	docker-compose -f docker-compose.prod.yml up -d
+	docker compose -f docker-compose.prod.yml up -d
 	@echo "Production services started."
 
 prod-down: ## Stop production services
-	docker-compose -f docker-compose.prod.yml down
+	docker compose -f docker-compose.prod.yml down
+
+prod-create-tenant: ## Create a tenant in production (usage: make prod-create-tenant NAME="Tenant Name" SLUG="tenant-slug")
+	docker compose -f docker-compose.prod.yml exec backend python -m scripts.seed_tenant --name "$(NAME)" --slug "$(SLUG)"
+
+prod-create-school: ## Create a school in production (usage: make prod-create-school TENANT_SLUG="slug" NAME="School Name" CODE="SCHOOL001" [CREATE_ADMIN=--create-admin] [ADMIN_EMAIL="email"] [ADMIN_PASSWORD="pass"])
+	docker compose -f docker-compose.prod.yml exec backend python -m scripts.create_school --tenant-slug "$(TENANT_SLUG)" --name "$(NAME)" --code "$(CODE)" $(CREATE_ADMIN) $(if $(ADMIN_EMAIL),--admin-email "$(ADMIN_EMAIL)") $(if $(ADMIN_PASSWORD),--admin-password "$(ADMIN_PASSWORD)")
+
+prod-create-admin: ## Create admin user in production (usage: make prod-create-admin TENANT_SLUG="slug" EMAIL="email" PASSWORD="pass" SCHOOL_CODE="SCHOOL001")
+	docker compose -f docker-compose.prod.yml exec backend python -m scripts.create_admin_user --tenant-slug "$(TENANT_SLUG)" --email "$(EMAIL)" --password "$(PASSWORD)" --school-code "$(SCHOOL_CODE)"
+
+prod-list-tenants: ## List tenants in production
+	docker compose -f docker-compose.prod.yml exec backend python -m scripts.list_tenants
+
+prod-create-test-data: ## Create test data in production (usage: make prod-create-test-data TENANT_SLUG="slug" SCHOOL_CODE="SCHOOL001" [FORCE=--force])
+	docker compose -f docker-compose.prod.yml exec backend python -m scripts.create_test_data --tenant-slug "$(TENANT_SLUG)" --school-code "$(SCHOOL_CODE)" $(FORCE)
 

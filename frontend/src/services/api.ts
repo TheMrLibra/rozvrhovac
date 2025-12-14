@@ -14,6 +14,14 @@ api.interceptors.request.use((config) => {
   if (authStore.accessToken) {
     config.headers.Authorization = `Bearer ${authStore.accessToken}`
   }
+  // Add X-Tenant header from localStorage (set during login)
+  // Don't add for login endpoint - backend determines tenant from user email
+  if (!config.url?.includes('/auth/login')) {
+    const tenantSlug = authStore.tenantSlug || localStorage.getItem('tenant_slug')
+    if (tenantSlug) {
+      config.headers['X-Tenant'] = tenantSlug
+    }
+  }
   return config
 })
 

@@ -13,8 +13,17 @@ class UserService:
         self.user_repo = UserRepository(db)
     
     async def authenticate_user(self, email: str, password: str, tenant_id: Optional[UUID] = None) -> Optional[User]:
-        """Authenticate user by email and password, optionally filtered by tenant."""
-        user = await self.user_repo.get_by_email(email, tenant_id=tenant_id)
+        """
+        Authenticate user by email and password.
+        If tenant_id is provided, searches only in that tenant.
+        If tenant_id is None, searches across all tenants (for login without tenant context).
+        """
+        if tenant_id:
+            user = await self.user_repo.get_by_email(email, tenant_id=tenant_id)
+        else:
+            # Search across all tenants
+            user = await self.user_repo.get_by_email_any_tenant(email)
+        
         if not user:
             return None
         if not verify_password(password, user.password_hash):

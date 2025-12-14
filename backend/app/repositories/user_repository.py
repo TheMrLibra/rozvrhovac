@@ -12,12 +12,23 @@ class UserRepository(BaseRepository[User]):
     async def get_by_email(self, email: str, tenant_id: Optional[UUID] = None) -> Optional[User]:
         """
         Get user by email. If tenant_id is provided, filter by tenant.
-        For login, tenant_id should be provided via X-Tenant header or default tenant.
+        If tenant_id is None, searches across all tenants (for login without tenant context).
         """
         stmt = select(User).where(User.email == email)
         if tenant_id:
             stmt = stmt.where(User.tenant_id == tenant_id)
         result = await self.db.execute(stmt)
+        return result.scalar_one_or_none()
+    
+    async def get_by_email_any_tenant(self, email: str) -> Optional[User]:
+        """
+        Get user by email across all tenants (for login without tenant context).
+        Returns the first matching user. If same email exists in multiple tenants,
+        this will return one of them (typically the first found).
+        """
+        result = await self.db.execute(
+            select(User).where(User.email == email).limit(1)
+        )
         return result.scalar_one_or_none()
     
     async def get_by_school_id(self, school_id: int, tenant_id: UUID) -> list[User]:
