@@ -93,6 +93,11 @@ rebuild-backend-no-cache: ## Rebuild backend container without cache (dev)
 	docker compose -f docker-compose.dev.yml up -d backend
 	@echo "Backend rebuilt (no cache) and restarted."
 
+rebuild-backend-prod: ## Rebuild backend container in production
+	docker compose -f docker-compose.prod.yml build backend
+	docker compose -f docker-compose.prod.yml up -d backend
+	@echo "Backend rebuilt and restarted in production."
+
 prod-up: ## Start production services
 	docker compose -f docker-compose.prod.yml up -d
 	@echo "Production services started."
