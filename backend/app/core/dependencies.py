@@ -1,6 +1,6 @@
 from typing import Optional
 import logging
-from fastapi import Depends, HTTPException, status, Header
+from fastapi import Depends, HTTPException, status, Header, Request
 from fastapi.security import OAuth2PasswordBearer, HTTPBearer, HTTPAuthorizationCredentials
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.database import get_db
@@ -19,6 +19,7 @@ logger = logging.getLogger(__name__)
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/v1/auth/login")
 
 async def get_school_context(
+    request: Request,
     x_school_code: Optional[str] = Header(None, alias="X-School-Code"),
     credentials: Optional[HTTPAuthorizationCredentials] = Depends(optional_bearer)
 ) -> Optional[SchoolRegistry]:
@@ -26,6 +27,8 @@ async def get_school_context(
     Extract school context from request.
     Priority: X-School-Code header > JWT token school_id
     """
+    logger.info(f"🔍 get_school_context called - x_school_code: {x_school_code}, credentials: {credentials is not None}")
+    
     async for registry_db in get_registry_db():
         try:
             registry_repo = RegistryRepository(registry_db)
@@ -38,15 +41,26 @@ async def get_school_context(
                     logger.info(f"✅ Found school from header: {registry_entry.code}")
                     return registry_entry
             
-            # Fall back to JWT token
+            # Fall back to JWT token - try both optional_bearer and manual extraction
+            token = None
             if credentials:
                 token = credentials.credentials
+                logger.info(f"📝 Extracted token from optional_bearer: {token[:20] if token else None}...")
+            else:
+                # Try manual extraction from Authorization header (same as oauth2_scheme)
+                auth_header = request.headers.get("Authorization")
+                if auth_header and auth_header.startswith("Bearer "):
+                    token = auth_header.split(" ")[1]
+                    logger.info(f"📝 Extracted token from Authorization header: {token[:20]}...")
+            
+            if token:
                 payload = decode_token(token)
                 if payload:
                     school_id = payload.get("school_id")
-                    logger.info(f"Getting school context from JWT token, school_id: {school_id}, payload keys: {list(payload.keys())}")
+                    logger.info(f"🔑 Getting school context from JWT token, school_id: {school_id}, payload keys: {list(payload.keys())}")
                     if school_id:
                         # Get school registry entry by school_id (maps to School.id in school database)
+                        logger.info(f"🔎 Looking up registry entry for school_id: {school_id}")
                         registry_entry = await registry_repo.get_by_school_id(school_id)
                         if registry_entry:
                             logger.info(f"✅ Found school from JWT: {registry_entry.code} (database: {registry_entry.database_name})")
@@ -55,17 +69,17 @@ async def get_school_context(
                             logger.warning(f"❌ School registry entry not found for school_id: {school_id}")
                             # Try to find by searching all schools (fallback)
                             all_schools = await registry_repo.get_all_active()
-                            logger.info(f"   Searching {len(all_schools)} active schools...")
+                            logger.warning(f"   Searching {len(all_schools)} active schools...")
                             for school in all_schools:
-                                logger.info(f"   - School ID: {school.school_id}, Code: {school.code}, DB: {school.database_name}")
+                                logger.warning(f"   - School ID: {school.school_id}, Code: {school.code}, DB: {school.database_name}")
                     else:
-                        logger.warning("JWT token does not contain school_id")
+                        logger.warning("❌ JWT token does not contain school_id")
                 else:
-                    logger.warning("Failed to decode JWT token")
+                    logger.warning("❌ Failed to decode JWT token")
             else:
-                logger.debug("No token found")
+                logger.warning("❌ No token found (no Authorization header)")
             
-            logger.warning("Could not determine school context from request")
+            logger.warning("❌ Could not determine school context from request")
             return None
         finally:
             break
