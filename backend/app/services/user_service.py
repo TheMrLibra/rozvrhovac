@@ -51,4 +51,19 @@ class UserService:
             "refresh_token": refresh_token,
             "token_type": "bearer"
         }
+    
+    @staticmethod
+    def create_tokens_for_user(user: User) -> dict:
+        """Static method to create tokens without needing a UserService instance."""
+        access_token = create_access_token(
+            data={"sub": str(user.id), "role": user.role.value, "school_id": user.school_id}
+        )
+        refresh_token = create_refresh_token(
+            data={"sub": str(user.id)}
+        )
+        return {
+            "access_token": access_token,
+            "refresh_token": refresh_token,
+            "token_type": "bearer"
+        }
 

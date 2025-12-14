@@ -31,10 +31,8 @@ async def login(
             school_code=login_data.school_code
         )
         
-        # Create tokens - UserService.create_tokens doesn't need DB access
-        # We just need a UserService instance (DB can be None since create_tokens doesn't use it)
-        user_service = UserService(None)  # type: ignore
-        tokens = user_service.create_tokens(user)
+        # Create tokens using static method (doesn't need DB session)
+        tokens = UserService.create_tokens_for_user(user)
         return tokens
                 
     except ValueError as e:
