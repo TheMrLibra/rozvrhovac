@@ -70,7 +70,7 @@ migrate-dev: ## Run database migrations in dev (requires MIGRATION_DEFAULT_TENAN
 	docker-compose -f docker-compose.dev.yml exec backend alembic upgrade head
 
 migrate-prod: ## Run database migrations in prod (requires MIGRATION_DEFAULT_TENANT_ID)
-	docker-compose -f docker-compose.prod.yml exec backend alembic upgrade head
+	docker compose -f docker-compose.prod.yml exec backend alembic upgrade head
 
 dev-up: ## Start development services and run complete setup
 	@./scripts/dev-setup.sh
