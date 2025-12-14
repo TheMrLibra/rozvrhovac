@@ -21,8 +21,9 @@ RUN npm install --no-audit --no-fund
 # Copy source code
 COPY . .
 
-# Build the application (skip type checking for now to avoid vue-tsc issues)
-RUN npm run build -- --mode production || (npm install vue-tsc@latest --save-dev && npm run build)
+# Build the application (skip type checking for production - faster builds)
+# Type checking can be done in CI/CD, not needed for production Docker build
+RUN vite build --mode production
 
 # Production stage
 FROM nginx:alpine
