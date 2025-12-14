@@ -52,34 +52,43 @@ async def create_admin_user(
                 existing_user = await user_repo.get_by_email(email)
                 if existing_user:
                     print(f"⚠️  User with email '{email}' already exists.")
-                    response = input("Do you want to update the password? (y/n): ")
-                    if response.lower() == 'y':
-                        from app.core.security import get_password_hash
-                        existing_user.password_hash = get_password_hash(password)
-                        await school_db.commit()
-                        print(f"✅ Updated password for user: {email}")
-                    else:
-                        print("Skipped.")
+                    # Non-interactive: update password automatically
+                    from app.core.security import get_password_hash
+                    existing_user.password_hash = get_password_hash(password)
+                    await school_db.commit()
+                    print(f"✅ Updated password for user: {email}")
+                    print(f"\nUser details:")
+                    print(f"  Email: {existing_user.email}")
+                    print(f"  Role: {existing_user.role.value}")
+                    print(f"  School ID: {existing_user.school_id}")
+                    print(f"  User ID: {existing_user.id}")
                     return True
                 
                 # Create admin user
-                admin_user = await user_service.create_user(
-                    email=email,
-                    password=password,
-                    school_id=registry_entry.school_id,
-                    role=UserRole.ADMIN
-                )
-                await school_db.commit()
-                
-                print(f"\n✅ Admin user created successfully!")
-                print(f"\nUser details:")
-                print(f"  Email: {admin_user.email}")
-                print(f"  Role: {admin_user.role.value}")
-                print(f"  School ID: {admin_user.school_id}")
-                print(f"  User ID: {admin_user.id}")
-                print(f"\n⚠️  Please save these credentials securely!")
-                
-                return True
+                try:
+                    admin_user = await user_service.create_user(
+                        email=email,
+                        password=password,
+                        school_id=registry_entry.school_id,
+                        role=UserRole.ADMIN
+                    )
+                    await school_db.commit()
+                    
+                    print(f"\n✅ Admin user created successfully!")
+                    print(f"\nUser details:")
+                    print(f"  Email: {admin_user.email}")
+                    print(f"  Role: {admin_user.role.value}")
+                    print(f"  School ID: {admin_user.school_id}")
+                    print(f"  User ID: {admin_user.id}")
+                    print(f"\n⚠️  Please save these credentials securely!")
+                    
+                    return True
+                except Exception as e:
+                    print(f"❌ Error creating user: {e}")
+                    import traceback
+                    traceback.print_exc()
+                    await school_db.rollback()
+                    raise
             finally:
                 break
     
