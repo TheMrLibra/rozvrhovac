@@ -124,11 +124,16 @@ class AuthService:
                 user=registry_entry.database_user
             ):
                 try:
+                    logger.info(f"Attempting authentication in school {registry_entry.code} for email {email}")
                     user_service = UserService(db)
                     user = await user_service.authenticate_user(email, password)
+                    if user:
+                        logger.info(f"✅ Authentication successful for {email} in school {registry_entry.code}")
+                    else:
+                        logger.warning(f"❌ Authentication failed for {email} in school {registry_entry.code} - user_service returned None")
                     return user, registry_entry
                 except Exception as e:
-                    logger.debug(f"Error authenticating in school {registry_entry.code}: {e}")
+                    logger.error(f"Exception during authentication in school {registry_entry.code}: {e}", exc_info=True)
                     return None, registry_entry
                 finally:
                     break
@@ -136,5 +141,6 @@ class AuthService:
             logger.error(f"Error connecting to school database {registry_entry.database_name}: {e}", exc_info=True)
             return None, registry_entry
         
+        logger.warning(f"Reached end of _authenticate_in_school for {email} - returning None")
         return None, registry_entry
 
