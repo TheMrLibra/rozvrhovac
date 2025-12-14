@@ -282,6 +282,6 @@ Then login with the `X-Tenant` header set to your tenant slug.
 
 ### Local
 1. make dev-up
-2. cd frontend && npm install && npm run dev
+2. cd frontend && nvm use && npm install && npm run dev
 3. Test data: make create-test-data TENANT_SLUG="default-school" SCHOOL_CODE="SCHOOL001"
 4. Rebuild BE - make rebuild-backend

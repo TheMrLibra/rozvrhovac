@@ -326,9 +326,6 @@
           </div>
         </div>
       </div>
-
-      <div v-if="error" class="teachers-view__error">{{ error }}</div>
-      <div v-if="success" class="teachers-view__success">{{ success }}</div>
     </main>
   </div>
 </template>
@@ -337,10 +334,12 @@
 import { ref, onMounted, computed } from 'vue'
 import { useAuthStore } from '@/stores/auth'
 import { useI18nStore } from '@/stores/i18n'
+import { useAlert } from '@/composables/useAlert'
 import api from '@/services/api'
 
 const i18nStore = useI18nStore()
 const t = i18nStore.t
+const alert = useAlert()
 
 interface Teacher {
   id: number
@@ -373,8 +372,6 @@ const teachers = ref<Teacher[]>([])
 const subjects = ref<Subject[]>([])
 const classes = ref<ClassGroup[]>([])
 const loading = ref(false)
-const error = ref('')
-const success = ref('')
 const editingTeacher = ref<Teacher | null>(null)
 const managingCapabilities = ref<Teacher | null>(null)
 const teacherCapabilities = ref<TeacherCapability[]>([])
@@ -452,7 +449,7 @@ async function loadTeachers() {
       }
     }
   } catch (err: any) {
-    error.value = err.response?.data?.detail || 'Failed to load teachers'
+    console.error('Failed to load teachers:', err)
   }
 }
 
@@ -479,8 +476,6 @@ async function loadClasses() {
 
 async function createTeacher() {
   loading.value = true
-  error.value = ''
-  success.value = ''
   
   try {
     const schoolId = authStore.user?.school_id
@@ -494,12 +489,12 @@ async function createTeacher() {
     }
     
     await api.post(`/teachers/schools/${schoolId}/teachers`, teacherData)
-    success.value = 'Teacher created successfully'
+    alert.success('Teacher created successfully')
     newTeacher.value = { full_name: '', max_weekly_hours: 20, availability: null }
     availabilityInput.value = ''
     await loadTeachers()
   } catch (err: any) {
-    error.value = err.response?.data?.detail || 'Failed to create teacher'
+    alert.error(err.response?.data?.detail || 'Failed to create teacher')
   } finally {
     loading.value = false
   }
@@ -514,8 +509,6 @@ async function updateTeacher() {
   if (!editingTeacher.value) return
   
   loading.value = true
-  error.value = ''
-  success.value = ''
   
   try {
     const schoolId = authStore.user?.school_id
@@ -530,11 +523,11 @@ async function updateTeacher() {
     }
     
     await api.put(`/teachers/schools/${schoolId}/teachers/${editingTeacher.value.id}`, updateData)
-    success.value = 'Teacher updated successfully'
+    alert.success('Teacher updated successfully')
     editingTeacher.value = null
     await loadTeachers()
   } catch (err: any) {
-    error.value = err.response?.data?.detail || 'Failed to update teacher'
+    alert.error(err.response?.data?.detail || 'Failed to update teacher')
   } finally {
     loading.value = false
   }
@@ -553,7 +546,7 @@ async function loadTeacherCapabilities(teacherId: number) {
     const response = await api.get(`/teachers/schools/${schoolId}/teachers/${teacherId}/capabilities`)
     teacherCapabilities.value = response.data
   } catch (err: any) {
-    error.value = err.response?.data?.detail || 'Failed to load capabilities'
+    console.error('Failed to load capabilities:', err)
   }
 }
 
@@ -561,8 +554,6 @@ async function addCapability() {
   if (!managingCapabilities.value || !newCapability.value.subject_id) return
   
   loading.value = true
-  error.value = ''
-  success.value = ''
   
   try {
     const schoolId = authStore.user?.school_id
@@ -578,11 +569,11 @@ async function addCapability() {
         class_group_id: newCapability.value.class_group_id || null
       }
     )
-    success.value = 'Capability added successfully'
+    alert.success('Capability added successfully')
     newCapability.value = { subject_id: null, class_group_id: null }
     await loadTeacherCapabilities(managingCapabilities.value.id)
   } catch (err: any) {
-    error.value = err.response?.data?.detail || 'Failed to add capability'
+    alert.error(err.response?.data?.detail || 'Failed to add capability')
   } finally {
     loading.value = false
   }
@@ -592,8 +583,6 @@ async function removeCapability(capabilityId: number) {
   if (!managingCapabilities.value) return
   
   loading.value = true
-  error.value = ''
-  success.value = ''
   
   try {
     const schoolId = authStore.user?.school_id
@@ -604,10 +593,10 @@ async function removeCapability(capabilityId: number) {
     await api.delete(
       `/teachers/schools/${schoolId}/teachers/${managingCapabilities.value.id}/capabilities/${capabilityId}`
     )
-    success.value = 'Capability removed successfully'
+    alert.success('Capability removed successfully')
     await loadTeacherCapabilities(managingCapabilities.value.id)
   } catch (err: any) {
-    error.value = err.response?.data?.detail || 'Failed to remove capability'
+    alert.error(err.response?.data?.detail || 'Failed to remove capability')
   } finally {
     loading.value = false
   }
@@ -639,8 +628,6 @@ async function submitAbsence() {
   if (!reportingAbsence.value) return
   
   loading.value = true
-  error.value = ''
-  success.value = ''
   
   try {
     const schoolId = authStore.user?.school_id
@@ -655,7 +642,7 @@ async function submitAbsence() {
       reason: newAbsence.value.reason || null
     })
     
-    success.value = 'Absence reported successfully'
+    alert.success('Absence reported successfully')
     reportingAbsence.value = null
     newAbsence.value = { date_from: '', date_to: '', reason: '' }
     
@@ -664,7 +651,7 @@ async function submitAbsence() {
       await loadTeacherAbsences(selectedTeacherId.value)
     }
   } catch (err: any) {
-    error.value = err.response?.data?.detail || 'Failed to report absence'
+    alert.error(err.response?.data?.detail || 'Failed to report absence')
   } finally {
     loading.value = false
   }
@@ -786,8 +773,6 @@ async function deleteAbsence(absenceId: number) {
   }
   
   loading.value = true
-  error.value = ''
-  success.value = ''
   
   try {
     const schoolId = authStore.user?.school_id
@@ -796,14 +781,14 @@ async function deleteAbsence(absenceId: number) {
     }
     
     await api.delete(`/absences/schools/${schoolId}/absences/${absenceId}`)
-    success.value = 'Absence deleted successfully'
+    alert.success('Absence deleted successfully')
     
     // Reload absences
     if (selectedTeacherId.value) {
       await loadTeacherAbsences(selectedTeacherId.value)
     }
   } catch (err: any) {
-    error.value = err.response?.data?.detail || 'Failed to delete absence'
+    alert.error(err.response?.data?.detail || 'Failed to delete absence')
   } finally {
     loading.value = false
   }
@@ -815,8 +800,6 @@ async function deleteTeacher(teacherId: number) {
   }
   
   loading.value = true
-  error.value = ''
-  success.value = ''
   
   try {
     const schoolId = authStore.user?.school_id
@@ -825,10 +808,10 @@ async function deleteTeacher(teacherId: number) {
     }
     
     await api.delete(`/teachers/schools/${schoolId}/teachers/${teacherId}`)
-    success.value = 'Teacher deleted successfully'
+    alert.success('Teacher deleted successfully')
     await loadTeachers()
   } catch (err: any) {
-    error.value = err.response?.data?.detail || 'Failed to delete teacher'
+    alert.error(err.response?.data?.detail || 'Failed to delete teacher')
   } finally {
     loading.value = false
   }
@@ -1274,22 +1257,6 @@ onMounted(async () => {
   &__modal-actions {
     display: flex;
     gap: 1rem;
-    margin-top: 1rem;
-  }
-
-  &__error {
-    @extend %neo-message;
-    @extend %neo-message--error;
-    padding: 1rem;
-    border-radius: 12px;
-    margin-top: 1rem;
-  }
-
-  &__success {
-    @extend %neo-message;
-    @extend %neo-message--success;
-    padding: 1rem;
-    border-radius: 12px;
     margin-top: 1rem;
   }
 }

@@ -1,8 +1,9 @@
-from fastapi import APIRouter, Depends, HTTPException, status, Query
+from fastapi import APIRouter, Depends, HTTPException, status, Query, Request
 from sqlalchemy.ext.asyncio import AsyncSession
 from typing import List, Optional
 from app.core.database import get_db
 from app.core.dependencies import get_current_active_user, require_role
+from app.core.tenant_context import get_tenant_context_with_user, TenantContext
 from app.models.user import User, UserRole
 from app.schemas.teacher import (
     TeacherCreate, TeacherUpdate, TeacherResponse,
@@ -15,10 +16,20 @@ from app.schemas.timetable import TimetableEntryResponse
 
 router = APIRouter()
 
+async def get_tenant_from_user(
+    request: Request,
+    current_user: User = Depends(get_current_active_user),
+    db: AsyncSession = Depends(get_db)
+) -> TenantContext:
+    """Get tenant context from authenticated user."""
+    return await get_tenant_context_with_user(request, db, current_user)
+
 @router.post("/schools/{school_id}/teachers", response_model=TeacherResponse, status_code=status.HTTP_201_CREATED)
 async def create_teacher(
     school_id: int,
     teacher_data: TeacherCreate,
+    request: Request,
+    tenant: TenantContext = Depends(get_tenant_from_user),
     current_user: User = Depends(require_role([UserRole.ADMIN])),
     db: AsyncSession = Depends(get_db)
 ):
@@ -31,15 +42,17 @@ async def create_teacher(
     
     repo = TeacherRepository(db)
     teacher = Teacher(
+        tenant_id=tenant.tenant_id,
         school_id=school_id,
         **teacher_data.model_dump()
     )
-    teacher = await repo.create(teacher)
+    teacher = await repo.create(teacher, tenant_id=tenant.tenant_id)
     
     # Eagerly load capabilities for response
     result = await db.execute(
         select(Teacher)
         .where(Teacher.id == teacher.id)
+        .where(Teacher.tenant_id == tenant.tenant_id)
         .options(selectinload(Teacher.capabilities))
     )
     teacher = result.scalar_one()
@@ -48,6 +61,8 @@ async def create_teacher(
 @router.get("/schools/{school_id}/teachers", response_model=List[TeacherResponse])
 async def list_teachers(
     school_id: int,
+    request: Request,
+    tenant: TenantContext = Depends(get_tenant_from_user),
     current_user: User = Depends(get_current_active_user),
     db: AsyncSession = Depends(get_db)
 ):
@@ -61,6 +76,7 @@ async def list_teachers(
     result = await db.execute(
         select(Teacher)
         .where(Teacher.school_id == school_id)
+        .where(Teacher.tenant_id == tenant.tenant_id)
         .options(selectinload(Teacher.capabilities))
     )
     teachers = result.scalars().all()
@@ -70,6 +86,8 @@ async def list_teachers(
 async def get_teacher(
     school_id: int,
     teacher_id: int,
+    request: Request,
+    tenant: TenantContext = Depends(get_tenant_from_user),
     current_user: User = Depends(get_current_active_user),
     db: AsyncSession = Depends(get_db)
 ):
@@ -82,7 +100,9 @@ async def get_teacher(
     
     result = await db.execute(
         select(Teacher)
-        .where(Teacher.id == teacher_id, Teacher.school_id == school_id)
+        .where(Teacher.id == teacher_id)
+        .where(Teacher.school_id == school_id)
+        .where(Teacher.tenant_id == tenant.tenant_id)
         .options(selectinload(Teacher.capabilities))
     )
     teacher = result.scalar_one_or_none()
@@ -95,6 +115,8 @@ async def update_teacher(
     school_id: int,
     teacher_id: int,
     teacher_data: TeacherUpdate,
+    request: Request,
+    tenant: TenantContext = Depends(get_tenant_from_user),
     current_user: User = Depends(require_role([UserRole.ADMIN])),
     db: AsyncSession = Depends(get_db)
 ):
@@ -106,17 +128,18 @@ async def update_teacher(
     from app.models.teacher import Teacher
     
     repo = TeacherRepository(db)
-    teacher = await repo.get_by_id(teacher_id)
+    teacher = await repo.get_by_id(teacher_id, tenant_id=tenant.tenant_id)
     if not teacher or teacher.school_id != school_id:
         raise HTTPException(status_code=404, detail="Teacher not found")
     
     update_data = {k: v for k, v in teacher_data.model_dump().items() if v is not None}
-    teacher = await repo.update(teacher_id, **update_data)
+    teacher = await repo.update(teacher_id, tenant_id=tenant.tenant_id, **update_data)
     
     # Eagerly load capabilities for response
     result = await db.execute(
         select(Teacher)
         .where(Teacher.id == teacher_id)
+        .where(Teacher.tenant_id == tenant.tenant_id)
         .options(selectinload(Teacher.capabilities))
     )
     teacher = result.scalar_one()
@@ -126,6 +149,8 @@ async def update_teacher(
 async def delete_teacher(
     school_id: int,
     teacher_id: int,
+    request: Request,
+    tenant: TenantContext = Depends(get_tenant_from_user),
     current_user: User = Depends(require_role([UserRole.ADMIN])),
     db: AsyncSession = Depends(get_db)
 ):
@@ -133,17 +158,19 @@ async def delete_teacher(
         raise HTTPException(status_code=403, detail="Access denied")
     
     repo = TeacherRepository(db)
-    teacher = await repo.get_by_id(teacher_id)
+    teacher = await repo.get_by_id(teacher_id, tenant_id=tenant.tenant_id)
     if not teacher or teacher.school_id != school_id:
         raise HTTPException(status_code=404, detail="Teacher not found")
     
-    await repo.delete(teacher_id)
+    await repo.delete(teacher_id, tenant_id=tenant.tenant_id)
 
 @router.get("/schools/{school_id}/teachers/{teacher_id}/timetable", response_model=List[TimetableEntryResponse])
 async def get_teacher_timetable(
     school_id: int,
     teacher_id: int,
     day_of_week: Optional[int] = Query(None, description="Filter by day of week (0-4, Monday-Friday). If not provided, returns all days."),
+    request: Request = None,
+    tenant: TenantContext = Depends(get_tenant_from_user),
     current_user: User = Depends(get_current_active_user),
     db: AsyncSession = Depends(get_db)
 ):
@@ -156,11 +183,11 @@ async def get_teacher_timetable(
     
     entry_repo = TimetableEntryRepository(db)
     timetable_repo = TimetableRepository(db)
-    timetables = await timetable_repo.get_by_school_id(school_id)
+    timetables = await timetable_repo.get_by_school_id(school_id, tenant_id=tenant.tenant_id)
     
     teacher_entries = []
     for timetable in timetables:
-        entries = await entry_repo.get_by_timetable_id(timetable.id)
+        entries = await entry_repo.get_by_timetable_id(timetable.id, tenant_id=tenant.tenant_id)
         filtered_entries = [e for e in entries if e.teacher_id == teacher_id]
         if day_of_week is not None:
             filtered_entries = [e for e in filtered_entries if e.day_of_week == day_of_week]
@@ -174,6 +201,8 @@ async def create_teacher_capability(
     school_id: int,
     teacher_id: int,
     capability_data: TeacherSubjectCapabilityCreate,
+    request: Request,
+    tenant: TenantContext = Depends(get_tenant_from_user),
     current_user: User = Depends(require_role([UserRole.ADMIN])),
     db: AsyncSession = Depends(get_db)
 ):
@@ -181,17 +210,17 @@ async def create_teacher_capability(
         raise HTTPException(status_code=403, detail="Access denied")
     
     repo = TeacherRepository(db)
-    teacher = await repo.get_by_id(teacher_id)
+    teacher = await repo.get_by_id(teacher_id, tenant_id=tenant.tenant_id)
     if not teacher or teacher.school_id != school_id:
         raise HTTPException(status_code=404, detail="Teacher not found")
     
     if capability_data.teacher_id != teacher_id:
         raise HTTPException(status_code=400, detail="Teacher ID mismatch")
     
-    # Verify subject belongs to school
+    # Verify subject belongs to school and tenant
     from app.repositories.subject_repository import SubjectRepository
     subject_repo = SubjectRepository(db)
-    subject = await subject_repo.get_by_id(capability_data.subject_id)
+    subject = await subject_repo.get_by_id(capability_data.subject_id, tenant_id=tenant.tenant_id)
     if not subject or subject.school_id != school_id:
         raise HTTPException(status_code=404, detail="Subject not found")
     
@@ -223,6 +252,8 @@ async def create_teacher_capability(
 async def get_teacher_capabilities(
     school_id: int,
     teacher_id: int,
+    request: Request,
+    tenant: TenantContext = Depends(get_tenant_from_user),
     current_user: User = Depends(get_current_active_user),
     db: AsyncSession = Depends(get_db)
 ):
@@ -235,7 +266,9 @@ async def get_teacher_capabilities(
     
     result = await db.execute(
         select(Teacher)
-        .where(Teacher.id == teacher_id, Teacher.school_id == school_id)
+        .where(Teacher.id == teacher_id)
+        .where(Teacher.school_id == school_id)
+        .where(Teacher.tenant_id == tenant.tenant_id)
         .options(selectinload(Teacher.capabilities))
     )
     teacher = result.scalar_one_or_none()
@@ -249,6 +282,8 @@ async def delete_teacher_capability(
     school_id: int,
     teacher_id: int,
     capability_id: int,
+    request: Request,
+    tenant: TenantContext = Depends(get_tenant_from_user),
     current_user: User = Depends(require_role([UserRole.ADMIN])),
     db: AsyncSession = Depends(get_db)
 ):
@@ -256,16 +291,18 @@ async def delete_teacher_capability(
         raise HTTPException(status_code=403, detail="Access denied")
     
     repo = TeacherRepository(db)
-    teacher = await repo.get_by_id(teacher_id)
+    teacher = await repo.get_by_id(teacher_id, tenant_id=tenant.tenant_id)
     if not teacher or teacher.school_id != school_id:
         raise HTTPException(status_code=404, detail="Teacher not found")
     
     from sqlalchemy import select
+    # Verify capability belongs to teacher through tenant-scoped teacher
     result = await db.execute(
-        select(TeacherSubjectCapability).where(
-            TeacherSubjectCapability.id == capability_id,
-            TeacherSubjectCapability.teacher_id == teacher_id
-        )
+        select(TeacherSubjectCapability)
+        .join(Teacher)
+        .where(TeacherSubjectCapability.id == capability_id)
+        .where(TeacherSubjectCapability.teacher_id == teacher_id)
+        .where(Teacher.tenant_id == tenant.tenant_id)
     )
     capability = result.scalar_one_or_none()
     if not capability:
