@@ -17,8 +17,8 @@ RUN npm install --no-audit --no-fund
 # Copy source code
 COPY . .
 
-# Build the application (skip type checking for now to avoid vue-tsc issues)
-RUN npm run build -- --mode production || (npm install vue-tsc@latest --save-dev && npm run build)
+# Build the application
+RUN npm run build -- --mode production
 
 # Production stage
 FROM nginx:alpine
