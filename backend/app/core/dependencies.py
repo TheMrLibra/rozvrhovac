@@ -29,8 +29,10 @@ async def get_school_context(
             
             # Try header first
             if x_school_code:
+                logger.debug(f"Getting school context from header: {x_school_code}")
                 registry_entry = await registry_repo.get_by_code(x_school_code)
                 if registry_entry:
+                    logger.debug(f"Found school from header: {registry_entry.code}")
                     return registry_entry
             
             # Fall back to JWT token
@@ -39,12 +41,28 @@ async def get_school_context(
                 payload = decode_token(token)
                 if payload:
                     school_id = payload.get("school_id")
+                    logger.info(f"Getting school context from JWT token, school_id: {school_id}")
                     if school_id:
                         # Get school registry entry by school_id (maps to School.id in school database)
                         registry_entry = await registry_repo.get_by_school_id(school_id)
                         if registry_entry:
+                            logger.info(f"✅ Found school from JWT: {registry_entry.code} (database: {registry_entry.database_name})")
                             return registry_entry
+                        else:
+                            logger.warning(f"❌ School registry entry not found for school_id: {school_id}")
+                            # Try to find by searching all schools (fallback)
+                            all_schools = await registry_repo.get_all_active()
+                            logger.info(f"   Searching {len(all_schools)} active schools...")
+                            for school in all_schools:
+                                logger.info(f"   - School ID: {school.school_id}, Code: {school.code}, DB: {school.database_name}")
+                    else:
+                        logger.warning("JWT token does not contain school_id")
+                else:
+                    logger.warning("Failed to decode JWT token")
+            else:
+                logger.debug("No authorization header found")
             
+            logger.warning("Could not determine school context from request")
             return None
         finally:
             break
@@ -54,20 +72,30 @@ async def get_db_for_school(
 ):
     """
     Get database session for the current school.
-    Falls back to default database if school context is not available.
+    Raises error if school context is not available (no fallback to default DB).
     """
-    if school_registry and school_registry.is_active:
-        async for db in get_school_db(
-            database_name=school_registry.database_name,
-            host=school_registry.database_host,
-            port=school_registry.database_port,
-            user=school_registry.database_user
-        ):
-            yield db
-    else:
-        # Fall back to default database (for backward compatibility or admin operations)
-        async for db in get_db():
-            yield db
+    if not school_registry:
+        logger.error("School context not available - cannot determine which database to use")
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="School context not found. Please provide X-School-Code header or ensure JWT token contains school_id."
+        )
+    
+    if not school_registry.is_active:
+        logger.error(f"School {school_registry.code} is not active")
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="School is not active"
+        )
+    
+    logger.debug(f"Connecting to school database: {school_registry.database_name}")
+    async for db in get_school_db(
+        database_name=school_registry.database_name,
+        host=school_registry.database_host,
+        port=school_registry.database_port,
+        user=school_registry.database_user
+    ):
+        yield db
 
 async def get_current_user(
     token: str = Depends(oauth2_scheme),
