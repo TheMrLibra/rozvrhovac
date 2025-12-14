@@ -20,39 +20,80 @@ async def login(
     login_data: LoginRequest
 ):
     """
-    Login endpoint. Requires school_code in request body to identify which school database to use.
+    Login endpoint. If school_code is provided, uses that school.
+    If not provided, tries to find the user's school by searching all active schools.
     """
-    # Get registry entry
     async for registry_db in get_registry_db():
         try:
             registry_repo = RegistryRepository(registry_db)
-            registry_entry = await registry_repo.get_by_code(login_data.school_code)
             
-            if not registry_entry or not registry_entry.is_active:
+            # If school_code is provided, use it directly
+            if login_data.school_code:
+                registry_entry = await registry_repo.get_by_code(login_data.school_code)
+                
+                if not registry_entry or not registry_entry.is_active:
+                    raise HTTPException(
+                        status_code=status.HTTP_404_NOT_FOUND,
+                        detail="School not found or inactive"
+                    )
+                
+                # Try to authenticate in this school's database
+                async for db in get_school_db(
+                    database_name=registry_entry.database_name,
+                    host=registry_entry.database_host,
+                    port=registry_entry.database_port,
+                    user=registry_entry.database_user
+                ):
+                    try:
+                        user_service = UserService(db)
+                        user = await user_service.authenticate_user(login_data.email, login_data.password)
+                        if user:
+                            tokens = user_service.create_tokens(user)
+                            return tokens
+                    finally:
+                        break
+                
+                # If we get here, authentication failed
                 raise HTTPException(
-                    status_code=status.HTTP_404_NOT_FOUND,
-                    detail="School not found or inactive"
+                    status_code=status.HTTP_401_UNAUTHORIZED,
+                    detail="Incorrect email or password"
                 )
             
-            # Connect to school database
-            async for db in get_school_db(
-                database_name=registry_entry.database_name,
-                host=registry_entry.database_host,
-                port=registry_entry.database_port,
-                user=registry_entry.database_user
-            ):
-                try:
-                    user_service = UserService(db)
-                    user = await user_service.authenticate_user(login_data.email, login_data.password)
-                    if not user:
-                        raise HTTPException(
-                            status_code=status.HTTP_401_UNAUTHORIZED,
-                            detail="Incorrect email or password"
-                        )
-                    tokens = user_service.create_tokens(user)
-                    return tokens
-                finally:
-                    break
+            # No school_code provided - try to find user in all active schools
+            all_schools = await registry_repo.get_all_active()
+            
+            if not all_schools:
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail="No active schools found"
+                )
+            
+            # Try each school database until we find the user
+            for registry_entry in all_schools:
+                async for db in get_school_db(
+                    database_name=registry_entry.database_name,
+                    host=registry_entry.database_host,
+                    port=registry_entry.database_port,
+                    user=registry_entry.database_user
+                ):
+                    try:
+                        user_service = UserService(db)
+                        user = await user_service.authenticate_user(login_data.email, login_data.password)
+                        if user:
+                            # Found the user! Return tokens
+                            tokens = user_service.create_tokens(user)
+                            return tokens
+                    except Exception:
+                        # Continue to next school if this one fails
+                        pass
+                    finally:
+                        break
+            
+            # If we get here, user not found in any school
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Incorrect email or password"
+            )
         finally:
             break
 

@@ -6,16 +6,16 @@
     <div class="login-view__container">
       <h1 class="login-view__title">Rozvrhovac</h1>
       <form @submit.prevent="handleLogin" class="login-view__form">
-        <div class="login-view__field">
-          <label class="login-view__label">{{ t('login.schoolCode') || 'School Code' }}</label>
+        <div class="login-view__field" v-if="showSchoolCode">
+          <label class="login-view__label">{{ t('login.schoolCode') || 'School Code (Optional)' }}</label>
           <input
             v-model="schoolCode"
             type="text"
-            required
             class="login-view__input"
-            placeholder="GJR"
+            placeholder="GJR (optional)"
             autocomplete="off"
           />
+          <small class="login-view__hint">{{ t('login.schoolCodeHint') || 'Leave empty to auto-detect' }}</small>
         </div>
         <div class="login-view__field">
           <label class="login-view__label">{{ t('login.email') }}</label>
@@ -63,12 +63,15 @@ const email = ref('')
 const password = ref('')
 const loading = ref(false)
 const error = ref('')
+const showSchoolCode = ref(false) // Hidden by default - backend will auto-detect school
 
 async function handleLogin() {
   loading.value = true
   error.value = ''
   try {
-    await authStore.login(email.value, password.value, schoolCode.value)
+    // Only pass schoolCode if it's provided
+    const code = schoolCode.value.trim() || undefined
+    await authStore.login(email.value, password.value, code)
     router.push('/dashboard')
   } catch (err: any) {
     error.value = err.response?.data?.detail || t('login.loginError')
@@ -156,6 +159,12 @@ async function handleLogin() {
     margin-top: 0.5rem;
     padding: 0.75rem;
     border-radius: 12px;
+  }
+
+  &__hint {
+    font-size: 0.75rem;
+    color: rgba($neo-text, 0.6);
+    margin-top: 0.25rem;
   }
 }
 </style>
