@@ -101,19 +101,19 @@ prod-down: ## Stop production services
 	docker compose -f docker-compose.prod.yml down
 
 prod-create-tenant: ## Create a tenant in production (usage: make prod-create-tenant NAME="Tenant Name" SLUG="tenant-slug")
-	docker compose -f docker-compose.prod.yml exec backend python -m scripts.seed_tenant --name "$(NAME)" --slug "$(SLUG)"
+	docker compose -f docker-compose.prod.yml exec -w /app backend python -m scripts.seed_tenant --name "$(NAME)" --slug "$(SLUG)"
 
 prod-create-school: ## Create a school in production (usage: make prod-create-school TENANT_SLUG="slug" NAME="School Name" CODE="SCHOOL001" [CREATE_ADMIN=--create-admin] [ADMIN_EMAIL="email"] [ADMIN_PASSWORD="pass"])
-	docker compose -f docker-compose.prod.yml exec backend python -m scripts.create_school --tenant-slug "$(TENANT_SLUG)" --name "$(NAME)" --code "$(CODE)" $(CREATE_ADMIN) $(if $(ADMIN_EMAIL),--admin-email "$(ADMIN_EMAIL)") $(if $(ADMIN_PASSWORD),--admin-password "$(ADMIN_PASSWORD)")
+	docker compose -f docker-compose.prod.yml exec -w /app backend python -m scripts.create_school --tenant-slug "$(TENANT_SLUG)" --name "$(NAME)" --code "$(CODE)" $(CREATE_ADMIN) $(if $(ADMIN_EMAIL),--admin-email "$(ADMIN_EMAIL)") $(if $(ADMIN_PASSWORD),--admin-password "$(ADMIN_PASSWORD)")
 
 prod-create-admin: ## Create admin user in production (usage: make prod-create-admin TENANT_SLUG="slug" EMAIL="email" PASSWORD="pass" SCHOOL_CODE="SCHOOL001")
-	docker compose -f docker-compose.prod.yml exec backend python -m scripts.create_admin_user --tenant-slug "$(TENANT_SLUG)" --email "$(EMAIL)" --password "$(PASSWORD)" --school-code "$(SCHOOL_CODE)"
+	docker compose -f docker-compose.prod.yml exec -w /app backend python -m scripts.create_admin_user --tenant-slug "$(TENANT_SLUG)" --email "$(EMAIL)" --password "$(PASSWORD)" --school-code "$(SCHOOL_CODE)"
 
 prod-list-tenants: ## List tenants in production
-	docker compose -f docker-compose.prod.yml exec backend python -m scripts.list_tenants
+	docker compose -f docker-compose.prod.yml exec -w /app backend python -m scripts.list_tenants
 
 prod-create-test-data: ## Create test data in production (usage: make prod-create-test-data TENANT_SLUG="slug" SCHOOL_CODE="SCHOOL001" [FORCE=--force])
-	docker compose -f docker-compose.prod.yml exec backend python -m scripts.create_test_data --tenant-slug "$(TENANT_SLUG)" --school-code "$(SCHOOL_CODE)" $(FORCE)
+	docker compose -f docker-compose.prod.yml exec -w /app backend python -m scripts.create_test_data --tenant-slug "$(TENANT_SLUG)" --school-code "$(SCHOOL_CODE)" $(FORCE)
 
 prod-check-db: ## Check database connection in production
 	docker compose -f docker-compose.prod.yml exec backend python -c "import asyncio; from app.core.database import AsyncSessionLocal; async def test(): async with AsyncSessionLocal() as db: await db.execute('SELECT 1'); print('✅ Database connection OK'); asyncio.run(test())"
