@@ -1,11 +1,14 @@
 from typing import Optional
 import logging
 from fastapi import Depends, HTTPException, status, Header
-from fastapi.security import OAuth2PasswordBearer
+from fastapi.security import OAuth2PasswordBearer, HTTPBearer, HTTPAuthorizationCredentials
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.database import get_db
 from app.core.database_manager import get_registry_db, get_school_db
 from app.core.security import decode_token
+
+# Optional bearer token for school context (doesn't require auth)
+optional_bearer = HTTPBearer(auto_error=False)
 from app.models.user import User, UserRole
 from app.models.registry import SchoolRegistry
 from app.repositories.user_repository import UserRepository
@@ -17,7 +20,7 @@ oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/v1/auth/login")
 
 async def get_school_context(
     x_school_code: Optional[str] = Header(None, alias="X-School-Code"),
-    authorization: Optional[str] = Header(None)
+    credentials: Optional[HTTPAuthorizationCredentials] = Depends(optional_bearer)
 ) -> Optional[SchoolRegistry]:
     """
     Extract school context from request.
@@ -29,19 +32,19 @@ async def get_school_context(
             
             # Try header first
             if x_school_code:
-                logger.debug(f"Getting school context from header: {x_school_code}")
+                logger.info(f"Getting school context from header: {x_school_code}")
                 registry_entry = await registry_repo.get_by_code(x_school_code)
                 if registry_entry:
-                    logger.debug(f"Found school from header: {registry_entry.code}")
+                    logger.info(f"✅ Found school from header: {registry_entry.code}")
                     return registry_entry
             
             # Fall back to JWT token
-            if authorization and authorization.startswith("Bearer "):
-                token = authorization.split(" ")[1]
+            if credentials:
+                token = credentials.credentials
                 payload = decode_token(token)
                 if payload:
                     school_id = payload.get("school_id")
-                    logger.info(f"Getting school context from JWT token, school_id: {school_id}")
+                    logger.info(f"Getting school context from JWT token, school_id: {school_id}, payload keys: {list(payload.keys())}")
                     if school_id:
                         # Get school registry entry by school_id (maps to School.id in school database)
                         registry_entry = await registry_repo.get_by_school_id(school_id)
@@ -60,7 +63,7 @@ async def get_school_context(
                 else:
                     logger.warning("Failed to decode JWT token")
             else:
-                logger.debug("No authorization header found")
+                logger.debug("No token found")
             
             logger.warning("Could not determine school context from request")
             return None
