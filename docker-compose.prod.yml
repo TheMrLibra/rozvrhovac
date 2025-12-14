@@ -40,7 +40,9 @@ services:
       # Multi-tenancy
       ENV: ${ENV:-prod}
       # DEFAULT_TENANT_SLUG not set in prod - requires X-Tenant header
-      MIGRATION_DEFAULT_TENANT_ID: ${MIGRATION_DEFAULT_TENANT_ID:-}
+      # MIGRATION_DEFAULT_TENANT_ID: Set this directly here or via .env.prod
+      # For production, you can set it directly: MIGRATION_DEFAULT_TENANT_ID: 22047172-6014-4141-9d66-963662ca51e0
+      MIGRATION_DEFAULT_TENANT_ID: ${MIGRATION_DEFAULT_TENANT_ID}
       
       # JWT Configuration
       SECRET_KEY: ${SECRET_KEY:-change-me-in-production}
