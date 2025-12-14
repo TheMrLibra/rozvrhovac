@@ -72,7 +72,12 @@ migrate-dev: ## Run database migrations in dev (requires MIGRATION_DEFAULT_TENAN
 migrate-prod: ## Run database migrations in prod (requires MIGRATION_DEFAULT_TENANT_ID)
 	@echo "Creating database if it doesn't exist..."
 	@docker compose -f docker-compose.prod.yml exec -T postgres psql -U postgres -tc "SELECT 1 FROM pg_database WHERE datname='rozvrhovac'" | grep -q 1 || docker compose -f docker-compose.prod.yml exec -T postgres psql -U postgres -c "CREATE DATABASE rozvrhovac;"
-	docker compose -f docker-compose.prod.yml exec backend alembic upgrade head
+	docker compose -f docker-compose.prod.yml exec -w /app backend alembic upgrade head
+
+migrate-prod-to-tenants: ## Run migrations up to tenants table creation (before creating first tenant)
+	@echo "Creating database if it doesn't exist..."
+	@docker compose -f docker-compose.prod.yml exec -T postgres psql -U postgres -tc "SELECT 1 FROM pg_database WHERE datname='rozvrhovac'" | grep -q 1 || docker compose -f docker-compose.prod.yml exec -T postgres psql -U postgres -c "CREATE DATABASE rozvrhovac;"
+	docker compose -f docker-compose.prod.yml exec -w /app backend alembic upgrade 316b16895072
 
 prod-create-db: ## Create the database in production
 	docker compose -f docker-compose.prod.yml exec -T postgres psql -U postgres -c "CREATE DATABASE rozvrhovac;" || echo "Database may already exist"
@@ -121,7 +126,13 @@ prod-create-test-data: ## Create test data in production (usage: make prod-creat
 	docker compose -f docker-compose.prod.yml exec -w /app backend python -m scripts.create_test_data --tenant-slug "$(TENANT_SLUG)" --school-code "$(SCHOOL_CODE)" $(FORCE)
 
 prod-check-db: ## Check database connection in production
-	docker compose -f docker-compose.prod.yml exec backend python -c "import asyncio; from app.core.database import AsyncSessionLocal; async def test(): async with AsyncSessionLocal() as db: await db.execute('SELECT 1'); print('✅ Database connection OK'); asyncio.run(test())"
+	docker compose -f docker-compose.prod.yml exec -w /app backend python -c "import asyncio; from app.core.database import AsyncSessionLocal; async def test(): async with AsyncSessionLocal() as db: await db.execute('SELECT 1'); print('✅ Database connection OK'); asyncio.run(test())"
+
+prod-migration-status: ## Check migration status in production
+	docker compose -f docker-compose.prod.yml exec -w /app backend alembic current
+
+prod-migration-history: ## Show migration history in production
+	docker compose -f docker-compose.prod.yml exec -w /app backend alembic history
 
 prod-logs-backend: ## View backend logs in production
 	docker compose -f docker-compose.prod.yml logs backend --tail=50 -f
