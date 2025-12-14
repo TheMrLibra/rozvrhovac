@@ -1,3 +1,4 @@
+from typing import Optional
 from pydantic import BaseModel, EmailStr
 
 class Token(BaseModel):
@@ -8,7 +9,7 @@ class Token(BaseModel):
 class LoginRequest(BaseModel):
     email: EmailStr
     password: str
-    school_code: str | None = None  # Optional: if not provided, will try to find school by email
+    school_code: Optional[str] = None  # Optional: if not provided, will try to find school by email
 
 class UserResponse(BaseModel):
     id: int

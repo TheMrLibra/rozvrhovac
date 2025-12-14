@@ -28,7 +28,7 @@ async def login(
             registry_repo = RegistryRepository(registry_db)
             
             # If school_code is provided, use it directly
-            if login_data.school_code:
+            if login_data.school_code and login_data.school_code.strip():
                 registry_entry = await registry_repo.get_by_code(login_data.school_code)
                 
                 if not registry_entry or not registry_entry.is_active:

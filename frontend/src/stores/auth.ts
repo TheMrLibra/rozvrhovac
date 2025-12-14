@@ -25,10 +25,10 @@ export const useAuthStore = defineStore('auth', () => {
         password
       }
       
-      // Only include school_code if provided
-      if (schoolCode) {
-        requestBody.school_code = schoolCode
-        localStorage.setItem('school_code', schoolCode)
+      // Only include school_code if provided and not empty
+      if (schoolCode && schoolCode.trim()) {
+        requestBody.school_code = schoolCode.trim()
+        localStorage.setItem('school_code', schoolCode.trim())
       }
       
       const response = await api.post('/auth/login', requestBody)
