@@ -103,6 +103,10 @@ rebuild-backend-prod: ## Rebuild backend container in production
 	docker compose -f docker-compose.prod.yml up -d backend
 	@echo "Backend rebuilt and restarted in production."
 
+recreate-backend-prod: ## Recreate backend container to reload .env.prod
+	docker compose -f docker-compose.prod.yml up -d --force-recreate backend
+	@echo "Backend container recreated. Environment variables reloaded."
+
 prod-up: ## Start production services
 	docker compose -f docker-compose.prod.yml up -d
 	@echo "Production services started."
