@@ -269,7 +269,6 @@ async def create_teacher_capability(
     # If setting as primary teacher, ensure no other teacher is primary for this class-subject
     if capability_data.is_primary == 1 and capability_data.class_group_id:
         from sqlalchemy import select
-        from app.models.teacher import TeacherSubjectCapability, Teacher
         result = await db.execute(
             select(TeacherSubjectCapability)
             .join(Teacher, TeacherSubjectCapability.teacher_id == Teacher.id)
