@@ -98,17 +98,22 @@ reset-test-db: ## Reset testing database (drops all data, recreates tenant/schoo
 	@docker compose -f docker-compose.dev.yml up -d
 	@echo "⏳ Waiting for services to be ready..."
 	@sleep 5
-	@echo "📊 Running migrations..."
+	@echo "📊 Step 1: Running initial migration (creates tenant table)..."
 	@docker compose -f docker-compose.dev.yml exec -T backend alembic upgrade 316b16895072 || echo "⚠️  Initial migration may have already run"
-	@echo "🔧 Setting up tenant, school, and admin..."
-	@docker compose -f docker-compose.dev.yml exec -T backend python -m scripts.setup_dev
-	@echo "📊 Running remaining migrations..."
+	@echo "🔧 Step 2: Creating tenant..."
+	@docker compose -f docker-compose.dev.yml exec -T backend python -m scripts.seed_tenant --name "Test School" --slug "test-school" || echo "⚠️  Tenant may already exist"
+	@echo "📊 Step 3: Getting tenant ID..."
 	@TENANT_ID=$$(docker compose -f docker-compose.dev.yml exec -T postgres psql -U postgres -d rozvrhovac -t -c "SELECT id FROM tenants WHERE slug = 'test-school' LIMIT 1;" | tr -d " \n"); \
 	if [ -z "$$TENANT_ID" ]; then \
 		echo "❌ Could not find tenant ID"; \
 		exit 1; \
 	fi; \
+	echo "   Tenant ID: $$TENANT_ID"
+	@echo "📊 Step 4: Running remaining migrations..."
+	@TENANT_ID=$$(docker compose -f docker-compose.dev.yml exec -T postgres psql -U postgres -d rozvrhovac -t -c "SELECT id FROM tenants WHERE slug = 'test-school' LIMIT 1;" | tr -d " \n"); \
 	docker compose -f docker-compose.dev.yml exec -T -e MIGRATION_DEFAULT_TENANT_ID="$$TENANT_ID" backend alembic upgrade head || echo "⚠️  Migrations may have already run"
+	@echo "🔧 Step 5: Setting up school and admin..."
+	@docker compose -f docker-compose.dev.yml exec -T backend python -m scripts.setup_dev
 	@echo "📚 Creating test data..."
 	@docker compose -f docker-compose.dev.yml exec -T backend python -m scripts.create_test_data --tenant-slug "test-school" --school-code "SCHOOL001" --force
 	@echo ""
