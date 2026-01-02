@@ -136,8 +136,8 @@ def main():
     parser.add_argument(
         "--tenant-slug",
         type=str,
-        default=os.getenv("DEFAULT_TENANT_SLUG", "default-school"),
-        help="Slug of the tenant (default: from DEFAULT_TENANT_SLUG env or 'default-school')"
+        default=os.getenv("DEFAULT_TENANT_SLUG", "test-school"),
+        help="Slug of the tenant (default: from DEFAULT_TENANT_SLUG env or 'test-school')"
     )
     parser.add_argument(
         "--name",

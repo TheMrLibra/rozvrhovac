@@ -25,13 +25,13 @@ async def create_test_data(tenant_slug: str = None, school_code: str = None, for
     Create comprehensive test data for a school.
     
     Args:
-        tenant_slug: Tenant slug (defaults to DEFAULT_TENANT_SLUG env var or 'default-school')
+        tenant_slug: Tenant slug (defaults to DEFAULT_TENANT_SLUG env var or 'test-school')
         school_code: School code (defaults to DEFAULT_SCHOOL_CODE env var or 'SCHOOL001')
         force: If True, automatically delete existing test data without prompting
     """
     async with AsyncSessionLocal() as db:
         # Resolve tenant
-        tenant_slug = tenant_slug or os.getenv("DEFAULT_TENANT_SLUG", "default-school")
+        tenant_slug = tenant_slug or os.getenv("DEFAULT_TENANT_SLUG", "test-school")
         tenant_repo = TenantRepository(db)
         tenant = await tenant_repo.get_by_slug(tenant_slug)
         
@@ -590,7 +590,7 @@ def main():
         "--tenant-slug",
         type=str,
         default=None,
-        help="Tenant slug (defaults to DEFAULT_TENANT_SLUG env var or 'default-school')"
+        help="Tenant slug (defaults to DEFAULT_TENANT_SLUG env var or 'test-school')"
     )
     parser.add_argument(
         "--school-code",

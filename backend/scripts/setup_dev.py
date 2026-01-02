@@ -25,8 +25,8 @@ async def setup_dev():
     
     async with AsyncSessionLocal() as db:
         # Step 1: Create tenant if it doesn't exist
-        tenant_slug = os.getenv("DEFAULT_TENANT_SLUG", "default-school")
-        tenant_name = os.getenv("DEFAULT_TENANT_NAME", "Default School")
+        tenant_slug = os.getenv("DEFAULT_TENANT_SLUG", "test-school")
+        tenant_name = os.getenv("DEFAULT_TENANT_NAME", "Test School")
         
         tenant_repo = TenantRepository(db)
         tenant = await tenant_repo.get_by_slug(tenant_slug)

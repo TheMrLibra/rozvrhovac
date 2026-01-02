@@ -37,7 +37,7 @@ docker-compose -f docker-compose.dev.yml exec -T backend python -m scripts.setup
 
 # Get tenant ID for remaining migrations
 echo "📊 Running remaining migrations..."
-TENANT_ID=$(docker-compose -f docker-compose.dev.yml exec -T postgres psql -U postgres -d rozvrhovac -t -c "SELECT id FROM tenants WHERE slug = 'default-school' LIMIT 1;" | tr -d " \n")
+TENANT_ID=$(docker-compose -f docker-compose.dev.yml exec -T postgres psql -U postgres -d rozvrhovac -t -c "SELECT id FROM tenants WHERE slug = 'test-school' LIMIT 1;" | tr -d " \n")
 
 if [ -z "$TENANT_ID" ]; then
     echo "❌ Could not find tenant ID"
@@ -64,6 +64,6 @@ echo ""
 echo "🔐 Login Credentials:"
 echo "   Email: admin@school.example"
 echo "   Password: admin123"
-echo "   Header: X-Tenant: default-school"
+echo "   Header: X-Tenant: test-school"
 echo ""
 

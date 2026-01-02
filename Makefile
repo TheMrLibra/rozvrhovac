@@ -88,6 +88,44 @@ dev-up: ## Start development services and run complete setup
 dev-down: ## Stop development services
 	docker-compose -f docker-compose.dev.yml down
 
+reset-test-db: ## Reset testing database (drops all data, recreates tenant/school/admin, adds test data)
+	@echo "🔄 Resetting testing database..."
+	@echo "⚠️  This will DELETE ALL DATA in the database!"
+	@read -p "Are you sure? (yes/no): " confirm && [ "$$confirm" = "yes" ] || (echo "Cancelled." && exit 1)
+	@echo "📦 Stopping services..."
+	@docker-compose -f docker-compose.dev.yml down -v
+	@echo "🚀 Starting services..."
+	@docker-compose -f docker-compose.dev.yml up -d
+	@echo "⏳ Waiting for services to be ready..."
+	@sleep 5
+	@echo "📊 Running migrations..."
+	@docker-compose -f docker-compose.dev.yml exec -T backend alembic upgrade 316b16895072 || echo "⚠️  Initial migration may have already run"
+	@echo "🔧 Setting up tenant, school, and admin..."
+	@docker-compose -f docker-compose.dev.yml exec -T backend python -m scripts.setup_dev
+	@echo "📊 Running remaining migrations..."
+	@TENANT_ID=$$(docker-compose -f docker-compose.dev.yml exec -T postgres psql -U postgres -d rozvrhovac -t -c "SELECT id FROM tenants WHERE slug = 'test-school' LIMIT 1;" | tr -d " \n"); \
+	if [ -z "$$TENANT_ID" ]; then \
+		echo "❌ Could not find tenant ID"; \
+		exit 1; \
+	fi; \
+	docker-compose -f docker-compose.dev.yml exec -T -e MIGRATION_DEFAULT_TENANT_ID="$$TENANT_ID" backend alembic upgrade head || echo "⚠️  Migrations may have already run"
+	@echo "📚 Creating test data..."
+	@docker-compose -f docker-compose.dev.yml exec -T backend python -m scripts.create_test_data --tenant-slug "test-school" --school-code "SCHOOL001" --force
+	@echo ""
+	@echo "✅ Testing database reset complete!"
+	@echo ""
+	@echo "📋 Summary:"
+	@echo "   • Database recreated"
+	@echo "   • Migrations applied"
+	@echo "   • Tenant: test-school"
+	@echo "   • School: SCHOOL001"
+	@echo "   • Admin: admin@school.example / admin123"
+	@echo "   • Test data created (teachers, subjects, classes, etc.)"
+	@echo ""
+	@echo "🔗 Access Points:"
+	@echo "   Backend API: http://localhost:8000"
+	@echo "   API Docs: http://localhost:8000/docs"
+
 rebuild-backend: ## Rebuild backend container (dev)
 	docker compose -f docker-compose.dev.yml build backend
 	docker compose -f docker-compose.dev.yml up -d backend
