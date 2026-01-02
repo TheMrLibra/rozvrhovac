@@ -233,6 +233,26 @@ async def create_teacher_capability(
         if not grade_level or grade_level.school_id != school_id:
             raise HTTPException(status_code=404, detail="Grade level not found")
     
+    # Check if capability already exists (through tenant-scoped teacher)
+    from sqlalchemy import select
+    existing_capability_result = await db.execute(
+        select(TeacherSubjectCapability)
+        .join(Teacher, TeacherSubjectCapability.teacher_id == Teacher.id)
+        .where(
+            TeacherSubjectCapability.teacher_id == teacher_id,
+            TeacherSubjectCapability.subject_id == capability_data.subject_id,
+            TeacherSubjectCapability.grade_level_id == capability_data.grade_level_id,
+            TeacherSubjectCapability.class_group_id == capability_data.class_group_id,
+            Teacher.tenant_id == tenant.tenant_id
+        )
+    )
+    existing_capability = existing_capability_result.scalar_one_or_none()
+    if existing_capability:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Capability already exists for this teacher, subject, grade level, and class group combination"
+        )
+    
     # If setting as primary teacher, ensure no other teacher is primary for this class-subject
     if capability_data.is_primary == 1 and capability_data.class_group_id:
         from sqlalchemy import select
