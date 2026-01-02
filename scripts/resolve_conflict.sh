@@ -26,3 +26,4 @@ else
     echo "No conflict markers found. File may already be resolved."
 fi
 
+

@@ -215,3 +215,4 @@ async def test_tenant_isolation_delete_prevents_cross_tenant(
     teacher_b = await repo_b.get_by_id(teacher_tenant_b.id, tenant_id=tenant_b.id)
     assert teacher_b is not None, "Teacher should still exist"
 
+

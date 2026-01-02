@@ -183,3 +183,4 @@ async def teacher_tenant_b(db_session: AsyncSession, tenant_b: Tenant) -> Teache
     await db_session.refresh(teacher)
     return teacher
 
+

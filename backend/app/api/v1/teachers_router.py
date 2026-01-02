@@ -224,16 +224,28 @@ async def create_teacher_capability(
     if not subject or subject.school_id != school_id:
         raise HTTPException(status_code=404, detail="Subject not found")
     
+    # Verify grade_level_id belongs to school and tenant if provided
+    if capability_data.grade_level_id:
+        from app.repositories.base_repository import BaseRepository
+        from app.models.grade_level import GradeLevel
+        grade_level_repo = BaseRepository(db, GradeLevel)
+        grade_level = await grade_level_repo.get_by_id(capability_data.grade_level_id, tenant_id=tenant.tenant_id)
+        if not grade_level or grade_level.school_id != school_id:
+            raise HTTPException(status_code=404, detail="Grade level not found")
+    
     # If setting as primary teacher, ensure no other teacher is primary for this class-subject
     if capability_data.is_primary == 1 and capability_data.class_group_id:
         from sqlalchemy import select
-        from app.models.teacher import TeacherSubjectCapability
+        from app.models.teacher import TeacherSubjectCapability, Teacher
         result = await db.execute(
-            select(TeacherSubjectCapability).where(
+            select(TeacherSubjectCapability)
+            .join(Teacher, TeacherSubjectCapability.teacher_id == Teacher.id)
+            .where(
                 TeacherSubjectCapability.subject_id == capability_data.subject_id,
                 TeacherSubjectCapability.class_group_id == capability_data.class_group_id,
                 TeacherSubjectCapability.is_primary == 1,
-                TeacherSubjectCapability.teacher_id != teacher_id
+                TeacherSubjectCapability.teacher_id != teacher_id,
+                Teacher.tenant_id == tenant.tenant_id
             )
         )
         existing_primary = result.scalar_one_or_none()

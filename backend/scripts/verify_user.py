@@ -70,3 +70,4 @@ if __name__ == "__main__":
     
     asyncio.run(verify_user(email, school_code))
 
+

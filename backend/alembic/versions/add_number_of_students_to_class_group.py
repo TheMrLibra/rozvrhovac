@@ -27,3 +27,4 @@ def downgrade() -> None:
     # Remove number_of_students column
     op.drop_column('class_groups', 'number_of_students')
 
+
