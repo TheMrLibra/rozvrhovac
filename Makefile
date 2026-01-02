@@ -7,67 +7,67 @@ help: ## Show this help message
 	@awk 'BEGIN {FS = ":.*?## "} /^[a-zA-Z_-]+:.*?## / {printf "  %-15s %s\n", $$1, $$2}' $(MAKEFILE_LIST)
 
 up: ## Start all services (database, backend, frontend)
-	docker-compose up -d
+	docker compose up -d
 	@echo "Services started. Run 'make migrate' to set up the database."
 
 up-dev: ## Start database and backend only (for local frontend development)
-	docker-compose -f docker-compose.dev.yml up -d postgres backend
+	docker compose -f docker-compose.dev.yml up -d postgres backend
 	@echo "Database and backend started. Run frontend locally with: cd frontend && npm run dev"
 
 down: ## Stop all services
-	docker-compose down
+	docker compose down
 
 down-dev: ## Stop development services
-	docker-compose -f docker-compose.dev.yml down
+	docker compose -f docker-compose.dev.yml down
 
 logs: ## View logs from all services
-	docker-compose logs -f
+	docker compose logs -f
 
 logs-backend: ## View backend logs
-	docker-compose logs -f backend
+	docker compose logs -f backend
 
 logs-db: ## View database logs
-	docker-compose logs -f postgres
+	docker compose logs -f postgres
 
 migrate: ## Run database migrations
-	docker-compose exec backend alembic upgrade head
+	docker compose exec backend alembic upgrade head
 
 migrate-create: ## Create a new migration (usage: make migrate-create NAME=description)
-	docker-compose exec backend alembic revision --autogenerate -m "$(NAME)"
+	docker compose exec backend alembic revision --autogenerate -m "$(NAME)"
 
 shell-db: ## Open PostgreSQL shell
-	docker-compose exec postgres psql -U postgres -d rozvrhovac
+	docker compose exec postgres psql -U postgres -d rozvrhovac
 
 shell-backend: ## Open backend container shell
-	docker-compose exec backend /bin/bash
+	docker compose exec backend /bin/bash
 
 clean: ## Stop services and remove volumes (WARNING: deletes database data)
-	docker-compose down -v
+	docker compose down -v
 	@echo "All services stopped and volumes removed."
 
 rebuild: ## Rebuild and restart all services
-	docker-compose up --build -d
+	docker compose up --build -d
 
 status: ## Show status of all services
-	docker-compose ps
+	docker compose ps
 
 seed: ## Seed initial data (school, users)
-	docker-compose -f docker-compose.dev.yml exec backend python -m scripts.seed_data
+	docker compose -f docker-compose.dev.yml exec backend python -m scripts.seed_data
 
 seed-tenant: ## Create a default tenant (usage: make seed-tenant NAME="Default School" SLUG="default-school")
-	docker-compose -f docker-compose.dev.yml exec backend python -m scripts.seed_tenant --name "$(NAME)" --slug "$(SLUG)"
+	docker compose -f docker-compose.dev.yml exec backend python -m scripts.seed_tenant --name "$(NAME)" --slug "$(SLUG)"
 
 create-test-data: ## Create comprehensive test data (usage: make create-test-data TENANT_SLUG="default-school" SCHOOL_CODE="SCHOOL001" [FORCE=--force])
-	docker-compose -f docker-compose.dev.yml exec backend python -m scripts.create_test_data --tenant-slug "$(TENANT_SLUG)" --school-code "$(SCHOOL_CODE)" $(FORCE)
+	docker compose -f docker-compose.dev.yml exec backend python -m scripts.create_test_data --tenant-slug "$(TENANT_SLUG)" --school-code "$(SCHOOL_CODE)" $(FORCE)
 
 create-school: ## Create a new school (usage: make create-school TENANT_SLUG="default-school" NAME="School Name" CODE="SCHOOL002" [CREATE_ADMIN=--create-admin])
-	docker-compose -f docker-compose.dev.yml exec backend python -m scripts.create_school --tenant-slug "$(TENANT_SLUG)" --name "$(NAME)" --code "$(CODE)" $(CREATE_ADMIN) $(if $(ADMIN_EMAIL),--admin-email "$(ADMIN_EMAIL)") $(if $(ADMIN_PASSWORD),--admin-password "$(ADMIN_PASSWORD)")
+	docker compose -f docker-compose.dev.yml exec backend python -m scripts.create_school --tenant-slug "$(TENANT_SLUG)" --name "$(NAME)" --code "$(CODE)" $(CREATE_ADMIN) $(if $(ADMIN_EMAIL),--admin-email "$(ADMIN_EMAIL)") $(if $(ADMIN_PASSWORD),--admin-password "$(ADMIN_PASSWORD)")
 
 list-tenants: ## List all tenants and their schools
-	docker-compose -f docker-compose.dev.yml exec backend python -m scripts.list_tenants
+	docker compose -f docker-compose.dev.yml exec backend python -m scripts.list_tenants
 
 migrate-dev: ## Run database migrations in dev (requires MIGRATION_DEFAULT_TENANT_ID)
-	docker-compose -f docker-compose.dev.yml exec backend alembic upgrade head
+	docker compose -f docker-compose.dev.yml exec backend alembic upgrade head
 
 migrate-prod: ## Run database migrations in prod (requires MIGRATION_DEFAULT_TENANT_ID)
 	@echo "Creating database if it doesn't exist..."
@@ -86,31 +86,31 @@ dev-up: ## Start development services and run complete setup
 	@./scripts/dev-setup.sh
 
 dev-down: ## Stop development services
-	docker-compose -f docker-compose.dev.yml down
+	docker compose -f docker-compose.dev.yml down
 
 reset-test-db: ## Reset testing database (drops all data, recreates tenant/school/admin, adds test data)
 	@echo "🔄 Resetting testing database..."
 	@echo "⚠️  This will DELETE ALL DATA in the database!"
 	@read -p "Are you sure? (yes/no): " confirm && [ "$$confirm" = "yes" ] || (echo "Cancelled." && exit 1)
 	@echo "📦 Stopping services..."
-	@docker-compose -f docker-compose.dev.yml down -v
+	@docker compose -f docker-compose.dev.yml down -v
 	@echo "🚀 Starting services..."
-	@docker-compose -f docker-compose.dev.yml up -d
+	@docker compose -f docker-compose.dev.yml up -d
 	@echo "⏳ Waiting for services to be ready..."
 	@sleep 5
 	@echo "📊 Running migrations..."
-	@docker-compose -f docker-compose.dev.yml exec -T backend alembic upgrade 316b16895072 || echo "⚠️  Initial migration may have already run"
+	@docker compose -f docker-compose.dev.yml exec -T backend alembic upgrade 316b16895072 || echo "⚠️  Initial migration may have already run"
 	@echo "🔧 Setting up tenant, school, and admin..."
-	@docker-compose -f docker-compose.dev.yml exec -T backend python -m scripts.setup_dev
+	@docker compose -f docker-compose.dev.yml exec -T backend python -m scripts.setup_dev
 	@echo "📊 Running remaining migrations..."
-	@TENANT_ID=$$(docker-compose -f docker-compose.dev.yml exec -T postgres psql -U postgres -d rozvrhovac -t -c "SELECT id FROM tenants WHERE slug = 'test-school' LIMIT 1;" | tr -d " \n"); \
+	@TENANT_ID=$$(docker compose -f docker-compose.dev.yml exec -T postgres psql -U postgres -d rozvrhovac -t -c "SELECT id FROM tenants WHERE slug = 'test-school' LIMIT 1;" | tr -d " \n"); \
 	if [ -z "$$TENANT_ID" ]; then \
 		echo "❌ Could not find tenant ID"; \
 		exit 1; \
 	fi; \
-	docker-compose -f docker-compose.dev.yml exec -T -e MIGRATION_DEFAULT_TENANT_ID="$$TENANT_ID" backend alembic upgrade head || echo "⚠️  Migrations may have already run"
+	docker compose -f docker-compose.dev.yml exec -T -e MIGRATION_DEFAULT_TENANT_ID="$$TENANT_ID" backend alembic upgrade head || echo "⚠️  Migrations may have already run"
 	@echo "📚 Creating test data..."
-	@docker-compose -f docker-compose.dev.yml exec -T backend python -m scripts.create_test_data --tenant-slug "test-school" --school-code "SCHOOL001" --force
+	@docker compose -f docker-compose.dev.yml exec -T backend python -m scripts.create_test_data --tenant-slug "test-school" --school-code "SCHOOL001" --force
 	@echo ""
 	@echo "✅ Testing database reset complete!"
 	@echo ""
