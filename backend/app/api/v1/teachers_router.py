@@ -190,15 +190,39 @@ async def create_teacher_capability(
     
     # Verify subject belongs to school
     from app.repositories.subject_repository import SubjectRepository
+    from sqlalchemy import select
+    from app.models.teacher import TeacherSubjectCapability
+    from sqlalchemy.exc import IntegrityError
+    
     subject_repo = SubjectRepository(db)
     subject = await subject_repo.get_by_id(capability_data.subject_id)
     if not subject or subject.school_id != school_id:
         raise HTTPException(status_code=404, detail="Subject not found")
     
+    # Check if capability already exists (exact match on teacher, subject, class_group, and grade_level)
+    conditions = [
+        TeacherSubjectCapability.teacher_id == teacher_id,
+        TeacherSubjectCapability.subject_id == capability_data.subject_id
+    ]
+    
+    if capability_data.class_group_id is not None:
+        conditions.append(TeacherSubjectCapability.class_group_id == capability_data.class_group_id)
+    else:
+        conditions.append(TeacherSubjectCapability.class_group_id.is_(None))
+    
+    if capability_data.grade_level_id is not None:
+        conditions.append(TeacherSubjectCapability.grade_level_id == capability_data.grade_level_id)
+    else:
+        conditions.append(TeacherSubjectCapability.grade_level_id.is_(None))
+    
+    existing_capability_query = select(TeacherSubjectCapability).where(*conditions)
+    result = await db.execute(existing_capability_query)
+    existing_capability = result.scalar_one_or_none()
+    if existing_capability:
+        raise HTTPException(status_code=400, detail="Capability already exists for this teacher, subject, and class/grade combination")
+    
     # If setting as primary teacher, ensure no other teacher is primary for this class-subject
     if capability_data.is_primary == 1 and capability_data.class_group_id:
-        from sqlalchemy import select
-        from app.models.teacher import TeacherSubjectCapability
         result = await db.execute(
             select(TeacherSubjectCapability).where(
                 TeacherSubjectCapability.subject_id == capability_data.subject_id,
@@ -211,13 +235,19 @@ async def create_teacher_capability(
         if existing_primary:
             # Remove primary status from existing primary teacher
             existing_primary.is_primary = 0
-            await db.commit()
     
-    capability = TeacherSubjectCapability(**capability_data.model_dump())
-    db.add(capability)
-    await db.commit()
-    await db.refresh(capability)
-    return capability
+    try:
+        capability = TeacherSubjectCapability(**capability_data.model_dump())
+        db.add(capability)
+        await db.commit()
+        await db.refresh(capability)
+        return capability
+    except IntegrityError as e:
+        await db.rollback()
+        raise HTTPException(status_code=400, detail=f"Database constraint violation: {str(e)}")
+    except Exception as e:
+        await db.rollback()
+        raise HTTPException(status_code=500, detail=f"Error creating capability: {str(e)}")
 
 @router.get("/schools/{school_id}/teachers/{teacher_id}/capabilities", response_model=List[TeacherSubjectCapabilityResponse])
 async def get_teacher_capabilities(
