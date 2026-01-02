@@ -234,7 +234,7 @@ async def create_teacher_capability(
             raise HTTPException(status_code=404, detail="Grade level not found")
     
     # Check if capability already exists (through tenant-scoped teacher)
-    from sqlalchemy import select, or_, and_
+    from sqlalchemy import select, and_
     # Build conditions that properly handle NULL values
     conditions = [
         TeacherSubjectCapability.teacher_id == teacher_id,
