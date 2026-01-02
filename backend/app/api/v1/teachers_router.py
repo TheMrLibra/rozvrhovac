@@ -234,17 +234,30 @@ async def create_teacher_capability(
             raise HTTPException(status_code=404, detail="Grade level not found")
     
     # Check if capability already exists (through tenant-scoped teacher)
-    from sqlalchemy import select
+    from sqlalchemy import select, or_, and_
+    # Build conditions that properly handle NULL values
+    conditions = [
+        TeacherSubjectCapability.teacher_id == teacher_id,
+        TeacherSubjectCapability.subject_id == capability_data.subject_id,
+        Teacher.tenant_id == tenant.tenant_id
+    ]
+    
+    # Handle grade_level_id comparison (NULL-aware)
+    if capability_data.grade_level_id is None:
+        conditions.append(TeacherSubjectCapability.grade_level_id.is_(None))
+    else:
+        conditions.append(TeacherSubjectCapability.grade_level_id == capability_data.grade_level_id)
+    
+    # Handle class_group_id comparison (NULL-aware)
+    if capability_data.class_group_id is None:
+        conditions.append(TeacherSubjectCapability.class_group_id.is_(None))
+    else:
+        conditions.append(TeacherSubjectCapability.class_group_id == capability_data.class_group_id)
+    
     existing_capability_result = await db.execute(
         select(TeacherSubjectCapability)
         .join(Teacher, TeacherSubjectCapability.teacher_id == Teacher.id)
-        .where(
-            TeacherSubjectCapability.teacher_id == teacher_id,
-            TeacherSubjectCapability.subject_id == capability_data.subject_id,
-            TeacherSubjectCapability.grade_level_id == capability_data.grade_level_id,
-            TeacherSubjectCapability.class_group_id == capability_data.class_group_id,
-            Teacher.tenant_id == tenant.tenant_id
-        )
+        .where(and_(*conditions))
     )
     existing_capability = existing_capability_result.scalar_one_or_none()
     if existing_capability:
@@ -274,11 +287,18 @@ async def create_teacher_capability(
             existing_primary.is_primary = 0
             await db.commit()
     
-    capability = TeacherSubjectCapability(**capability_data.model_dump())
-    db.add(capability)
-    await db.commit()
-    await db.refresh(capability)
-    return capability
+    try:
+        capability = TeacherSubjectCapability(**capability_data.model_dump())
+        db.add(capability)
+        await db.commit()
+        await db.refresh(capability)
+        return capability
+    except Exception as e:
+        await db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to create capability: {str(e)}"
+        )
 
 @router.get("/schools/{school_id}/teachers/{teacher_id}/capabilities", response_model=List[TeacherSubjectCapabilityResponse])
 async def get_teacher_capabilities(
